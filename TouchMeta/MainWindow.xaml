@@ -3,10 +3,99 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:xctk="http://schemas.xceed.com/wpf/xaml/toolkit"
         xmlns:local="clr-namespace:TouchMeta"
         mc:Ignorable="d"
-        Title="MainWindow" Height="350" Width="525">
+        Title="Touch File Time And Metadata" 
+        Height="512" Width="512" MinHeight="512" MinWidth="512" MaxHeight="512" MaxWidth="512" 
+        SnapsToDevicePixels="True" ResizeMode="CanMinimize" Topmost="True" 
+        WindowStartupLocation="CenterScreen" AllowDrop="True"
+        Loaded="Window_Loaded" DragOver="Window_DragOver" Drop="Window_Drop">
     <Grid>
-        
+        <Grid.RowDefinitions>
+            <RowDefinition Height="auto"/>
+            <RowDefinition Height="auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <Grid Grid.Row="0" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="4">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="auto"/>
+                <RowDefinition Height="auto"/>
+                <RowDefinition Height="auto"/>
+            </Grid.RowDefinitions>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="auto"/>
+                <ColumnDefinition Width="auto"/>
+                <ColumnDefinition Width="auto"/>
+                <ColumnDefinition Width="auto"/>
+                <ColumnDefinition Width="auto"/>
+                <ColumnDefinition Width="auto"/>
+            </Grid.ColumnDefinitions>
+            <Button Grid.Row="0" Grid.Column="0" x:Name="SetCreatedDateTimeToAll" x:Uid="SetCreatedDateTimeToAll" Content="=" Margin="4" Width="32" HorizontalAlignment="Center" VerticalAlignment="Center" Click="BtnAction_Click"/>
+            <Button Grid.Row="1" Grid.Column="0" x:Name="SetModifiedDateTimeToAll" x:Uid="SetModifiedDateTimeToAll" Content="=" Margin="4" Width="32" HorizontalAlignment="Center" VerticalAlignment="Center" Click="BtnAction_Click"/>
+            <Button Grid.Row="2" Grid.Column="0" x:Name="SetAccessedDateTimeToAll" x:Uid="SetAccessedDateTimeToAll" Content="=" Margin="4" Width="32" HorizontalAlignment="Center" VerticalAlignment="Center" Click="BtnAction_Click"/>
+
+            <TextBlock Grid.Row="0" Grid.Column="1" x:Name="CreatedTimeLabel" x:Uid="CreatedTimeLabel" Text="Created Time" Margin="4" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+            <TextBlock Grid.Row="1" Grid.Column="1" x:Name="ModifiedTimeLabel" x:Uid="ModifiedTimeLabel" Text="Modified Time" Margin="4" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+            <TextBlock Grid.Row="2" Grid.Column="1" x:Name="AccessedTimeLabel" x:Uid="AccessedTimeLabel" Text="Accessed Time" Margin="4" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+
+            <DatePicker Grid.Row="0" Grid.Column="2" x:Name="DateCreated" x:Uid="DateCreated" Width="160" Margin="4" HorizontalAlignment="Center" VerticalAlignment="Center" SelectedDateFormat="Long" SelectedDateChanged="DateSelector_SelectedDateChanged"/>
+            <DatePicker Grid.Row="1" Grid.Column="2" x:Name="DateModified" x:Uid="DateModified" Width="160" Margin="4" HorizontalAlignment="Center" VerticalAlignment="Center" SelectedDateFormat="Long" SelectedDateChanged="DateSelector_SelectedDateChanged"/>
+            <DatePicker Grid.Row="2" Grid.Column="2" x:Name="DateAccessed" x:Uid="DateAccessed" Width="160" Margin="4" HorizontalAlignment="Center" VerticalAlignment="Center" SelectedDateFormat="Long" SelectedDateChanged="DateSelector_SelectedDateChanged"/>
+
+            <CheckBox Grid.Row="0" Grid.Column="3" x:Name="SetCreatedDateToAllEnabled" x:Uid="SetCreatedDateToAllEnabled" Margin="4" Width="16" HorizontalAlignment="Center" VerticalAlignment="Center" IsTabStop="False"/>
+            <CheckBox Grid.Row="1" Grid.Column="3" x:Name="SetModifiedDateToAllEnabled" x:Uid="SetModifiedDateToAllEnabled" Margin="4" Width="16" HorizontalAlignment="Center" VerticalAlignment="Center" IsTabStop="False"/>
+            <CheckBox Grid.Row="2" Grid.Column="3" x:Name="SetAccessedDateToAllEnabled" x:Uid="SetAccessedDateToAllEnabled" Margin="4" Width="16" HorizontalAlignment="Center" VerticalAlignment="Center" IsTabStop="False"/>
+
+            <xctk:TimePicker Grid.Row="0" Grid.Column="4" x:Name="TimeCreated" x:Uid="TimeCreated" Width="120" Margin="4" HorizontalAlignment="Right" VerticalAlignment="Center" IsTabStop="False" TextAlignment="Center" Format="Custom" FormatString="HH:mm:ss" ValueChanged="TimeSelector_ValueChanged"/>
+            <xctk:TimePicker Grid.Row="1" Grid.Column="4" x:Name="TimeModified" x:Uid="TimeModified" Width="120" Margin="4" HorizontalAlignment="Right" VerticalAlignment="Center" IsTabStop="False" TextAlignment="Center" Format="Custom" FormatString="HH:mm:ss" ValueChanged="TimeSelector_ValueChanged"/>
+            <xctk:TimePicker Grid.Row="2" Grid.Column="4" x:Name="TimeAccessed" x:Uid="TimeAccessed" Width="120" Margin="4" HorizontalAlignment="Right" VerticalAlignment="Center" IsTabStop="False" TextAlignment="Center" Format="Custom" FormatString="HH:mm:ss" ValueChanged="TimeSelector_ValueChanged"/>
+
+            <CheckBox Grid.Row="0" Grid.Column="5" x:Name="SetCreatedTimeToAllEnabled" x:Uid="SetCreatedTimeToAllEnabled" Margin="4" Width="16" HorizontalAlignment="Center" VerticalAlignment="Center" IsTabStop="False"/>
+            <CheckBox Grid.Row="1" Grid.Column="5" x:Name="SetModifiedTimeToAllEnabled" x:Uid="SetModifiedTimeToAllEnabled" Margin="4" Width="16" HorizontalAlignment="Center" VerticalAlignment="Center" IsTabStop="False"/>
+            <CheckBox Grid.Row="2" Grid.Column="5" x:Name="SetAccessedTimeToAllEnabled" x:Uid="SetAccessedTimeToAllEnabled" Margin="4" Width="16" HorizontalAlignment="Center" VerticalAlignment="Center" IsTabStop="False"/>
+        </Grid>
+
+        <Grid Grid.Row="1" Margin="4" HorizontalAlignment="Center" VerticalAlignment="Center">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="auto"/>
+                <ColumnDefinition Width="auto"/>
+                <ColumnDefinition Width="auto"/>
+                <ColumnDefinition Width="auto"/>
+                <ColumnDefinition Width="auto"/>
+            </Grid.ColumnDefinitions>
+            <Button Grid.Column="0" x:Name="BtnTouchTime" x:Uid="TouchTime" Content="Touch Time" Width="88" Margin="4" Click="BtnAction_Click"/>
+            <Button Grid.Column="1" x:Name="BtnTouchMeta" x:Uid="TouchMeta" Content="Touch Meta" Width="88" Margin="4" Click="BtnAction_Click"/>
+            <Button Grid.Column="2" x:Name="BtnClearMeta" x:Uid="ClearMeta" Content="Clear Meta" Width="88" Margin="4" Click="BtnAction_Click"/>
+            <Button Grid.Column="3" x:Name="BtnShowMeta" x:Uid="ShowMeta" Content="Show Meta" Width="88" Margin="4" Click="BtnAction_Click"/>
+            <Button Grid.Column="4" x:Name="BtnOpenFile" x:Uid="OpenFile" Content="Open Files" Width="88" Margin="4" Click="BtnAction_Click"/>
+        </Grid>
+
+        <Grid Grid.Row="2" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Margin="4">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="auto"/>
+                <RowDefinition Height="auto"/>
+            </Grid.RowDefinitions>
+            <ListBox Grid.Row="0" x:Name="FilesList" x:Uid="FilesList" Margin="4" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" IsTabStop="True" SelectionMode="Extended" SelectionChanged="FilesList_SelectionChanged">
+                <ListBox.ContextMenu>
+                    <ContextMenu>
+                        <MenuItem x:Name="GetFileTimeFromSelected" x:Uid="GetFileTimeFromSelected" Header="Get File Time From Selected File" Click="FilesListAction_Click"/>
+                        <MenuItem x:Name="GetMetaTimeFromSelected" x:Uid="GetMetaTimeFromSelected" Header="Get Meta Time From Selected File" Click="FilesListAction_Click"/>
+                        <Separator/>
+                        <MenuItem x:Name="RemoveSelected" x:Uid="RemoveSelected" Header="Remove Selected File" Click="FilesListAction_Click"/>
+                        <MenuItem x:Name="RemoveAll" x:Uid="RemoveAll" Header="Remove All File" Click="FilesListAction_Click"/>
+                    </ContextMenu>
+                </ListBox.ContextMenu>
+            </ListBox>
+            <TextBlock Grid.Row="1" x:Name="FileTimeInfo" x:Uid="FileTimeInfo" Height="64" Margin="4" HorizontalAlignment="Stretch" VerticalAlignment="Center"/>
+            <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Stretch" Margin="4" VerticalAlignment="Center" Height="32">
+                <TextBlock x:Name="FileTimeImportLabel" x:Uid="FileTimeImportLabel" Text="Formated Date Time :" Margin="4" HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                <TextBox x:Name="FileTimeImportText" x:Uid="FileTimeImportText" Margin="4" Width="262" HorizontalAlignment="Right" VerticalAlignment="Center" TextAlignment="Center"/>
+                <Button x:Name="FileTimeImport" x:Uid="FileTimeImport" Content="Import" Width="56" Margin="4" HorizontalAlignment="Right" VerticalAlignment="Center" Click="BtnAction_Click"/>
+            </StackPanel>
+
+        </Grid>
     </Grid>
 </Window>

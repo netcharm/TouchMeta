@@ -7,6 +7,7 @@ using System.Text.RegularExpressions;
 using System.Windows;
 
 using ImageMagick;
+using System.Diagnostics;
 
 namespace NetChamr
 {
@@ -16,6 +17,9 @@ namespace NetChamr
         private static string AppPath = Path.GetDirectoryName(AppExec);
         private static string AppName = Path.GetFileNameWithoutExtension(AppPath);
         private static string CachePath =  "cache";
+        private static Encoding DBCS = Encoding.GetEncoding("GB18030");
+        private static Encoding UTF8 = Encoding.UTF8;
+        private static Encoding UNICODE = Encoding.Unicode;
 
         #region below tags will be touching
         private static string[] tag_date = new string[] {
@@ -60,6 +64,15 @@ namespace NetChamr
           "MicrosoftPhoto:Rating",
         };
         #endregion
+        private static void Log(string text)
+        {
+#if DEBUG
+            Debug.WriteLine(text);
+            Console.WriteLine(text);
+#else
+            Console.WriteLine(text);
+#endif
+        }
 
         private static string BytesToUnicode(string text)
         {
@@ -93,6 +106,26 @@ namespace NetChamr
             return (result);
         }
 
+        private static string UnicodeToUtf8(string text)
+        {
+            return (UTF8.GetString(UNICODE.GetBytes(text)));
+        }
+
+        private static string Utf8ToUnicode(string text)
+        {
+            return (UNICODE.GetString(UTF8.GetBytes(text)));
+        }
+
+        private static string DbcsToUtf8(string text)
+        {
+            return (UTF8.GetString(DBCS.GetBytes(text)));
+        }
+
+        private static string Utf8ToDbcs(string text)
+        {
+            return (DBCS.GetString(UTF8.GetBytes(text)));
+        }
+
         public static void ClearMeta(string file)
         {
             if (File.Exists(file))
@@ -108,19 +141,19 @@ namespace NetChamr
                     {
                         try
                         {
-                            Console.WriteLine($"Try remove attribute '{attr}' ...");
+                            Log($"Try remove attribute '{attr}' ...");
                             image.RemoveAttribute(attr);
                         }
-                        catch (Exception ex) { Console.WriteLine(ex.Message); }
+                        catch (Exception ex) { Log(ex.Message); }
                     }
                     foreach (var profile_name in image.ProfileNames)
                     {
                         try
                         {
-                            Console.WriteLine($"Try remove profile '{profile_name}' ...");
+                            Log($"Try remove profile '{profile_name}' ...");
                             image.RemoveProfile(image.GetProfile(profile_name));
                         }
-                        catch (Exception ex) { Console.WriteLine(ex.Message); }
+                        catch (Exception ex) { Log(ex.Message); }
                     }
 
                     image.Write(fi.FullName);
@@ -165,11 +198,11 @@ namespace NetChamr
                 var dm_misc = dc.ToString("yyyy:MM:dd HH:mm:sszzz");
                 var da_misc = dc.ToString("yyyy:MM:dd HH:mm:sszzz");
 
-                //Console.WriteLine($"date : {dm_date}");
-                //Console.WriteLine($"exif : {dm_exif}");
-                //Console.WriteLine($"png  : {dm_png}");
-                //Console.WriteLine($"MS   : {dm_ms}");
-                //Console.WriteLine($"misc : {dm_misc}");
+                //Log($"date : {dm_date}");
+                //Log($"exif : {dm_exif}");
+                //Log($"png  : {dm_png}");
+                //Log($"MS   : {dm_ms}");
+                //Log($"misc : {dm_misc}");
 
                 var title = Path.GetFileNameWithoutExtension(fi.Name);
 
@@ -185,7 +218,7 @@ namespace NetChamr
                     {
                         try
                         {
-                            //Console.WriteLine(tag);
+                            //Log(tag);
                             if (force || !image.AttributeNames.Contains(tag))
                             {
                                 var value_old = image.GetAttribute(tag);
@@ -206,10 +239,10 @@ namespace NetChamr
                                     else if (tag.StartsWith("exif") && tag.Substring(5).Equals("DateTimeOriginal"))
                                         exif.SetValue(ExifTag.DateTimeOriginal, dm_exif);
                                 }
-                                Console.WriteLine($"{$"  {tag}".PadRight(32)}= {(value_old == null ? "NULL" : value_old)} => {image.GetAttribute(tag)}");
+                                Log($"{$"  {tag}".PadRight(32)}= {(value_old == null ? "NULL" : value_old)} => {image.GetAttribute(tag)}");
                             }
                         }
-                        catch (Exception ex) { Console.WriteLine(ex.Message); }
+                        catch (Exception ex) { Log(ex.Message); }
                     }
                     foreach (var tag in tag_title)
                     {
@@ -221,19 +254,19 @@ namespace NetChamr
                                 if (tag.StartsWith("exif"))
                                 {
                                     if (tag.Contains("WinXP")) image.SetAttribute(tag, UnicodeToBytes(title));
-                                    else image.SetAttribute(tag, title);
+                                    else image.SetAttribute(tag, UnicodeToUtf8(title));
                                 }
-                                else if (tag.StartsWith("png")) image.SetAttribute(tag, title);
-                                else if (tag.StartsWith("Microsoft")) image.SetAttribute(tag, title);
+                                else if (tag.StartsWith("png")) image.SetAttribute(tag, UnicodeToUtf8(title));
+                                else if (tag.StartsWith("Microsoft")) image.SetAttribute(tag, UnicodeToUtf8(title));
                                 if (is_jpg)
                                 {
                                     if (tag.StartsWith("exif") && tag.Substring(5).Equals("WinXP-Title"))
                                         exif.SetValue(ExifTag.XPTitle, Encoding.Unicode.GetBytes(title));
                                 }
-                                Console.WriteLine($"{$"  {tag}".PadRight(32)}= {(value_old == null ? "NULL" : value_old)} => {(tag.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(tag)) : image.GetAttribute(tag))}");
+                                Log($"{$"  {tag}".PadRight(32)}= {(value_old == null ? "NULL" : value_old)} => {(tag.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(tag)) : image.GetAttribute(tag))}");
                             }
                         }
-                        catch (Exception ex) { Console.WriteLine(ex.Message); }
+                        catch (Exception ex) { Log(ex.Message); }
                     }
                     foreach (var tag in tag_subject)
                     {
@@ -247,17 +280,17 @@ namespace NetChamr
                                     if (tag.Contains("WinXP")) image.SetAttribute(tag, UnicodeToBytes(title));
                                     else image.SetAttribute(tag, title);
                                 }
-                                else if (tag.StartsWith("png")) image.SetAttribute(tag, title);
-                                else if (tag.StartsWith("Microsoft")) image.SetAttribute(tag, title);
+                                else if (tag.StartsWith("png")) image.SetAttribute(tag, UnicodeToUtf8(title));
+                                else if (tag.StartsWith("Microsoft")) image.SetAttribute(tag, UnicodeToUtf8(title));
                                 if (is_jpg)
                                 {
                                     if (tag.StartsWith("exif") && tag.Substring(5).Equals("WinXP-Subject"))
                                         exif.SetValue(ExifTag.XPSubject, Encoding.Unicode.GetBytes(title));
                                 }
-                                Console.WriteLine($"{$"  {tag}".PadRight(32)}= {(value_old == null ? "NULL" : value_old)} => {(tag.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(tag)) : image.GetAttribute(tag))}");
+                                Log($"{$"  {tag}".PadRight(32)}= {(value_old == null ? "NULL" : value_old)} => {(tag.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(tag)) : image.GetAttribute(tag))}");
                             }
                         }
-                        catch (Exception ex) { Console.WriteLine(ex.Message); }
+                        catch (Exception ex) { Log(ex.Message); }
                     }
                     foreach (var tag in tag_comments)
                     {
@@ -271,8 +304,8 @@ namespace NetChamr
                                     if (tag.Contains("WinXP")) image.SetAttribute(tag, UnicodeToBytes(title));
                                     else image.SetAttribute(tag, title);
                                 }
-                                else if (tag.StartsWith("png")) image.SetAttribute(tag, title);
-                                else if (tag.StartsWith("Microsoft")) image.SetAttribute(tag, title);
+                                else if (tag.StartsWith("png")) image.SetAttribute(tag, UnicodeToUtf8(title));
+                                else if (tag.StartsWith("Microsoft")) image.SetAttribute(tag, UnicodeToUtf8(title));
                                 if (is_jpg)
                                 {
                                     if (tag.StartsWith("exif") && tag.Substring(5).Equals("WinXP-Comment"))
@@ -282,10 +315,10 @@ namespace NetChamr
                                     else if (tag.StartsWith("exif") && tag.Substring(5).Equals("ImageDescription"))
                                         exif.SetValue(ExifTag.ImageDescription, title);
                                 }
-                                Console.WriteLine($"{$"  {tag}".PadRight(32)}= {(value_old == null ? "NULL" : value_old)} => {(tag.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(tag)) : image.GetAttribute(tag))}");
+                                Log($"{$"  {tag}".PadRight(32)}= {(value_old == null ? "NULL" : value_old)} => {(tag.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(tag)) : image.GetAttribute(tag))}");
                             }
                         }
-                        catch (Exception ex) { Console.WriteLine(ex.Message); }
+                        catch (Exception ex) { Log(ex.Message); }
                     }
                     //foreach (var tag in tag_keywords)
                     //{
@@ -299,17 +332,18 @@ namespace NetChamr
                     //        }
                     //        else if (tag.StartsWith("png")) image.SetAttribute(tag, title);
                     //        else if (tag.StartsWith("Microsoft")) image.SetAttribute(tag, title);
-                    //        Console.WriteLine($"{$"  {tag}".PadRight(32)}= {value_old} => {(tag.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(tag)) : image.GetAttribute(tag))}");
+                    //        Log($"{$"  {tag}".PadRight(32)}= {value_old} => {(tag.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(tag)) : image.GetAttribute(tag))}");
                     //    }
                     //}
 
-                    Console.WriteLine($"{"  Profiles".PadRight(32)}= {string.Join(", ", image.ProfileNames)}");
+                    Log($"{"  Profiles".PadRight(32)}= {string.Join(", ", image.ProfileNames)}");
 
                     if (exif != null) image.SetProfile(exif);
                     if (xmp != null)
                     {
-                        var pattern_ms_da = @"(<MicrosoftPhoto:DateAcquired>).*?(</MicrosoftPhoto:DateAcquired>)";
                         var xml = Encoding.UTF8.GetString(xmp.GetData());
+
+                        var pattern_ms_da = @"(<MicrosoftPhoto:DateAcquired>).*?(</MicrosoftPhoto:DateAcquired>)";
                         if (Regex.IsMatch(xml, pattern_ms_da, RegexOptions.IgnoreCase))
                             xml = Regex.Replace(xml, pattern_ms_da, $"$1{dm_msxmp}$2", RegexOptions.IgnoreCase);
                         else
@@ -317,14 +351,24 @@ namespace NetChamr
                             var msda_xml = $"<rdf:Description rdf:about=\"uuid:faf5bdd5-ba3d-11da-ad31-d33d75182f1b\" xmlns:MicrosoftPhoto=\"http://ns.microsoft.com/photo/1.0/\"><MicrosoftPhoto:DateAcquired>{dm_msxmp}</MicrosoftPhoto:DateAcquired></rdf:Description>";
                             xml = Regex.Replace(xml, @"(</rdf:RDF></x:xmpmeta>)", $"{msda_xml}$1", RegexOptions.IgnoreCase);
                         }
-                        //Console.WriteLine(xml);
+
+                        var pattern_ms_dt = @"(<MicrosoftPhoto:DateTaken>).*?(</MicrosoftPhoto:DateTaken>)";
+                        if (Regex.IsMatch(xml, pattern_ms_dt, RegexOptions.IgnoreCase))
+                            xml = Regex.Replace(xml, pattern_ms_dt, $"$1{dm_msxmp}$2", RegexOptions.IgnoreCase);
+                        else
+                        {
+                            var msdt_xml = $"<rdf:Description rdf:about=\"uuid:faf5bdd5-ba3d-11da-ad31-d33d75182f1b\" xmlns:MicrosoftPhoto=\"http://ns.microsoft.com/photo/1.0/\"><MicrosoftPhoto:DateTaken>{dm_msxmp}</MicrosoftPhoto:DateTaken></rdf:Description>";
+                            xml = Regex.Replace(xml, @"(</rdf:RDF></x:xmpmeta>)", $"{msdt_xml}$1", RegexOptions.IgnoreCase);
+                        }
+
+                        //Log(xml);
                         xmp = new XmpProfile(Encoding.UTF8.GetBytes(xml));
                         image.SetProfile(xmp);
                     }
                     else
                     {
                         var xml = $"<?xpacket begin='?' id='W5M0MpCehiHzreSzNTczkc9d'?>{Environment.NewLine}<x:xmpmeta xmlns:x=\"adobe:ns:meta/\"><rdf:RDF xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\"><rdf:Description rdf:about=\"uuid:faf5bdd5-ba3d-11da-ad31-d33d75182f1b\" xmlns:MicrosoftPhoto=\"http://ns.microsoft.com/photo/1.0/\"><MicrosoftPhoto:DateAcquired>{dm_msxmp}</MicrosoftPhoto:DateAcquired></rdf:Description></rdf:RDF></x:xmpmeta>{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}                            <?xpacket end='w'?>";
-                        //Console.WriteLine(xml);
+                        //Log(xml);
                         xmp = new XmpProfile(Encoding.UTF8.GetBytes(xml));
                         image.SetProfile(xmp);
                     }
@@ -346,9 +390,11 @@ namespace NetChamr
                 var dm = fi.LastWriteTime;
                 var da = fi.LastAccessTime;
 
+                var ov = dm.ToString("yyyy-MM-ddTHH:mm:sszzz");
+
                 if (string.IsNullOrEmpty(dt))
                 {
-                    using (var ms = new FileStream(fi.FullName, FileMode.Open, FileAccess.ReadWrite, FileShare.None))
+                    using (var ms = new FileStream(fi.FullName, FileMode.Open, FileAccess.Read, FileShare.Read))
                     {
                         using (MagickImage image = new MagickImage(ms))
                         {
@@ -359,17 +405,28 @@ namespace NetChamr
                                 {
                                     var v = image.GetAttribute(tag);
                                     var nv = Regex.Replace(v, @"^(\d{4}):(\d{2}):(\d{2})[ |T](.*?)Z?$", "$1-$2-$3T$4");
-                                    Console.WriteLine($"{tag.PadRight(32)}= {v} > {nv}");
+                                    //Log($"{tag.PadRight(32)}= {v} > {nv}");
                                     dm = DateTime.Parse(tag.Contains("png") ? nv.Substring(0, tag.Length - 1) : nv);
                                     break;
                                 }
                             }
                         }
                     }
-                    Console.WriteLine($"Touching Date To {dm.ToString("yyyy-MM-ddTHH:mm:sszzz")}");
-                    fi.CreationTime = dm;
-                    fi.LastWriteTime = dm;
-                    fi.LastAccessTime = dm;
+                    try
+                    {
+                        fi.CreationTime = dm;
+                        fi.LastWriteTime = dm;
+                        fi.LastAccessTime = dm;
+                        Log($"  Touching Date From {ov} To {dm.ToString("yyyy-MM-ddTHH:mm:sszzz")}");
+                    }
+                    catch (Exception ex)
+                    {
+#if DEBUG
+                        Log($"{ex.Message}{Environment.NewLine}{ex.StackTrace}");
+#else
+                        Log(ex.Message);
+#endif
+                    }
                 }
                 else
                 {
@@ -378,13 +435,13 @@ namespace NetChamr
                         var t = DateTime.Now;
                         if (DateTime.TryParse(dt, out t))
                         {
-                            Console.WriteLine($"Touching Date To {t.ToString("yyyy-MM-ddTHH:mm:sszzz")}");
+                            Log($"  Touching Date From {ov} To {t.ToString("yyyy-MM-ddTHH:mm:sszzz")}");
                             fi.CreationTime = t;
                             fi.LastWriteTime = t;
                             fi.LastAccessTime = t;
                         }
                     }
-                    catch (Exception ex) { Console.WriteLine($"{ex.Message}{Environment.NewLine}{ex.StackTrace}"); }
+                    catch (Exception ex) { Log($"{ex.Message}{Environment.NewLine}{ex.StackTrace}"); }
                 }
             }
         }
@@ -394,10 +451,11 @@ namespace NetChamr
             if (File.Exists(file))
             {
                 var fi = new FileInfo(file);
-                using (var ms = new FileStream(fi.FullName, FileMode.Open, FileAccess.ReadWrite, FileShare.None))
+                using (var ms = new FileStream(fi.FullName, FileMode.Open, FileAccess.Read, FileShare.Read))
                 {
                     using (MagickImage image = new MagickImage(ms))
                     {
+                        var exif = image.HasProfile("exif") ? image.GetExifProfile() : null;
                         foreach (var attr in image.AttributeNames)
                         {
                             try
@@ -405,14 +463,26 @@ namespace NetChamr
                                 var value = image.GetAttribute(attr);
                                 if (string.IsNullOrEmpty(value)) continue;
                                 if (attr.Contains("WinXP")) value = BytesToUnicode(value);
+                                else if (attr.StartsWith("exif", StringComparison.CurrentCultureIgnoreCase) && exif is ExifProfile)
+                                {
+                                    if (attr.Equals("exif:ImageDescription")) value = exif.GetValue(ExifTag.ImageDescription).Value;
+                                    else if (attr.Equals("exif:Copyright")) value = exif.GetValue(ExifTag.Copyright).Value;
+                                    else if (attr.Equals("exif:Artist")) value = exif.GetValue(ExifTag.Artist).Value;
+                                    else if (attr.Equals("exif:UserComment")) value = UNICODE.GetString(exif.GetValue(ExifTag.UserComment).Value);
+                                    else if (attr.Equals("exif:XPAuthor")) value = UNICODE.GetString(exif.GetValue(ExifTag.XPAuthor).Value);
+                                    else if (attr.Equals("exif:XPComment")) value = UNICODE.GetString(exif.GetValue(ExifTag.XPComment).Value);
+                                    else if (attr.Equals("exif:XPKeywords")) value = UNICODE.GetString(exif.GetValue(ExifTag.XPKeywords).Value);
+                                    else if (attr.Equals("exif:XPTitle")) value = UNICODE.GetString(exif.GetValue(ExifTag.XPTitle).Value);
+                                    else if (attr.Equals("exif:XPSubject")) value = UNICODE.GetString(exif.GetValue(ExifTag.XPSubject).Value);
+                                }
                                 if (value.Length > 64) value = $"{value.Substring(0, 64)} ...";
                                 var text = $"  {attr.PadRight(32, ' ')}= { value }";
-                                Console.WriteLine(text);
+                                Log(text);
                                 //tip.Add(text);
                             }
                             catch (Exception ex) { MessageBox.Show($"{attr} : {ex.Message}"); }
                         }
-                        Console.WriteLine($"  {"Profiles".PadRight(32)}= {string.Join(", ", image.ProfileNames)}");
+                        Log($"  {"Profiles".PadRight(32)}= {string.Join(", ", image.ProfileNames)}");
                         foreach (var profile_name in image.ProfileNames)
                         {
                             try
@@ -420,45 +490,51 @@ namespace NetChamr
                                 var profile = image.GetProfile(profile_name);
                                 var prefix = $"Profile {profile.Name}".PadRight(32, ' ');
                                 var bytes = profile.ToByteArray().Select(b => $"{b}");
-                                Console.WriteLine($"  {prefix}= {bytes.Count()} bytes");// [{profile.GetType()}]");
+                                Log($"  {prefix}= {bytes.Count()} bytes");// [{profile.GetType()}]");
                                 //if (profile_name.Equals("8bim"))
                                 //{
                                 //    var _8bim = image.Get8BimProfile();
-                                //    Console.WriteLine(_8bim.Values.Count());
-                                //    foreach (var v in _8bim.Values) Console.WriteLine($"    0x{v.ID:X2} : {v.ToString()}");
+                                //    Log(_8bim.Values.Count());
+                                //    foreach (var v in _8bim.Values) Log($"    0x{v.ID:X2} : {v.ToString()}");
                                 //}
-                                //Console.WriteLine($"  {prefix}= {bytes.Count()} bytes [{string.Join(", ", bytes)}]");
+                                //Log($"  {prefix}= {bytes.Count()} bytes [{string.Join(", ", bytes)}]");
                             }
-                            catch (Exception ex) { Console.WriteLine(ex.Message); }
+                            catch (Exception ex) { Log(ex.Message); }
                         }
-                        Console.WriteLine($"  {"Color Space".PadRight(32)}= {Path.GetFileName(image.ColorSpace.ToString())}");
-                        Console.WriteLine($"  {"Format Info".PadRight(32)}= {image.FormatInfo.Format.ToString()}, {image.FormatInfo.MimeType}");
+                        Log($"  {"Color Space".PadRight(32)}= {Path.GetFileName(image.ColorSpace.ToString())}");
+                        Log($"  {"Format Info".PadRight(32)}= {image.FormatInfo.Format.ToString()}, {image.FormatInfo.MimeType}");
                         var xmp = image.HasProfile("xmp") ? image.GetXmpProfile() : null;
                         if (xmp != null)
                         {
                             var xml = Encoding.UTF8.GetString(xmp.GetData());
-                            Console.WriteLine(xml);
+                            Log(xml);
                         }
                     }
                 }
             }
         }
 
-        public static void Main(string[] args)
+        public static void InitMagicK()
         {
             try
             {
                 var magick_cache = Path.IsPathRooted(CachePath) ? CachePath : Path.Combine(AppPath, CachePath);
-                if (!Directory.Exists(magick_cache)) Directory.CreateDirectory(magick_cache);
+                //if (!Directory.Exists(magick_cache)) Directory.CreateDirectory(magick_cache);
                 if (Directory.Exists(magick_cache)) MagickAnyCPU.CacheDirectory = magick_cache;
-                //ImageMagick.ResourceLimits.Area = 4096 * 4096;
-                //ImageMagick.ResourceLimits.
-                ImageMagick.ResourceLimits.Memory = 256 * 1024 * 1024;
-                //ImageMagick.ResourceLimits.Throttle = 
-                ImageMagick.ResourceLimits.Thread = 2;
-                ImageMagick.ResourceLimits.LimitMemory(new Percentage(5));
+                ResourceLimits.Memory = 256 * 1024 * 1024;
+                ResourceLimits.LimitMemory(new Percentage(5));
+                ResourceLimits.Thread = 4;
+                //ResourceLimits.Area = 4096 * 4096;
+                //ResourceLimits.Throttle = 
+                OpenCL.IsEnabled = true;
+                if (Directory.Exists(magick_cache)) OpenCL.SetCacheDirectory(magick_cache);
             }
-            catch (Exception ex) { Console.WriteLine(ex.Message); }
+            catch (Exception ex) { Log(ex.Message); }
+        }
+
+        public static void Main(string[] args)
+        {
+            InitMagicK();
 
             try
             {
@@ -466,21 +542,21 @@ namespace NetChamr
                 {
                     var fi = args[0];
                     var path = Path.GetDirectoryName(fi);
-                    //Console.WriteLine(path);
+                    //Log(path);
                     if (!Path.IsPathRooted(path)) path = Path.Combine(Directory.GetCurrentDirectory(), path);
-                    //Console.WriteLine(Path.GetFileName(fi));
+                    //Log(Path.GetFileName(fi));
                     var files = Directory.GetFiles(path, Path.GetFileName(fi), SearchOption.TopDirectoryOnly);
                     foreach (var file in files)
                     {
                         try
                         {
                             var fn = Path.GetFullPath(Path.Combine(path, file));
-                            Console.WriteLine($"  {fn}");
-                            Console.WriteLine($"-".PadRight(80, '-'));
+                            Log($"  {fn}");
+                            Log($"-".PadRight(80, '-'));
                             ShowMeta(fn);
-                            Console.WriteLine("=".PadRight(80, '='));
+                            Log("=".PadRight(80, '='));
                         }
-                        catch (Exception ex) { Console.WriteLine(ex.Message); }
+                        catch (Exception ex) { Log(ex.Message); }
                     }
                 }
                 else if (args.Length >= 2)
@@ -488,28 +564,28 @@ namespace NetChamr
                     var opt = args[0];
                     var fi = args[1];
                     var path = Path.GetDirectoryName(fi);
-                    //Console.WriteLine(path);
+                    //Log(path);
                     if (!Path.IsPathRooted(path)) path = Path.Combine(Directory.GetCurrentDirectory(), path);
-                    //Console.WriteLine(Path.GetFileName(fi));
+                    //Log(Path.GetFileName(fi));
                     var files = Directory.GetFiles(path, Path.GetFileName(fi), SearchOption.TopDirectoryOnly);
                     foreach (var file in files)
                     {
                         try
                         {
                             var fn = Path.GetFullPath(Path.Combine(path, file));
-                            Console.WriteLine($"  {fn}");
-                            Console.WriteLine($"-".PadRight(80, '-'));
+                            Log($"  {fn}");
+                            Log($"-".PadRight(80, '-'));
                             if (opt.Equals("-M", StringComparison.CurrentCultureIgnoreCase)) TouchMeta(fn);
                             else if (opt.Equals("-MF", StringComparison.CurrentCultureIgnoreCase)) TouchMeta(fn, force: true);
                             else if (opt.Equals("-T", StringComparison.CurrentCultureIgnoreCase)) TouchDate(fn, args.Length >= 3 ? args[2] : null);
                             else if (opt.Equals("-C", StringComparison.CurrentCultureIgnoreCase)) ClearMeta(fn);
-                            Console.WriteLine("=".PadRight(80, '='));
+                            Log("=".PadRight(80, '='));
                         }
-                        catch (Exception ex) { Console.WriteLine(ex.Message); }
+                        catch (Exception ex) { Log(ex.Message); }
                     }
                 }
             }
-            catch (Exception ex) { Console.WriteLine($"{ex.Message}{Environment.NewLine}{ex.StackTrace}"); }
+            catch (Exception ex) { Log($"{ex.Message}{Environment.NewLine}{ex.StackTrace}"); }
             finally
             {
 
