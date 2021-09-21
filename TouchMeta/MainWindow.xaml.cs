@@ -78,22 +78,31 @@ namespace TouchMeta
         private static List<string> _log_ = new List<string>();
         private static void Log(string text)
         {
+            try
+            {
 #if DEBUG
-            Debug.WriteLine(text);
+                Debug.WriteLine(text);
 #else
-            //_log_.Add(text);
+                //_log_.Add(text);
 #endif
-            _log_.Add(text);
+                _log_.Add(text);
+            }
+            catch (Exception ex) { Xceed.Wpf.Toolkit.MessageBox.Show(Application.Current.MainWindow, ex.Message); }
         }
 
         private static void ClearLog()
         {
-            Application.Current.Dispatcher.BeginInvoke(new Action(() => { _log_.Clear(); }));
+            Application.Current.Dispatcher.BeginInvoke(new Action(() =>
+            {
+                try { _log_.Clear(); }
+                catch (Exception ex) { Xceed.Wpf.Toolkit.MessageBox.Show(Application.Current.MainWindow, ex.Message); }
+            }));
         }
 
         private static void ShowLog()
         {
-            Application.Current.Dispatcher.BeginInvoke(new Action(() => {
+            Application.Current.Dispatcher.BeginInvoke(new Action(() =>
+            {
                 var contents = string.Join(Environment.NewLine, _log_);
                 var dlg = new Xceed.Wpf.Toolkit.MessageBox();
                 dlg.Language = System.Windows.Markup.XmlLanguage.GetLanguage(CultureInfo.CurrentCulture.IetfLanguageTag);
@@ -105,6 +114,22 @@ namespace TouchMeta
                 dlg.ShowDialog();
                 //Xceed.Wpf.Toolkit.MessageBox.Show(contents);
             }));
+        }
+
+        private static MagickColor XYZ2RGB(double x, double y, double z)
+        {
+            var r =  3.2410 * x + -1.5374 * y + -0.4986 * z;
+            var g = -0.9692 * x +  1.8760 * y +  0.0416 * z;
+            var b =  0.0556 * x + -0.2040 * y +  1.0570 * z;
+            if (r <= 0.00304) r = 12.92 * r;
+            else r = (1 + 0.055) * Math.Pow(r, 1 / 2.4) - 0.055;
+            if (g <= 0.00304) g = 12.92 * g;
+            else g = (1 + 0.055) * Math.Pow(g, 1 / 2.4) - 0.055;
+            if (b <= 0.00304) b = 12.92 * b;
+            else b = (1 + 0.055) * Math.Pow(b, 1 / 2.4) - 0.055;
+
+            Color c = Color.FromScRgb(1, (float)r, (float)g, (float)b);
+            return (MagickColor.FromRgba(c.R, c.G, c.B, c.A));
         }
 
         private static string BytesToUnicode(string text)
@@ -511,11 +536,15 @@ namespace TouchMeta
                                 else if (attr.Equals("png:bKGD")) value = image.BackgroundColor.ToString();
                                 else if (attr.Equals("png:cHRM"))
                                 {
+                                    var cr = XYZ2RGB(image.ChromaRedPrimary.X, image.ChromaRedPrimary.Y, image.ChromaRedPrimary.Z);
+                                    var cg = XYZ2RGB(image.ChromaGreenPrimary.X, image.ChromaGreenPrimary.Y, image.ChromaGreenPrimary.Z);
+                                    var cb = XYZ2RGB(image.ChromaBluePrimary.X, image.ChromaBluePrimary.Y, image.ChromaBluePrimary.Z);
+
                                     var r = $"[{image.ChromaRedPrimary.X:F2},{image.ChromaRedPrimary.Y:F2},{image.ChromaRedPrimary.Z:F2}]";
                                     var g = $"[{image.ChromaGreenPrimary.X:F2},{image.ChromaGreenPrimary.Y:F2},{image.ChromaGreenPrimary.Z:F2}]";
                                     var b = $"[{image.ChromaBluePrimary.X:F2},{image.ChromaBluePrimary.Y:F2},{image.ChromaBluePrimary.Z:F2}]";
                                     //value = $"R: {r}{Environment.NewLine}{" ".PadRight(36)}G: {g}{Environment.NewLine}{" ".PadRight(36)}B: {b}";
-                                    value = $"R: {r}{Environment.NewLine}G: {g}{Environment.NewLine}B: {b}";
+                                    value = $"R:{cr.ToString()}, G:{cg.ToString()}, B:{cb.ToString()}{Environment.NewLine}XYZ-R: {r}{Environment.NewLine}XYZ-G: {g}{Environment.NewLine}XYZ-B: {b}";
                                 }
                                 var values = value.Split(new string[] { Environment.NewLine }, StringSplitOptions.RemoveEmptyEntries);
                                 foreach (var v in values)
@@ -669,7 +698,7 @@ namespace TouchMeta
                     FileTimeInfo.Text = string.Join(Environment.NewLine, info);
                 }
             }
-            catch(Exception ex) { Xceed.Wpf.Toolkit.MessageBox.Show(this, ex.Message); }
+            catch (Exception ex) { Xceed.Wpf.Toolkit.MessageBox.Show(this, ex.Message); }
         }
 
         public MainWindow()
@@ -778,11 +807,16 @@ namespace TouchMeta
             }
             else if (sender == RemoveSelected)
             {
-
+                try
+                {
+                    foreach (var i in FilesList.SelectedItems.OfType<string>().ToList())
+                        FilesList.Items.Remove(i);
+                }
+                catch (Exception ex) { Xceed.Wpf.Toolkit.MessageBox.Show(Application.Current.MainWindow, ex.Message); }
             }
             else if (sender == RemoveAll)
             {
-
+                FilesList.Items.Clear();
             }
         }
 
