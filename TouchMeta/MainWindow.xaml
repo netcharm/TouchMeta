@@ -110,17 +110,17 @@
                 <Border x:Name="MetaInputPopupBorder" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" />
                 <StackPanel Orientation="Vertical" Margin="4" VerticalAlignment="Stretch" HorizontalAlignment="Stretch">
                     <TextBlock x:Name="MetaInputTitleLabel" x:Uid="MetaInputTitleLabel" Text="Title:" Margin="2" />
-                    <TextBox x:Name="MetaInputTitleText" x:Uid="MetaInputTitleText" Margin="2" />
+                    <TextBox x:Name="MetaInputTitleText" x:Uid="MetaInputTitleText" Margin="2" AcceptsReturn="True"/>
                     <TextBlock x:Name="MetaInputSubjectLabel" x:Uid="MetaInputSubjectLabel" Text="Subject:" Margin="2" />
-                    <TextBox x:Name="MetaInputSubjectText" x:Uid="MetaInputSubjectText" Margin="2" />
+                    <TextBox x:Name="MetaInputSubjectText" x:Uid="MetaInputSubjectText" Margin="2" AcceptsReturn="True"/>
                     <TextBlock x:Name="MetaInputKeywordsLabel" x:Uid="MetaInputKeywordsLabel" Text="Keywords:" Margin="2" />
-                    <TextBox x:Name="MetaInputKeywordsText" x:Uid="MetaInputKeywordsText" Margin="2" />
+                    <TextBox x:Name="MetaInputKeywordsText" x:Uid="MetaInputKeywordsText" Margin="2" AcceptsReturn="True"/>
                     <TextBlock x:Name="MetaInputCommentLabel" x:Uid="MetaInputCommentLabel" Text="Comment:" Margin="2" />
                     <TextBox x:Name="MetaInputCommentText" x:Uid="MetaInputCommentText" Margin="2" Height="72" TextWrapping="Wrap" VerticalAlignment="Stretch" AcceptsTab="True" AcceptsReturn="True" ScrollViewer.VerticalScrollBarVisibility="Auto" />
                     <TextBlock x:Name="MetaInputAuthorLabel" x:Uid="MetaInputAuthorLabel" Text="Author:" Margin="2" />
-                    <TextBox x:Name="MetaInputAuthorText" x:Uid="MetaInputAuthorText" Margin="2" />
+                    <TextBox x:Name="MetaInputAuthorText" x:Uid="MetaInputAuthorText" Margin="2" AcceptsReturn="True"/>
                     <TextBlock x:Name="MetaInputCopyrightLabel" x:Uid="MetaInputCopyrightLabel" Text="Copywright:" Margin="2" />
-                    <TextBox x:Name="MetaInputCopyrightText" x:Uid="MetaInputCopyrightText" Margin="2" />
+                    <TextBox x:Name="MetaInputCopyrightText" x:Uid="MetaInputCopyrightText" Margin="2" AcceptsReturn="True"/>
                 </StackPanel>
             </Grid>
         </Popup>

@@ -228,40 +228,6 @@ namespace TouchMeta
             if (File.Exists(file))
             {
                 var fi = new FileInfo(file);
-                var dc = dtc ?? fi.CreationTime;
-                var dm = dtm ?? fi.LastWriteTime;
-                var da = dta ?? fi.LastAccessTime;
-
-                // 2021:09:13 11:00:16
-                var dc_exif = dc.ToString("yyyy:MM:dd HH:mm:ss");
-                var dm_exif = dc.ToString("yyyy:MM:dd HH:mm:ss");
-                var da_exif = dc.ToString("yyyy:MM:dd HH:mm:ss");
-                // 2021-09-13T06:38:49+00:00
-                var dc_date = dc.ToString("yyyy-MM-ddTHH:mm:sszzz");
-                var dm_date = dc.ToString("yyyy-MM-ddTHH:mm:sszzz");
-                var da_date = dc.ToString("yyyy-MM-ddTHH:mm:sszzz");
-                // 2021-08-26T12:23:49
-                var dc_ms = dc.ToString("yyyy-MM-ddTHH:mm:sszzz");
-                var dm_ms = dc.ToString("yyyy-MM-ddTHH:mm:sszzz");
-                var da_ms = dc.ToString("yyyy-MM-ddTHH:mm:sszzz");
-                // 2021-08-26T12:23:49.002
-                var dc_msxmp = dc.ToString("yyyy-MM-ddTHH:mm:ss.fff");
-                var dm_msxmp = dc.ToString("yyyy-MM-ddTHH:mm:ss.fff");
-                var da_msxmp = dc.ToString("yyyy-MM-ddTHH:mm:ss.fff");
-                // 2021-09-13T08:38:13Z
-                var dc_png = dc.ToString("yyyy-MM-ddTHH:mm:ssZ");
-                var dm_png = dc.ToString("yyyy-MM-ddTHH:mm:ssZ");
-                var da_png = dc.ToString("yyyy-MM-ddTHH:mm:ssZ");
-                // 2021:09:13 11:00:16+08:00
-                var dc_misc = dc.ToString("yyyy:MM:dd HH:mm:sszzz");
-                var dm_misc = dc.ToString("yyyy:MM:dd HH:mm:sszzz");
-                var da_misc = dc.ToString("yyyy:MM:dd HH:mm:sszzz");
-
-                //Log($"date : {dm_date}");
-                //Log($"exif : {dm_exif}");
-                //Log($"png  : {dm_png}");
-                //Log($"MS   : {dm_ms}");
-                //Log($"misc : {dm_misc}");
 
                 title = title ?? Path.GetFileNameWithoutExtension(fi.Name);
                 subject = subject ?? title;
@@ -279,6 +245,53 @@ namespace TouchMeta
                     var xmp = image.HasProfile("xmp") ? image.GetXmpProfile() : null;
 
                     #region touch date
+                    var dc = dtc ?? fi.CreationTime;
+                    var dm = dtm ?? fi.LastWriteTime;
+                    var da = dta ?? fi.LastAccessTime;
+
+                    if (!force)
+                    {
+                        foreach (var tag in tag_date)
+                        {
+                            if (image.AttributeNames.Contains(tag))
+                            {
+                                DateTime dv;
+                                if (DateTime.TryParse(image.GetAttribute(tag), out dv))
+                                {
+                                    dc = dv;
+                                    dm = dv;
+                                    da = dv;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+
+                    // 2021:09:13 11:00:16
+                    var dc_exif = dc.ToString("yyyy:MM:dd HH:mm:ss");
+                    var dm_exif = dc.ToString("yyyy:MM:dd HH:mm:ss");
+                    var da_exif = dc.ToString("yyyy:MM:dd HH:mm:ss");
+                    // 2021-09-13T06:38:49+00:00
+                    var dc_date = dc.ToString("yyyy-MM-ddTHH:mm:sszzz");
+                    var dm_date = dc.ToString("yyyy-MM-ddTHH:mm:sszzz");
+                    var da_date = dc.ToString("yyyy-MM-ddTHH:mm:sszzz");
+                    // 2021-08-26T12:23:49
+                    var dc_ms = dc.ToString("yyyy-MM-ddTHH:mm:sszzz");
+                    var dm_ms = dc.ToString("yyyy-MM-ddTHH:mm:sszzz");
+                    var da_ms = dc.ToString("yyyy-MM-ddTHH:mm:sszzz");
+                    // 2021-08-26T12:23:49.002
+                    var dc_msxmp = dc.ToString("yyyy-MM-ddTHH:mm:ss.fff");
+                    var dm_msxmp = dc.ToString("yyyy-MM-ddTHH:mm:ss.fff");
+                    var da_msxmp = dc.ToString("yyyy-MM-ddTHH:mm:ss.fff");
+                    // 2021-09-13T08:38:13Z
+                    var dc_png = dc.ToString("yyyy-MM-ddTHH:mm:ssZ");
+                    var dm_png = dc.ToString("yyyy-MM-ddTHH:mm:ssZ");
+                    var da_png = dc.ToString("yyyy-MM-ddTHH:mm:ssZ");
+                    // 2021:09:13 11:00:16+08:00
+                    var dc_misc = dc.ToString("yyyy:MM:dd HH:mm:sszzz");
+                    var dm_misc = dc.ToString("yyyy:MM:dd HH:mm:sszzz");
+                    var da_misc = dc.ToString("yyyy:MM:dd HH:mm:sszzz");
+
                     foreach (var tag in tag_date)
                     {
                         try
@@ -315,7 +328,7 @@ namespace TouchMeta
                     {
                         try
                         {
-                            if (force || (!image.AttributeNames.Contains(tag) && string.IsNullOrEmpty(title)))
+                            if (force || (!image.AttributeNames.Contains(tag) && !string.IsNullOrEmpty(title)))
                             {
                                 var value_old = tag.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(tag)) : image.GetAttribute(tag);
                                 if (tag.StartsWith("exif"))
@@ -341,7 +354,7 @@ namespace TouchMeta
                     {
                         try
                         {
-                            if (force || (!image.AttributeNames.Contains(tag) && string.IsNullOrEmpty(subject)))
+                            if (force || (!image.AttributeNames.Contains(tag) && !string.IsNullOrEmpty(subject)))
                             {
                                 var value_old = tag.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(tag)) : image.GetAttribute(tag);
                                 var value_new = string.Empty;
@@ -371,7 +384,7 @@ namespace TouchMeta
                     {
                         try
                         {
-                            if (force || (!image.AttributeNames.Contains(tag) && string.IsNullOrEmpty(author)))
+                            if (force || (!image.AttributeNames.Contains(tag) && !string.IsNullOrEmpty(author)))
                             {
                                 var value_old = tag.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(tag)) : image.GetAttribute(tag);
                                 var value_new = string.Empty;
@@ -400,7 +413,7 @@ namespace TouchMeta
                     {
                         try
                         {
-                            if (force || (!image.AttributeNames.Contains(tag) && string.IsNullOrEmpty(copyright)))
+                            if (force || (!image.AttributeNames.Contains(tag) && !string.IsNullOrEmpty(copyright)))
                             {
                                 var value_old = tag.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(tag)) : image.GetAttribute(tag);
                                 var value_new = string.Empty;
@@ -429,7 +442,7 @@ namespace TouchMeta
                     {
                         try
                         {
-                            if (force || (!image.AttributeNames.Contains(tag) && string.IsNullOrEmpty(comment)))
+                            if (force || (!image.AttributeNames.Contains(tag) && !string.IsNullOrEmpty(comment)))
                             {
                                 var value_old = tag.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(tag)) : image.GetAttribute(tag);
                                 if (tag.StartsWith("exif"))
@@ -457,7 +470,7 @@ namespace TouchMeta
                     #region touch keywords
                     foreach (var tag in tag_keywords)
                     {
-                        if (force || (!image.AttributeNames.Contains(tag) && string.IsNullOrEmpty(keywords)))
+                        if (force || (!image.AttributeNames.Contains(tag) && !string.IsNullOrEmpty(keywords)))
                         {
                             var value_old = tag.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(tag)) : image.GetAttribute(tag);
                             if (tag.StartsWith("exif"))
@@ -489,7 +502,10 @@ namespace TouchMeta
 
                         var pattern_ms_da = @"(<MicrosoftPhoto:DateAcquired>).*?(</MicrosoftPhoto:DateAcquired>)";
                         if (Regex.IsMatch(xml, pattern_ms_da, RegexOptions.IgnoreCase))
+                        {
                             xml = Regex.Replace(xml, pattern_ms_da, $"$1{dm_msxmp}$2", RegexOptions.IgnoreCase);
+                            xml = xml.Replace("$1", "<MicrosoftPhoto:DateAcquired>");
+                        }
                         else
                         {
                             var msda_xml = $"<rdf:Description rdf:about=\"uuid:faf5bdd5-ba3d-11da-ad31-d33d75182f1b\" xmlns:MicrosoftPhoto=\"http://ns.microsoft.com/photo/1.0/\"><MicrosoftPhoto:DateAcquired>{dm_msxmp}</MicrosoftPhoto:DateAcquired></rdf:Description>";
@@ -498,7 +514,10 @@ namespace TouchMeta
 
                         var pattern_ms_dt = @"(<MicrosoftPhoto:DateTaken>).*?(</MicrosoftPhoto:DateTaken>)";
                         if (Regex.IsMatch(xml, pattern_ms_dt, RegexOptions.IgnoreCase))
+                        {
                             xml = Regex.Replace(xml, pattern_ms_dt, $"$1{dm_msxmp}$2", RegexOptions.IgnoreCase);
+                            xml = xml.Replace("$1", "<MicrosoftPhoto:DateTaken>");
+                        }
                         else
                         {
                             var msdt_xml = $"<rdf:Description rdf:about=\"uuid:faf5bdd5-ba3d-11da-ad31-d33d75182f1b\" xmlns:MicrosoftPhoto=\"http://ns.microsoft.com/photo/1.0/\"><MicrosoftPhoto:DateTaken>{dm_msxmp}</MicrosoftPhoto:DateTaken></rdf:Description>";
@@ -938,15 +957,24 @@ namespace TouchMeta
                 _date_changed_ = true;
                 if (sender == DateCreated)
                 {
+                    var d_value = DateCreated.SelectedDate ?? TimeCreated.Value ?? DateTime.Now;
+                    var t_value = TimeCreated.Value ?? DateCreated.SelectedDate ?? DateTime.Now;
+                    DateCreated.SelectedDate = d_value.Date + t_value.TimeOfDay;
                     TimeCreated.Value = DateCreated.SelectedDate;
                 }
                 else if (sender == DateModified)
                 {
-                    DateModified.SelectedDate = TimeModified.Value;
+                    var d_value = DateModified.SelectedDate ?? TimeModified.Value ?? DateTime.Now;
+                    var t_value = TimeModified.Value ?? DateModified.SelectedDate ?? DateTime.Now;
+                    DateModified.SelectedDate = d_value.Date + t_value.TimeOfDay;
+                    TimeModified.Value = DateModified.SelectedDate;
                 }
                 else if (sender == DateAccessed)
                 {
-                    DateAccessed.SelectedDate = TimeAccessed.Value;
+                    var d_value = DateAccessed.SelectedDate ?? TimeAccessed.Value ?? DateTime.Now;
+                    var t_value = TimeAccessed.Value ?? DateAccessed.SelectedDate ?? DateTime.Now;
+                    DateAccessed.SelectedDate = d_value.Date + t_value.TimeOfDay;
+                    TimeAccessed.Value = DateAccessed.SelectedDate;
                 }
                 UpdateFileTimeInfo();
                 _date_changed_ = false;
@@ -962,15 +990,24 @@ namespace TouchMeta
                 _time_changed_ = true;
                 if (sender == TimeCreated)
                 {
-                    DateCreated.SelectedDate = TimeCreated.Value;
+                    var d_value = DateCreated.SelectedDate ?? TimeCreated.Value ?? DateTime.Now;
+                    var t_value = TimeCreated.Value ?? DateCreated.SelectedDate ?? DateTime.Now;
+                    DateCreated.SelectedDate = d_value.Date + t_value.TimeOfDay;
+                    TimeCreated.Value = DateCreated.SelectedDate;
                 }
                 else if (sender == TimeModified)
                 {
-                    DateModified.SelectedDate = TimeModified.Value;
+                    var d_value = DateModified.SelectedDate ?? TimeModified.Value ?? DateTime.Now;
+                    var t_value = TimeModified.Value ?? DateModified.SelectedDate ?? DateTime.Now;
+                    DateModified.SelectedDate = d_value.Date + t_value.TimeOfDay;
+                    TimeModified.Value = DateModified.SelectedDate;
                 }
                 else if (sender == TimeAccessed)
                 {
-                    DateAccessed.SelectedDate = TimeAccessed.Value;
+                    var d_value = DateAccessed.SelectedDate ?? TimeAccessed.Value ?? DateTime.Now;
+                    var t_value = TimeAccessed.Value ?? DateAccessed.SelectedDate ?? DateTime.Now;
+                    DateAccessed.SelectedDate = d_value.Date + t_value.TimeOfDay;
+                    TimeAccessed.Value = DateAccessed.SelectedDate;
                 }
                 UpdateFileTimeInfo();
                 _time_changed_ = false;
@@ -1052,7 +1089,7 @@ namespace TouchMeta
                         var dtc = DateCreated.SelectedDate;
                         var dtm = DateModified.SelectedDate;
                         var dta = DateAccessed.SelectedDate;
-                        var title = MetaInputAuthorText.Text;
+                        var title = MetaInputTitleText.Text;
                         var subject = MetaInputSubjectText.Text;
                         var comment = MetaInputCommentText.Text;
                         var keyword = MetaInputKeywordsText.Text;
