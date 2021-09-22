@@ -705,6 +705,132 @@ namespace NetChamr
             return (result);
         }
 
+        public MetaInfo GetMetaInfo(MagickImage image)
+        {
+            MetaInfo result = new MetaInfo();
+
+            if (image is MagickImage)
+            {
+                var exif = image.HasProfile("exif") ? image.GetExifProfile() : new ExifProfile();
+                var xmp = image.HasProfile("xmp") ? image.GetXmpProfile() : null;
+
+
+                bool is_png = image.FormatInfo.MimeType.Equals("image/png");
+                foreach (var tag in tag_date)
+                {
+                    if (image.AttributeNames.Contains(tag))
+                    {
+                        var v = image.GetAttribute(tag);
+                        var nv = Regex.Replace(v, @"^(\d{4}):(\d{2}):(\d{2})[ |T](.*?)Z?$", "$1-$2-$3T$4");
+                        //Log($"{tag.PadRight(32)}= {v} > {nv}");
+                        result.DateAcquired = DateTime.Parse(tag.Contains("png") ? nv.Substring(0, tag.Length - 1) : nv);
+                        result.DateTaken = result.DateAcquired;
+                        break;
+                    }
+                }
+                foreach (var tag in tag_title)
+                {
+                    if (image.AttributeNames.Contains(tag))
+                    {
+                        result.Title = tag.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(tag)) : image.GetAttribute(tag);
+                        if (tag.Equals("exif:WinXP-Title"))
+                        {
+                            var value = exif.GetValue(ExifTag.XPTitle);
+                            result.Title = value == null ? result.Title : (Encoding.Unicode.GetString(value.Value) ?? result.Title);
+                        }
+                        break;
+                    }
+                }
+                foreach (var tag in tag_subject)
+                {
+                    if (image.AttributeNames.Contains(tag))
+                    {
+                        if (image.AttributeNames.Contains(tag))
+                        {
+                            result.Subject = tag.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(tag)) : image.GetAttribute(tag);
+                            if (tag.Equals("exif:WinXP-Subject"))
+                            {
+                                var value = exif.GetValue(ExifTag.XPSubject);
+                                result.Subject = value == null ? result.Subject : (Encoding.Unicode.GetString(value.Value) ?? result.Subject);
+                            }
+                            break;
+                        }
+                        break;
+                    }
+                }
+                foreach (var tag in tag_comments)
+                {
+                    if (image.AttributeNames.Contains(tag))
+                    {
+                        if (image.AttributeNames.Contains(tag))
+                        {
+                            result.Comment = tag.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(tag)) : image.GetAttribute(tag);
+                            if (tag.Equals("exif:ImageDescription"))
+                            {
+                                var value = exif.GetValue(ExifTag.ImageDescription);
+                                result.Comment = value == null ? result.Comment : (value.Value ?? result.Comment);
+                            }
+                            else if (tag.Equals("exif:WinXP-Comment"))
+                            {
+                                var value = exif.GetValue(ExifTag.XPComment);
+                                result.Comment = value == null ? result.Comment : (Encoding.Unicode.GetString(value.Value) ?? result.Comment);
+                            }
+                            break;
+                        }
+                    }
+                }
+                foreach (var tag in tag_keywords)
+                {
+                    if (image.AttributeNames.Contains(tag))
+                    {
+                        if (image.AttributeNames.Contains(tag))
+                        {
+                            result.Keywords = tag.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(tag)) : image.GetAttribute(tag);
+                            if (tag.Equals("exif:WinXP-Keywords"))
+                            {
+                                var value = exif.GetValue(ExifTag.XPKeywords);
+                                result.Keywords = value == null ? result.Keywords : (Encoding.Unicode.GetString(value.Value) ?? result.Keywords);
+                            }
+                            break;
+                        }
+                    }
+                }
+                foreach (var tag in tag_author)
+                {
+                    if (image.AttributeNames.Contains(tag))
+                    {
+                        if (image.AttributeNames.Contains(tag))
+                        {
+                            result.Author = tag.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(tag)) : image.GetAttribute(tag);
+                            if (tag.Equals("exif:WinXP-Author"))
+                            {
+                                var value = exif.GetValue(ExifTag.XPAuthor);
+                                result.Author = value == null ? result.Author : (Encoding.Unicode.GetString(value.Value) ?? result.Author);
+                            }
+                            break;
+                        }
+                    }
+                }
+                foreach (var tag in tag_copyright)
+                {
+                    if (image.AttributeNames.Contains(tag))
+                    {
+                        if (image.AttributeNames.Contains(tag))
+                        {
+                            result.Copyright = tag.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(tag)) : image.GetAttribute(tag);
+                            if (tag.Equals("exif:Copyright"))
+                            {
+                                var value = exif.GetValue(ExifTag.Copyright);
+                                result.Copyright = value == null ? result.Copyright : (value.Value ?? result.Copyright);
+                            }
+                            break;
+                        }
+                    }
+                }
+            }
+            return (result);
+        }
+
         public MetaInfo GetMetaInfo(string file)
         {
             MetaInfo result = new MetaInfo();
@@ -719,122 +845,7 @@ namespace NetChamr
                     {
                         using (MagickImage image = new MagickImage(ms))
                         {
-                            var exif = image.HasProfile("exif") ? image.GetExifProfile() : new ExifProfile();
-                            var xmp = image.HasProfile("xmp") ? image.GetXmpProfile() : null;
-
-
-                            bool is_png = image.FormatInfo.MimeType.Equals("image/png");
-                            foreach (var tag in tag_date)
-                            {
-                                if (image.AttributeNames.Contains(tag))
-                                {
-                                    var v = image.GetAttribute(tag);
-                                    var nv = Regex.Replace(v, @"^(\d{4}):(\d{2}):(\d{2})[ |T](.*?)Z?$", "$1-$2-$3T$4");
-                                    //Log($"{tag.PadRight(32)}= {v} > {nv}");
-                                    result.DateAcquired = DateTime.Parse(tag.Contains("png") ? nv.Substring(0, tag.Length - 1) : nv);
-                                    result.DateTaken = result.DateAcquired;
-                                    break;
-                                }
-                            }
-                            foreach (var tag in tag_title)
-                            {
-                                if (image.AttributeNames.Contains(tag))
-                                {
-                                    result.Title = tag.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(tag)) : image.GetAttribute(tag);
-                                    if (tag.Equals("exif:WinXP-Title"))
-                                    {
-                                        var value = exif.GetValue(ExifTag.XPTitle);
-                                        result.Title = value == null ? result.Title : (Encoding.Unicode.GetString(value.Value) ?? result.Title);
-                                    }
-                                    break;
-                                }
-                            }
-                            foreach (var tag in tag_subject)
-                            {
-                                if (image.AttributeNames.Contains(tag))
-                                {
-                                    if (image.AttributeNames.Contains(tag))
-                                    {
-                                        result.Subject = tag.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(tag)) : image.GetAttribute(tag);
-                                        if (tag.Equals("exif:WinXP-Subject"))
-                                        {
-                                            var value = exif.GetValue(ExifTag.XPSubject);
-                                            result.Subject = value == null ? result.Subject : (Encoding.Unicode.GetString(value.Value) ?? result.Subject);
-                                        }
-                                        break;
-                                    }
-                                    break;
-                                }
-                            }
-                            foreach (var tag in tag_comments)
-                            {
-                                if (image.AttributeNames.Contains(tag))
-                                {
-                                    if (image.AttributeNames.Contains(tag))
-                                    {
-                                        result.Comment = tag.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(tag)) : image.GetAttribute(tag);
-                                        if (tag.Equals("exif:ImageDescription"))
-                                        {
-                                            var value = exif.GetValue(ExifTag.ImageDescription);
-                                            result.Comment = value == null ? result.Comment : (value.Value ?? result.Comment);
-                                        }
-                                        else if (tag.Equals("exif:WinXP-Comment"))
-                                        {
-                                            var value = exif.GetValue(ExifTag.XPComment);
-                                            result.Comment = value == null ? result.Comment : (Encoding.Unicode.GetString(value.Value) ?? result.Comment);
-                                        }
-                                        break;
-                                    }
-                                }
-                            }
-                            foreach (var tag in tag_keywords)
-                            {
-                                if (image.AttributeNames.Contains(tag))
-                                {
-                                    if (image.AttributeNames.Contains(tag))
-                                    {
-                                        result.Keywords = tag.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(tag)) : image.GetAttribute(tag);
-                                        if (tag.Equals("exif:WinXP-Keywords"))
-                                        {
-                                            var value = exif.GetValue(ExifTag.XPKeywords);
-                                            result.Keywords = value == null ? result.Keywords : (Encoding.Unicode.GetString(value.Value) ?? result.Keywords);
-                                        }
-                                        break;
-                                    }
-                                }
-                            }
-                            foreach (var tag in tag_author)
-                            {
-                                if (image.AttributeNames.Contains(tag))
-                                {
-                                    if (image.AttributeNames.Contains(tag))
-                                    {
-                                        result.Author = tag.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(tag)) : image.GetAttribute(tag);
-                                        if (tag.Equals("exif:WinXP-Author"))
-                                        {
-                                            var value = exif.GetValue(ExifTag.XPAuthor);
-                                            result.Author = value == null ? result.Author : (Encoding.Unicode.GetString(value.Value) ?? result.Author);
-                                        }
-                                        break;
-                                    }
-                                }
-                            }
-                            foreach (var tag in tag_copyright)
-                            {
-                                if (image.AttributeNames.Contains(tag))
-                                {
-                                    if (image.AttributeNames.Contains(tag))
-                                    {
-                                        result.Copyright = tag.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(tag)) : image.GetAttribute(tag);
-                                        if (tag.Equals("exif:Copyright"))
-                                        {
-                                            var value = exif.GetValue(ExifTag.Copyright);
-                                            result.Copyright = value == null ? result.Copyright : (value.Value ?? result.Copyright);
-                                        }
-                                        break;
-                                    }
-                                }
-                            }
+                            result = GetMetaInfo(image);
                         }
                     }
                     catch (Exception ex) { Log(ex.Message); }
