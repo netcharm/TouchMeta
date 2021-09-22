@@ -20,6 +20,18 @@ using System.Windows.Navigation;
 
 namespace TouchMeta
 {
+    public class MetaInfo
+    {
+        public DateTime? DateAcquired { get; set; } = null;
+        public DateTime? DateTaken { get; set; } = null;
+        public string Title { get; set; } = null;
+        public string Subject { get; set; } = null;
+        public string Keywords { get; set; } = null;
+        public string Comment { get; set; } = null;
+        public string Author { get; set; } = null;
+        public string Copyright { get; set; } = null;
+    }
+
     /// <summary>
     /// MainWindow.xaml 的交互逻辑
     /// </summary>
@@ -51,7 +63,7 @@ namespace TouchMeta
           "date:create",
           "date:modify",
         };
-        private static string[] tag_artist = new string[] {
+        private static string[] tag_author = new string[] {
           "exif:Artist",
           "exif:WinXP-Author",
         };
@@ -223,18 +235,18 @@ namespace TouchMeta
             }
         }
 
-        public static void TouchMeta(string file, bool force = false, DateTime? dtc = null, DateTime? dtm = null, DateTime? dta = null, string title = null, string subject = null, string comment = null, string author = null, string copyright = null, string keywords = null)
+        public static void TouchMeta(string file, bool force = false, DateTime? dtc = null, DateTime? dtm = null, DateTime? dta = null, MetaInfo meta = null)
         {
             if (File.Exists(file))
             {
                 var fi = new FileInfo(file);
 
-                title = title ?? Path.GetFileNameWithoutExtension(fi.Name);
-                subject = subject ?? title;
-                author = author ?? string.Empty;
-                copyright = copyright ?? author;
-                keywords = keywords ?? string.Empty;
-                comment = comment ?? string.Empty;
+                var title = meta is MetaInfo ? meta.Title ?? Path.GetFileNameWithoutExtension(fi.Name) : Path.GetFileNameWithoutExtension(fi.Name);
+                var subject = meta is MetaInfo ? meta.Subject : title;
+                var author = meta is MetaInfo ? meta.Author : string.Empty;
+                var copyright = meta is MetaInfo ? meta.Copyright : author;
+                var keywords = meta is MetaInfo ? meta.Keywords : string.Empty;
+                var comment = meta is MetaInfo ? meta.Comment : string.Empty;
 
                 using (MagickImage image = new MagickImage(fi.FullName))
                 {
@@ -269,28 +281,28 @@ namespace TouchMeta
 
                     // 2021:09:13 11:00:16
                     var dc_exif = dc.ToString("yyyy:MM:dd HH:mm:ss");
-                    var dm_exif = dc.ToString("yyyy:MM:dd HH:mm:ss");
-                    var da_exif = dc.ToString("yyyy:MM:dd HH:mm:ss");
+                    var dm_exif = dm.ToString("yyyy:MM:dd HH:mm:ss");
+                    var da_exif = da.ToString("yyyy:MM:dd HH:mm:ss");
                     // 2021-09-13T06:38:49+00:00
                     var dc_date = dc.ToString("yyyy-MM-ddTHH:mm:sszzz");
-                    var dm_date = dc.ToString("yyyy-MM-ddTHH:mm:sszzz");
-                    var da_date = dc.ToString("yyyy-MM-ddTHH:mm:sszzz");
+                    var dm_date = dm.ToString("yyyy-MM-ddTHH:mm:sszzz");
+                    var da_date = da.ToString("yyyy-MM-ddTHH:mm:sszzz");
                     // 2021-08-26T12:23:49
                     var dc_ms = dc.ToString("yyyy-MM-ddTHH:mm:sszzz");
-                    var dm_ms = dc.ToString("yyyy-MM-ddTHH:mm:sszzz");
-                    var da_ms = dc.ToString("yyyy-MM-ddTHH:mm:sszzz");
+                    var dm_ms = dm.ToString("yyyy-MM-ddTHH:mm:sszzz");
+                    var da_ms = da.ToString("yyyy-MM-ddTHH:mm:sszzz");
                     // 2021-08-26T12:23:49.002
                     var dc_msxmp = dc.ToString("yyyy-MM-ddTHH:mm:ss.fff");
-                    var dm_msxmp = dc.ToString("yyyy-MM-ddTHH:mm:ss.fff");
-                    var da_msxmp = dc.ToString("yyyy-MM-ddTHH:mm:ss.fff");
+                    var dm_msxmp = dm.ToString("yyyy-MM-ddTHH:mm:ss.fff");
+                    var da_msxmp = da.ToString("yyyy-MM-ddTHH:mm:ss.fff");
                     // 2021-09-13T08:38:13Z
                     var dc_png = dc.ToString("yyyy-MM-ddTHH:mm:ssZ");
-                    var dm_png = dc.ToString("yyyy-MM-ddTHH:mm:ssZ");
-                    var da_png = dc.ToString("yyyy-MM-ddTHH:mm:ssZ");
+                    var dm_png = dm.ToString("yyyy-MM-ddTHH:mm:ssZ");
+                    var da_png = da.ToString("yyyy-MM-ddTHH:mm:ssZ");
                     // 2021:09:13 11:00:16+08:00
                     var dc_misc = dc.ToString("yyyy:MM:dd HH:mm:sszzz");
-                    var dm_misc = dc.ToString("yyyy:MM:dd HH:mm:sszzz");
-                    var da_misc = dc.ToString("yyyy:MM:dd HH:mm:sszzz");
+                    var dm_misc = dm.ToString("yyyy:MM:dd HH:mm:sszzz");
+                    var da_misc = da.ToString("yyyy:MM:dd HH:mm:sszzz");
 
                     foreach (var tag in tag_date)
                     {
@@ -380,7 +392,7 @@ namespace TouchMeta
                     }
                     #endregion
                     #region touch author
-                    foreach (var tag in tag_artist)
+                    foreach (var tag in tag_author)
                     {
                         try
                         {
@@ -735,6 +747,144 @@ namespace TouchMeta
             return (result);
         }
 
+        public MetaInfo GetMetaInfo(string file)
+        {
+            MetaInfo result = new MetaInfo();
+            if (File.Exists(file))
+            {
+                var fi = new FileInfo(file);
+                result.DateAcquired = fi.CreationTime;
+                result.DateTaken = fi.LastWriteTime;
+                using (var ms = new FileStream(fi.FullName, FileMode.Open, FileAccess.Read, FileShare.Read))
+                {
+                    try
+                    {
+                        using (MagickImage image = new MagickImage(ms))
+                        {
+                            var exif = image.HasProfile("exif") ? image.GetExifProfile() : new ExifProfile();
+                            var xmp = image.HasProfile("xmp") ? image.GetXmpProfile() : null;
+
+
+                            bool is_png = image.FormatInfo.MimeType.Equals("image/png");
+                            foreach (var tag in tag_date)
+                            {
+                                if (image.AttributeNames.Contains(tag))
+                                {
+                                    var v = image.GetAttribute(tag);
+                                    var nv = Regex.Replace(v, @"^(\d{4}):(\d{2}):(\d{2})[ |T](.*?)Z?$", "$1-$2-$3T$4");
+                                    //Log($"{tag.PadRight(32)}= {v} > {nv}");
+                                    result.DateAcquired = DateTime.Parse(tag.Contains("png") ? nv.Substring(0, tag.Length - 1) : nv);
+                                    result.DateTaken = result.DateAcquired;
+                                    break;
+                                }
+                            }
+                            foreach (var tag in tag_title)
+                            {
+                                if (image.AttributeNames.Contains(tag))
+                                {
+                                    result.Title = tag.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(tag)) : image.GetAttribute(tag);
+                                    if (tag.Equals("exif:WinXP-Title"))
+                                    {
+                                        var value = exif.GetValue(ExifTag.XPTitle);
+                                        result.Title = value == null ? result.Title : (Encoding.Unicode.GetString(value.Value) ?? result.Title);
+                                    }
+                                    break;
+                                }
+                            }
+                            foreach (var tag in tag_subject)
+                            {
+                                if (image.AttributeNames.Contains(tag))
+                                {
+                                    if (image.AttributeNames.Contains(tag))
+                                    {
+                                        result.Subject = tag.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(tag)) : image.GetAttribute(tag);
+                                        if (tag.Equals("exif:WinXP-Subject"))
+                                        {
+                                            var value = exif.GetValue(ExifTag.XPSubject);
+                                            result.Subject = value == null ? result.Subject : (Encoding.Unicode.GetString(value.Value) ?? result.Subject);
+                                        }
+                                        break;
+                                    }
+                                    break;
+                                }
+                            }
+                            foreach (var tag in tag_comments)
+                            {
+                                if (image.AttributeNames.Contains(tag))
+                                {
+                                    if (image.AttributeNames.Contains(tag))
+                                    {
+                                        result.Comment = tag.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(tag)) : image.GetAttribute(tag);
+                                        if (tag.Equals("exif:ImageDescription"))
+                                        {
+                                            var value = exif.GetValue(ExifTag.ImageDescription);
+                                            result.Comment = value == null ? result.Comment : (value.Value ?? result.Comment);
+                                        }
+                                        else if (tag.Equals("exif:WinXP-Comment"))
+                                        {
+                                            var value = exif.GetValue(ExifTag.XPComment);
+                                            result.Comment = value == null ? result.Comment : (Encoding.Unicode.GetString(value.Value) ?? result.Comment);
+                                        }
+                                        break;
+                                    }
+                                }
+                            }
+                            foreach (var tag in tag_keywords)
+                            {
+                                if (image.AttributeNames.Contains(tag))
+                                {
+                                    if (image.AttributeNames.Contains(tag))
+                                    {
+                                        result.Keywords = tag.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(tag)) : image.GetAttribute(tag);
+                                        if (tag.Equals("exif:WinXP-Keywords"))
+                                        {
+                                            var value = exif.GetValue(ExifTag.XPKeywords);
+                                            result.Keywords = value == null ? result.Keywords : (Encoding.Unicode.GetString(value.Value) ?? result.Keywords);
+                                        }                                        
+                                        break;
+                                    }
+                                }
+                            }
+                            foreach (var tag in tag_author)
+                            {
+                                if (image.AttributeNames.Contains(tag))
+                                {
+                                    if (image.AttributeNames.Contains(tag))
+                                    {
+                                        result.Author = tag.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(tag)) : image.GetAttribute(tag);
+                                        if (tag.Equals("exif:WinXP-Author"))
+                                        {
+                                            var value = exif.GetValue(ExifTag.XPAuthor);
+                                            result.Author = value == null ? result.Author : (Encoding.Unicode.GetString(value.Value) ?? result.Author);
+                                        }
+                                        break;
+                                    }
+                                }
+                            }
+                            foreach (var tag in tag_copyright)
+                            {
+                                if (image.AttributeNames.Contains(tag))
+                                {
+                                    if (image.AttributeNames.Contains(tag))
+                                    {
+                                        result.Copyright = tag.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(tag)) : image.GetAttribute(tag);
+                                        if (tag.Equals("exif:Copyright"))
+                                        {
+                                            var value = exif.GetValue(ExifTag.Copyright);
+                                            result.Copyright = value == null ? result.Copyright : (value.Value ?? result.Copyright);
+                                        }
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    catch (Exception ex) { Xceed.Wpf.Toolkit.MessageBox.Show(this, ex.Message); }
+                }
+            }
+            return (result);
+        }
+
         public static void InitMagicK()
         {
             try
@@ -847,8 +997,10 @@ namespace TouchMeta
             MetaInputPopupBorder.BorderBrush = FilesList.BorderBrush;
             MetaInputPopupBorder.BorderThickness = FilesList.BorderThickness;
             MetaInputPopup.Width = Width - 28;
-            MetaInputPopup.Height = 336;
+            MetaInputPopup.MinHeight = 336;
+            //MetaInputPopup.Height = 336;
 
+            MetaInputPopup.StaysOpen = true;
             MetaInputPopup.Placement = PlacementMode.Bottom;
             MetaInputPopup.HorizontalOffset = MetaInputPopup.Width - ShowMetaInputPopup.ActualWidth;
             MetaInputPopup.VerticalOffset = -6;
@@ -920,6 +1072,29 @@ namespace TouchMeta
                         TimeModified.Value = dt;
                         TimeAccessed.Value = dt;
                     }
+                }
+            }
+            else if(sender == GetMetaInfoFromSelected)
+            {
+                if (FilesList.SelectedItem != null)
+                {
+                    var file = FilesList.SelectedItem as string;
+                    var meta = GetMetaInfo(file);
+
+                    DateCreated.SelectedDate = meta.DateAcquired ?? meta.DateTaken ?? DateCreated.SelectedDate;
+                    DateModified.SelectedDate = meta.DateAcquired ?? meta.DateTaken ?? DateModified.SelectedDate;
+                    DateAccessed.SelectedDate = meta.DateAcquired ?? meta.DateTaken ?? DateAccessed.SelectedDate;
+
+                    TimeCreated.Value = meta.DateAcquired ?? meta.DateTaken ?? TimeCreated.Value;
+                    TimeModified.Value = meta.DateAcquired ?? meta.DateTaken ?? TimeModified.Value;
+                    TimeAccessed.Value = meta.DateAcquired ?? meta.DateTaken ?? TimeAccessed.Value;
+
+                    MetaInputTitleText.Text = meta.Title ?? MetaInputTitleText.Text;
+                    MetaInputSubjectText.Text = meta.Subject ?? MetaInputSubjectText.Text;
+                    MetaInputCommentText.Text = meta.Comment ?? MetaInputCommentText.Text;
+                    MetaInputKeywordsText.Text = meta.Keywords ?? MetaInputKeywordsText.Text;
+                    MetaInputAuthorText.Text = meta.Author ?? MetaInputAuthorText.Text;
+                    MetaInputCopyrightText.Text = meta.Copyright ?? MetaInputCopyrightText.Text;
                 }
             }
             else if (sender == RemoveSelected)
@@ -1039,7 +1214,10 @@ namespace TouchMeta
             }
             else if (sender == ShowMetaInputPopup)
             {
-                MetaInputPopup.IsOpen = true;
+                if(MetaInputPopup.StaysOpen)
+                    MetaInputPopup.IsOpen = !MetaInputPopup.IsOpen;
+                else
+                    MetaInputPopup.IsOpen = true;
             }
             else if (sender == FileTimeImport)
             {
@@ -1059,13 +1237,13 @@ namespace TouchMeta
             }
             else if (sender == BtnTouchTime)
             {
-                if (FilesList.SelectedItems.Count >= 0)
+                if (FilesList.Items.Count >= 1)
                 {
                     ClearLog();
                     List<string> files = new List<string>();
                     Dispatcher.InvokeAsync(() =>
                     {
-                        foreach (var item in FilesList.SelectedItems) files.Add(item as string);
+                        foreach (var item in FilesList.SelectedItems.Count > 0 ? FilesList.SelectedItems : FilesList.Items) files.Add(item as string);
                         foreach (var file in files)
                         {
                             Log($"  {file}");
@@ -1079,7 +1257,7 @@ namespace TouchMeta
             }
             else if (sender == BtnTouchMeta)
             {
-                if (FilesList.SelectedItems.Count >= 0)
+                if (FilesList.Items.Count >= 1)
                 {
                     ClearLog();
                     List<string> files = new List<string>();
@@ -1089,24 +1267,22 @@ namespace TouchMeta
                         var dtc = DateCreated.SelectedDate;
                         var dtm = DateModified.SelectedDate;
                         var dta = DateAccessed.SelectedDate;
-                        var title = MetaInputTitleText.Text;
-                        var subject = MetaInputSubjectText.Text;
-                        var comment = MetaInputCommentText.Text;
-                        var keyword = MetaInputKeywordsText.Text;
-                        var author = MetaInputAuthorText.Text;
-                        var copyright = MetaInputCopyrightText.Text;
+                        var meta = new MetaInfo()
+                        {
+                            Title = MetaInputTitleText.Text,
+                            Subject = MetaInputSubjectText.Text,
+                            Comment = MetaInputCommentText.Text,
+                            Keywords = MetaInputKeywordsText.Text,
+                            Author = MetaInputAuthorText.Text,
+                            Copyright = MetaInputCopyrightText.Text
+                        };
 
-                        foreach (var item in FilesList.SelectedItems) files.Add(item as string);
+                        foreach (var item in FilesList.SelectedItems.Count > 0 ? FilesList.SelectedItems : FilesList.Items) files.Add(item as string);
                         foreach (var file in files)
                         {
                             Log($"  {file}");
                             Log("-".PadRight(75, '-'));
-                            TouchMeta(file, force: force,
-                                dtc: dtc, dtm: dtm, dta: dta,
-                                title: title, subject: subject,
-                                comment: comment,
-                                keywords: keyword,
-                                author: author, copyright: copyright);
+                            TouchMeta(file, force: force, dtc: dtc, dtm: dtm, dta: dta, meta: meta);
                             Log("=".PadRight(75, '='));
                         }
                         ShowLog();
@@ -1115,13 +1291,13 @@ namespace TouchMeta
             }
             else if (sender == BtnClearMeta)
             {
-                if (FilesList.SelectedItems.Count >= 0)
+                if (FilesList.Items.Count >= 1)
                 {
                     ClearLog();
                     List<string> files = new List<string>();
                     Dispatcher.InvokeAsync(() =>
                     {
-                        foreach (var item in FilesList.SelectedItems) files.Add(item as string);
+                        foreach (var item in FilesList.SelectedItems.Count > 0 ? FilesList.SelectedItems : FilesList.Items) files.Add(item as string);
                         foreach (var file in files)
                         {
                             Log($"  {file}");
@@ -1135,13 +1311,13 @@ namespace TouchMeta
             }
             else if (sender == BtnShowMeta)
             {
-                if (FilesList.SelectedItems.Count >= 0)
+                if (FilesList.Items.Count >= 1)
                 {
                     ClearLog();
                     List<string> files = new List<string>();
                     Dispatcher.InvokeAsync(() =>
                     {
-                        foreach (var item in FilesList.SelectedItems) files.Add(item as string);
+                        foreach (var item in FilesList.SelectedItems.Count > 0 ? FilesList.SelectedItems : FilesList.Items) files.Add(item as string);
                         foreach (var file in files)
                         {
                             Log($"  {file}");

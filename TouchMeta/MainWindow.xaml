@@ -80,6 +80,8 @@
                     <MenuItem x:Name="GetFileTimeFromSelected" x:Uid="GetFileTimeFromSelected" Header="Get File Time From Selected File" Click="FilesListAction_Click"/>
                     <MenuItem x:Name="GetMetaTimeFromSelected" x:Uid="GetMetaTimeFromSelected" Header="Get Meta Time From Selected File" Click="FilesListAction_Click"/>
                     <Separator/>
+                    <MenuItem x:Name="GetMetaInfoFromSelected" x:Uid="GetMetaInfoFromSelected" Header="Get Meta Info From Selected File" Click="FilesListAction_Click"/>
+                    <Separator/>
                     <MenuItem x:Name="RemoveSelected" x:Uid="RemoveSelected" Header="Remove Selected File" Click="FilesListAction_Click"/>
                     <MenuItem x:Name="RemoveAll" x:Uid="RemoveAll" Header="Remove All File" Click="FilesListAction_Click"/>
                 </ContextMenu>
@@ -110,17 +112,17 @@
                 <Border x:Name="MetaInputPopupBorder" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" />
                 <StackPanel Orientation="Vertical" Margin="4" VerticalAlignment="Stretch" HorizontalAlignment="Stretch">
                     <TextBlock x:Name="MetaInputTitleLabel" x:Uid="MetaInputTitleLabel" Text="Title:" Margin="2" />
-                    <TextBox x:Name="MetaInputTitleText" x:Uid="MetaInputTitleText" Margin="2" AcceptsReturn="True"/>
+                    <TextBox x:Name="MetaInputTitleText" x:Uid="MetaInputTitleText" Margin="2" MaxHeight="64" TextWrapping="Wrap" VerticalAlignment="Stretch" ScrollViewer.VerticalScrollBarVisibility="Auto"/>
                     <TextBlock x:Name="MetaInputSubjectLabel" x:Uid="MetaInputSubjectLabel" Text="Subject:" Margin="2" />
-                    <TextBox x:Name="MetaInputSubjectText" x:Uid="MetaInputSubjectText" Margin="2" AcceptsReturn="True"/>
+                    <TextBox x:Name="MetaInputSubjectText" x:Uid="MetaInputSubjectText" Margin="2" MaxHeight="64" TextWrapping="Wrap" VerticalAlignment="Stretch" ScrollViewer.VerticalScrollBarVisibility="Auto"/>
                     <TextBlock x:Name="MetaInputKeywordsLabel" x:Uid="MetaInputKeywordsLabel" Text="Keywords:" Margin="2" />
-                    <TextBox x:Name="MetaInputKeywordsText" x:Uid="MetaInputKeywordsText" Margin="2" AcceptsReturn="True"/>
+                    <TextBox x:Name="MetaInputKeywordsText" x:Uid="MetaInputKeywordsText" Margin="2" MaxHeight="64" TextWrapping="Wrap" VerticalAlignment="Stretch" ScrollViewer.VerticalScrollBarVisibility="Auto"/>
                     <TextBlock x:Name="MetaInputCommentLabel" x:Uid="MetaInputCommentLabel" Text="Comment:" Margin="2" />
                     <TextBox x:Name="MetaInputCommentText" x:Uid="MetaInputCommentText" Margin="2" Height="72" TextWrapping="Wrap" VerticalAlignment="Stretch" AcceptsTab="True" AcceptsReturn="True" ScrollViewer.VerticalScrollBarVisibility="Auto" />
                     <TextBlock x:Name="MetaInputAuthorLabel" x:Uid="MetaInputAuthorLabel" Text="Author:" Margin="2" />
-                    <TextBox x:Name="MetaInputAuthorText" x:Uid="MetaInputAuthorText" Margin="2" AcceptsReturn="True"/>
+                    <TextBox x:Name="MetaInputAuthorText" x:Uid="MetaInputAuthorText" Margin="2" MaxHeight="64" TextWrapping="Wrap" VerticalAlignment="Stretch" ScrollViewer.VerticalScrollBarVisibility="Auto"/>
                     <TextBlock x:Name="MetaInputCopyrightLabel" x:Uid="MetaInputCopyrightLabel" Text="Copywright:" Margin="2" />
-                    <TextBox x:Name="MetaInputCopyrightText" x:Uid="MetaInputCopyrightText" Margin="2" AcceptsReturn="True"/>
+                    <TextBox x:Name="MetaInputCopyrightText" x:Uid="MetaInputCopyrightText" Margin="2" MaxHeight="64" TextWrapping="Wrap" VerticalAlignment="Stretch" ScrollViewer.VerticalScrollBarVisibility="Auto"/>
                 </StackPanel>
             </Grid>
         </Popup>

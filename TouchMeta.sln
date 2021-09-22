@@ -9,7 +9,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MetaData", "MetaData\MetaDa
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Assets", "Assets", "{F853E389-D854-40CB-9975-2925FB09829C}"
 	ProjectSection(SolutionItems) = preProject
-		Assets\exif.ico = Assets\exif.ico
+		Assets\exif-black.ico = Assets\exif-black.ico
+		Assets\exif-white.ico = Assets\exif-white.ico
 		MIT-LICENSE.txt = MIT-LICENSE.txt
 		readme.md = readme.md
 	EndProjectSection
