@@ -1,13 +1,14 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.IO;
 using System.Text.RegularExpressions;
 using System.Windows;
+using System.Windows.Media;
 
 using ImageMagick;
-using System.Diagnostics;
 
 namespace NetChamr
 {
@@ -57,7 +58,7 @@ namespace NetChamr
           //"exif:WinXP-Comment",
           "exif:WinXP-Comments",
         };
-        private static string[] tag_kywords = new string[] {
+        private static string[] tag_keywords = new string[] {
           "exif:WinXP-Keywords",
         };
         private static string[] tag_rating = new string[] {
@@ -72,6 +73,22 @@ namespace NetChamr
 #else
             Console.WriteLine(text);
 #endif
+        }
+
+        private static MagickColor XYZ2RGB(double x, double y, double z)
+        {
+            var r =  3.2410 * x + -1.5374 * y + -0.4986 * z;
+            var g = -0.9692 * x +  1.8760 * y +  0.0416 * z;
+            var b =  0.0556 * x + -0.2040 * y +  1.0570 * z;
+            if (r <= 0.00304) r = 12.92 * r;
+            else r = (1 + 0.055) * Math.Pow(r, 1 / 2.4) - 0.055;
+            if (g <= 0.00304) g = 12.92 * g;
+            else g = (1 + 0.055) * Math.Pow(g, 1 / 2.4) - 0.055;
+            if (b <= 0.00304) b = 12.92 * b;
+            else b = (1 + 0.055) * Math.Pow(b, 1 / 2.4) - 0.055;
+
+            Color c = Color.FromScRgb(1, (float)r, (float)g, (float)b);
+            return (MagickColor.FromRgba(c.R, c.G, c.B, c.A));
         }
 
         private static string BytesToUnicode(string text)
@@ -164,14 +181,14 @@ namespace NetChamr
             }
         }
 
-        public static void TouchMeta(string file, bool force = false)
+        public static void TouchMeta(string file, bool force = false, DateTime? dtc = null, DateTime? dtm = null, DateTime? dta = null, string title = null, string subject = null, string comment = null, string author = null, string copyright = null, string keywords = null)
         {
             if (File.Exists(file))
             {
                 var fi = new FileInfo(file);
-                var dc = fi.CreationTime;
-                var dm = fi.LastWriteTime;
-                var da = fi.LastAccessTime;
+                var dc = dtc ?? fi.CreationTime;
+                var dm = dtm ?? fi.LastWriteTime;
+                var da = dta ?? fi.LastAccessTime;
 
                 // 2021:09:13 11:00:16
                 var dc_exif = dc.ToString("yyyy:MM:dd HH:mm:ss");
@@ -204,7 +221,12 @@ namespace NetChamr
                 //Log($"MS   : {dm_ms}");
                 //Log($"misc : {dm_misc}");
 
-                var title = Path.GetFileNameWithoutExtension(fi.Name);
+                title = title ?? Path.GetFileNameWithoutExtension(fi.Name);
+                subject = subject ?? title;
+                author = author ?? string.Empty;
+                copyright = copyright ?? author;
+                keywords = keywords ?? string.Empty;
+                comment = comment ?? string.Empty;
 
                 using (MagickImage image = new MagickImage(fi.FullName))
                 {
@@ -214,6 +236,7 @@ namespace NetChamr
                     var exif = image.HasProfile("exif") ? image.GetExifProfile() : new ExifProfile();
                     var xmp = image.HasProfile("xmp") ? image.GetXmpProfile() : null;
 
+                    #region touch date
                     foreach (var tag in tag_date)
                     {
                         try
@@ -244,20 +267,22 @@ namespace NetChamr
                         }
                         catch (Exception ex) { Log(ex.Message); }
                     }
+                    #endregion
+                    #region touch title
                     foreach (var tag in tag_title)
                     {
                         try
                         {
-                            if (force || !image.AttributeNames.Contains(tag))
+                            if (force || (!image.AttributeNames.Contains(tag) && string.IsNullOrEmpty(title)))
                             {
                                 var value_old = tag.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(tag)) : image.GetAttribute(tag);
                                 if (tag.StartsWith("exif"))
                                 {
                                     if (tag.Contains("WinXP")) image.SetAttribute(tag, UnicodeToBytes(title));
-                                    else image.SetAttribute(tag, UnicodeToUtf8(title));
+                                    else image.SetAttribute(tag, title);
                                 }
-                                else if (tag.StartsWith("png")) image.SetAttribute(tag, UnicodeToUtf8(title));
-                                else if (tag.StartsWith("Microsoft")) image.SetAttribute(tag, UnicodeToUtf8(title));
+                                else if (tag.StartsWith("png")) image.SetAttribute(tag, title);
+                                else if (tag.StartsWith("Microsoft")) image.SetAttribute(tag, title);
                                 if (is_jpg)
                                 {
                                     if (tag.StartsWith("exif") && tag.Substring(5).Equals("WinXP-Title"))
@@ -268,77 +293,154 @@ namespace NetChamr
                         }
                         catch (Exception ex) { Log(ex.Message); }
                     }
+                    #endregion
+                    #region touch subject
                     foreach (var tag in tag_subject)
                     {
                         try
                         {
-                            if (force || !image.AttributeNames.Contains(tag))
+                            if (force || (!image.AttributeNames.Contains(tag) && string.IsNullOrEmpty(subject)))
                             {
                                 var value_old = tag.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(tag)) : image.GetAttribute(tag);
+                                var value_new = string.Empty;
                                 if (tag.StartsWith("exif"))
                                 {
-                                    if (tag.Contains("WinXP")) image.SetAttribute(tag, UnicodeToBytes(title));
-                                    else image.SetAttribute(tag, title);
+                                    if (tag.Contains("WinXP")) image.SetAttribute(tag, UnicodeToBytes(subject));
+                                    else image.SetAttribute(tag, subject);
                                 }
-                                else if (tag.StartsWith("png")) image.SetAttribute(tag, UnicodeToUtf8(title));
-                                else if (tag.StartsWith("Microsoft")) image.SetAttribute(tag, UnicodeToUtf8(title));
+                                else if (tag.StartsWith("png")) image.SetAttribute(tag, subject);
+                                else if (tag.StartsWith("Microsoft")) image.SetAttribute(tag, subject);
                                 if (is_jpg)
                                 {
                                     if (tag.StartsWith("exif") && tag.Substring(5).Equals("WinXP-Subject"))
-                                        exif.SetValue(ExifTag.XPSubject, Encoding.Unicode.GetBytes(title));
+                                    {
+                                        //value_new = 
+                                        exif.SetValue(ExifTag.XPSubject, Encoding.Unicode.GetBytes(subject));
+                                    }
                                 }
                                 Log($"{$"  {tag}".PadRight(32)}= {(value_old == null ? "NULL" : value_old)} => {(tag.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(tag)) : image.GetAttribute(tag))}");
                             }
                         }
                         catch (Exception ex) { Log(ex.Message); }
                     }
+                    #endregion
+                    #region touch author
+                    foreach (var tag in tag_artist)
+                    {
+                        try
+                        {
+                            if (force || (!image.AttributeNames.Contains(tag) && string.IsNullOrEmpty(author)))
+                            {
+                                var value_old = tag.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(tag)) : image.GetAttribute(tag);
+                                var value_new = string.Empty;
+                                if (tag.StartsWith("exif"))
+                                {
+                                    if (tag.Contains("WinXP")) image.SetAttribute(tag, UnicodeToBytes(author));
+                                    else image.SetAttribute(tag, author);
+                                }
+                                else if (tag.StartsWith("png")) image.SetAttribute(tag, author);
+                                else if (tag.StartsWith("Microsoft")) image.SetAttribute(tag, author);
+                                if (is_jpg)
+                                {
+                                    if (tag.StartsWith("exif") && tag.Substring(5).Equals("WinXP-Author"))
+                                    {
+                                        exif.SetValue(ExifTag.XPAuthor, Encoding.Unicode.GetBytes(author));
+                                    }
+                                }
+                                Log($"{$"  {tag}".PadRight(32)}= {(value_old == null ? "NULL" : value_old)} => {(tag.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(tag)) : image.GetAttribute(tag))}");
+                            }
+                        }
+                        catch (Exception ex) { Log(ex.Message); }
+                    }
+                    #endregion
+                    #region touch copywright
+                    foreach (var tag in tag_copyright)
+                    {
+                        try
+                        {
+                            if (force || (!image.AttributeNames.Contains(tag) && string.IsNullOrEmpty(copyright)))
+                            {
+                                var value_old = tag.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(tag)) : image.GetAttribute(tag);
+                                var value_new = string.Empty;
+                                if (tag.StartsWith("exif"))
+                                {
+                                    if (tag.Contains("WinXP")) image.SetAttribute(tag, UnicodeToBytes(copyright));
+                                    else image.SetAttribute(tag, copyright);
+                                }
+                                else if (tag.StartsWith("png")) image.SetAttribute(tag, copyright);
+                                else if (tag.StartsWith("Microsoft")) image.SetAttribute(tag, copyright);
+                                if (is_jpg)
+                                {
+                                    if (tag.StartsWith("exif") && tag.Substring(5).Equals("Copyright"))
+                                    {
+                                        exif.SetValue(ExifTag.Copyright, copyright);
+                                    }
+                                }
+                                Log($"{$"  {tag}".PadRight(32)}= {(value_old == null ? "NULL" : value_old)} => {(tag.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(tag)) : image.GetAttribute(tag))}");
+                            }
+                        }
+                        catch (Exception ex) { Log(ex.Message); }
+                    }
+                    #endregion
+                    #region touch comment
                     foreach (var tag in tag_comments)
                     {
                         try
                         {
-                            if (force || !image.AttributeNames.Contains(tag))
+                            if (force || (!image.AttributeNames.Contains(tag) && string.IsNullOrEmpty(comment)))
                             {
                                 var value_old = tag.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(tag)) : image.GetAttribute(tag);
                                 if (tag.StartsWith("exif"))
                                 {
-                                    if (tag.Contains("WinXP")) image.SetAttribute(tag, UnicodeToBytes(title));
-                                    else image.SetAttribute(tag, title);
+                                    if (tag.Contains("WinXP")) image.SetAttribute(tag, UnicodeToBytes(comment));
+                                    else image.SetAttribute(tag, comment);
                                 }
-                                else if (tag.StartsWith("png")) image.SetAttribute(tag, UnicodeToUtf8(title));
-                                else if (tag.StartsWith("Microsoft")) image.SetAttribute(tag, UnicodeToUtf8(title));
+                                else if (tag.StartsWith("png")) image.SetAttribute(tag, comment);
+                                else if (tag.StartsWith("Microsoft")) image.SetAttribute(tag, comment);
                                 if (is_jpg)
                                 {
                                     if (tag.StartsWith("exif") && tag.Substring(5).Equals("WinXP-Comment"))
-                                        exif.SetValue(ExifTag.XPComment, Encoding.Unicode.GetBytes(title));
+                                        exif.SetValue(ExifTag.XPComment, Encoding.Unicode.GetBytes(comment));
                                     else if (tag.StartsWith("exif") && tag.Substring(5).Equals("WinXP-Comments"))
-                                        exif.SetValue(ExifTag.XPComment, Encoding.Unicode.GetBytes(title));
+                                        exif.SetValue(ExifTag.XPComment, Encoding.Unicode.GetBytes(comment));
                                     else if (tag.StartsWith("exif") && tag.Substring(5).Equals("ImageDescription"))
-                                        exif.SetValue(ExifTag.ImageDescription, title);
+                                        exif.SetValue(ExifTag.ImageDescription, comment);
                                 }
                                 Log($"{$"  {tag}".PadRight(32)}= {(value_old == null ? "NULL" : value_old)} => {(tag.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(tag)) : image.GetAttribute(tag))}");
                             }
                         }
                         catch (Exception ex) { Log(ex.Message); }
                     }
-                    //foreach (var tag in tag_keywords)
-                    //{
-                    //    if (force || !image.AttributeNames.Contains(tag))
-                    //    {
-                    //        var value_old = tag.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(tag)) : image.GetAttribute(tag);
-                    //        if (tag.StartsWith("exif"))
-                    //        {
-                    //            if (tag.Contains("WinXP")) image.SetAttribute(tag, UnicodeToBytes(title));
-                    //            else image.SetAttribute(tag, title);
-                    //        }
-                    //        else if (tag.StartsWith("png")) image.SetAttribute(tag, title);
-                    //        else if (tag.StartsWith("Microsoft")) image.SetAttribute(tag, title);
-                    //        Log($"{$"  {tag}".PadRight(32)}= {value_old} => {(tag.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(tag)) : image.GetAttribute(tag))}");
-                    //    }
-                    //}
+                    #endregion
+                    #region touch keywords
+                    foreach (var tag in tag_keywords)
+                    {
+                        if (force || (!image.AttributeNames.Contains(tag) && string.IsNullOrEmpty(keywords)))
+                        {
+                            var value_old = tag.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(tag)) : image.GetAttribute(tag);
+                            if (tag.StartsWith("exif"))
+                            {
+                                if (tag.Contains("WinXP")) image.SetAttribute(tag, UnicodeToBytes(keywords));
+                                else image.SetAttribute(tag, keywords);
+                                if (tag.Substring(5).Equals("WinXP-Comment"))
+                                    exif.SetValue(ExifTag.XPComment, Encoding.Unicode.GetBytes(keywords));
+                            }
+                            else if (tag.StartsWith("png")) image.SetAttribute(tag, keywords);
+                            else if (tag.StartsWith("Microsoft")) image.SetAttribute(tag, keywords);
+                            if (is_jpg)
+                            {
+                                if (tag.StartsWith("exif") && tag.Substring(5).Equals("WinXP-Keywords"))
+                                    exif.SetValue(ExifTag.XPKeywords, Encoding.Unicode.GetBytes(keywords));
+                            }
+                            Log($"{$"  {tag}".PadRight(32)}= {value_old} => {(tag.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(tag)) : image.GetAttribute(tag))}");
+                        }
+                    }
+                    #endregion
 
                     Log($"{"  Profiles".PadRight(32)}= {string.Join(", ", image.ProfileNames)}");
 
                     if (exif != null) image.SetProfile(exif);
+                    #region touch xmp profile
                     if (xmp != null)
                     {
                         var xml = Encoding.UTF8.GetString(xmp.GetData());
@@ -372,6 +474,8 @@ namespace NetChamr
                         xmp = new XmpProfile(Encoding.UTF8.GetBytes(xml));
                         image.SetProfile(xmp);
                     }
+                    #endregion
+
                     image.Write(fi.FullName);
 
                     fi.CreationTime = dc;
@@ -475,9 +579,26 @@ namespace NetChamr
                                     else if (attr.Equals("exif:XPTitle")) value = UNICODE.GetString(exif.GetValue(ExifTag.XPTitle).Value);
                                     else if (attr.Equals("exif:XPSubject")) value = UNICODE.GetString(exif.GetValue(ExifTag.XPSubject).Value);
                                 }
-                                if (value.Length > 64) value = $"{value.Substring(0, 64)} ...";
-                                var text = $"  {attr.PadRight(32, ' ')}= { value }";
-                                Log(text);
+                                else if (attr.Equals("png:bKGD")) value = image.BackgroundColor.ToString();
+                                else if (attr.Equals("png:cHRM"))
+                                {
+                                    var cr = XYZ2RGB(image.ChromaRedPrimary.X, image.ChromaRedPrimary.Y, image.ChromaRedPrimary.Z);
+                                    var cg = XYZ2RGB(image.ChromaGreenPrimary.X, image.ChromaGreenPrimary.Y, image.ChromaGreenPrimary.Z);
+                                    var cb = XYZ2RGB(image.ChromaBluePrimary.X, image.ChromaBluePrimary.Y, image.ChromaBluePrimary.Z);
+
+                                    var r = $"[{image.ChromaRedPrimary.X:F2},{image.ChromaRedPrimary.Y:F2},{image.ChromaRedPrimary.Z:F2}]";
+                                    var g = $"[{image.ChromaGreenPrimary.X:F2},{image.ChromaGreenPrimary.Y:F2},{image.ChromaGreenPrimary.Z:F2}]";
+                                    var b = $"[{image.ChromaBluePrimary.X:F2},{image.ChromaBluePrimary.Y:F2},{image.ChromaBluePrimary.Z:F2}]";
+                                    //value = $"R: {r}{Environment.NewLine}{" ".PadRight(36)}G: {g}{Environment.NewLine}{" ".PadRight(36)}B: {b}";
+                                    value = $"R:{cr.ToString()}, G:{cg.ToString()}, B:{cb.ToString()}{Environment.NewLine}XYZ-R: {r}{Environment.NewLine}XYZ-G: {g}{Environment.NewLine}XYZ-B: {b}";
+                                }
+                                var values = value.Split(new string[] { Environment.NewLine }, StringSplitOptions.RemoveEmptyEntries);
+                                foreach (var v in values)
+                                {
+                                    if (v.Length > 64) value = $"{v.Substring(0, 64)} ...";
+                                    var text = v.Equals(values.First()) ? $"  {attr.PadRight(32)}= { v }" : $"  {" ".PadRight(34)}{ v }";
+                                    Log(text);
+                                }
                                 //tip.Add(text);
                             }
                             catch (Exception ex) { MessageBox.Show($"{attr} : {ex.Message}"); }
@@ -507,7 +628,7 @@ namespace NetChamr
                         if (xmp != null)
                         {
                             var xml = Encoding.UTF8.GetString(xmp.GetData());
-                            Log(xml);
+                            Log($"  {"XMP XML Contents".PadRight(32)}= {xml}");
                         }
                     }
                 }
