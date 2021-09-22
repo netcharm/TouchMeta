@@ -210,12 +210,12 @@ namespace NetChamr
                 var copyright = meta is MetaInfo ? meta.Copyright : author;
                 var keywords = meta is MetaInfo ? meta.Keywords : string.Empty;
                 var comment = meta is MetaInfo ? meta.Comment : string.Empty;
-                title.Replace("\0", string.Empty).TrimEnd('\0');
-                subject.Replace("\0", string.Empty).TrimEnd('\0');
-                author.Replace("\0", string.Empty).TrimEnd('\0');
-                copyright.Replace("\0", string.Empty).TrimEnd('\0');
-                keywords.Replace("\0", string.Empty).TrimEnd('\0');
-                comment.Replace("\0", string.Empty).TrimEnd('\0');
+                if (!string.IsNullOrEmpty(title)) title.Replace("\0", string.Empty).TrimEnd('\0');
+                if (!string.IsNullOrEmpty(subject)) subject.Replace("\0", string.Empty).TrimEnd('\0');
+                if (!string.IsNullOrEmpty(author)) author.Replace("\0", string.Empty).TrimEnd('\0');
+                if (!string.IsNullOrEmpty(copyright)) copyright.Replace("\0", string.Empty).TrimEnd('\0');
+                if (!string.IsNullOrEmpty(keywords)) keywords.Replace("\0", string.Empty).TrimEnd('\0');
+                if (!string.IsNullOrEmpty(comment)) comment.Replace("\0", string.Empty).TrimEnd('\0');
 
                 using (MagickImage image = new MagickImage(fi.FullName))
                 {

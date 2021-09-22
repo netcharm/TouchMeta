@@ -252,12 +252,12 @@ namespace TouchMeta
                 var copyright = meta is MetaInfo ? meta.Copyright : author;
                 var keywords = meta is MetaInfo ? meta.Keywords : string.Empty;
                 var comment = meta is MetaInfo ? meta.Comment : string.Empty;
-                title.Replace("\0", string.Empty).TrimEnd('\0');
-                subject.Replace("\0", string.Empty).TrimEnd('\0');
-                author.Replace("\0", string.Empty).TrimEnd('\0');
-                copyright.Replace("\0", string.Empty).TrimEnd('\0');
-                keywords.Replace("\0", string.Empty).TrimEnd('\0');
-                comment.Replace("\0", string.Empty).TrimEnd('\0');
+                if (!string.IsNullOrEmpty(title)) title.Replace("\0", string.Empty).TrimEnd('\0');
+                if (!string.IsNullOrEmpty(subject)) subject.Replace("\0", string.Empty).TrimEnd('\0');
+                if (!string.IsNullOrEmpty(author)) author.Replace("\0", string.Empty).TrimEnd('\0');
+                if (!string.IsNullOrEmpty(copyright)) copyright.Replace("\0", string.Empty).TrimEnd('\0');
+                if (!string.IsNullOrEmpty(keywords)) keywords.Replace("\0", string.Empty).TrimEnd('\0');
+                if (!string.IsNullOrEmpty(comment)) comment.Replace("\0", string.Empty).TrimEnd('\0');
 
                 using (MagickImage image = new MagickImage(fi.FullName))
                 {
@@ -939,7 +939,7 @@ namespace TouchMeta
                 var dc = fi.CreationTime;
                 var dm = fi.LastWriteTime;
                 var da = fi.LastAccessTime;
-                using (var ms = new FileStream(fi.FullName, FileMode.Open, FileAccess.Read, FileShare.Read))
+                using (var ms = new FileStream(fi.FullName, FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite))
                 {
                     try
                     {
@@ -948,16 +948,24 @@ namespace TouchMeta
                             var fmt_info = MagickNET.SupportedFormats.Where(f => f.Format == fmt).FirstOrDefault();
                             var ext = fmt_info is MagickFormatInfo ? fmt_info.Format.ToString() : fmt.ToString();
                             var name = Path.ChangeExtension(fi.FullName, $".{ext.ToLower()}");
+                            if (image.Density is Density)
+                            {
+                                var unit = image.Density.ChangeUnits(DensityUnit.PixelsPerInch);
+                                var density = new Density(Math.Round(unit.X), Math.Round(unit.Y), DensityUnit.PixelsPerInch);
+                                image.Density = density;
+                            }
+                            else image.Density = new Density(72, 72, DensityUnit.PixelsPerInch);
+
                             image.Write(name, fmt);
                             var nfi = new FileInfo(name);
                             nfi.CreationTime = dc;
                             nfi.LastWriteTime = dm;
                             nfi.LastAccessTime = da;
-                            result = name;
                             var meta = GetMetaInfo(image);
                             Log($"  Convert {file} => {name}");
                             Log("~".PadRight(75, '~'));
                             TouchMeta(name, dtc: dc, dtm: dm, dta: da, meta: meta);
+                            result = name;
                         }
                     }
                     catch (Exception ex) { ShowMessage(ex.Message); }
@@ -1197,7 +1205,7 @@ namespace TouchMeta
                             Log($"  {file}");
                             Log("-".PadRight(75, '-'));
                             var ret = ConvertImageTo(file, MagickFormat.Jpg);
-                            if (!string.IsNullOrEmpty(ret) && File.Exists(ret)) FilesList.Items.Add(ret);
+                            if (!string.IsNullOrEmpty(ret) && files.IndexOf(ret) < 0 && File.Exists(ret)) FilesList.Items.Add(ret);
                             Log("=".PadRight(75, '='));
                         }
                         ShowLog();
@@ -1218,7 +1226,7 @@ namespace TouchMeta
                             Log($"  {file}");
                             Log("-".PadRight(75, '-'));
                             var ret = ConvertImageTo(file, MagickFormat.Png);
-                            if (!string.IsNullOrEmpty(ret) && File.Exists(ret)) FilesList.Items.Add(ret);
+                            if (!string.IsNullOrEmpty(ret) && files.IndexOf(ret) < 0 && File.Exists(ret)) FilesList.Items.Add(ret);
                             Log("=".PadRight(75, '='));
                         }
                         ShowLog();
@@ -1239,7 +1247,7 @@ namespace TouchMeta
                             Log($"  {file}");
                             Log("-".PadRight(75, '-'));
                             var ret = ConvertImageTo(file, MagickFormat.Gif);
-                            if (!string.IsNullOrEmpty(ret) && File.Exists(ret)) FilesList.Items.Add(ret);
+                            if (!string.IsNullOrEmpty(ret) && files.IndexOf(ret) < 0 && File.Exists(ret)) FilesList.Items.Add(ret);
                             Log("=".PadRight(75, '='));
                         }
                         ShowLog();
@@ -1260,7 +1268,7 @@ namespace TouchMeta
                             Log($"  {file}");
                             Log("-".PadRight(75, '-'));
                             var ret = ConvertImageTo(file, MagickFormat.WebP);
-                            if (!string.IsNullOrEmpty(ret) && File.Exists(ret)) FilesList.Items.Add(ret);
+                            if (!string.IsNullOrEmpty(ret) && files.IndexOf(ret) < 0 && File.Exists(ret)) FilesList.Items.Add(ret);
                             Log("=".PadRight(75, '='));
                         }
                         ShowLog();
