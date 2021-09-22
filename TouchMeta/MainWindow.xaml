@@ -16,9 +16,11 @@
             <RowDefinition Height="auto"/>
             <RowDefinition Height="auto"/>
             <RowDefinition Height="*"/>
+            <RowDefinition Height="auto"/>
+            <RowDefinition Height="auto"/>
         </Grid.RowDefinitions>
 
-        <Grid Grid.Row="0" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="4">
+        <Grid Grid.Row="0" Margin="2" HorizontalAlignment="Stretch" VerticalAlignment="Top">
             <Grid.RowDefinitions>
                 <RowDefinition Height="auto"/>
                 <RowDefinition Height="auto"/>
@@ -26,7 +28,7 @@
             </Grid.RowDefinitions>
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="auto"/>
-                <ColumnDefinition Width="auto"/>
+                <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="auto"/>
                 <ColumnDefinition Width="auto"/>
                 <ColumnDefinition Width="auto"/>
@@ -57,13 +59,13 @@
             <CheckBox Grid.Row="2" Grid.Column="5" x:Name="SetAccessedTimeToAllEnabled" x:Uid="SetAccessedTimeToAllEnabled" Margin="4" Width="16" HorizontalAlignment="Center" VerticalAlignment="Center" IsTabStop="False"/>
         </Grid>
 
-        <Grid Grid.Row="1" Margin="4" HorizontalAlignment="Center" VerticalAlignment="Center">
+        <Grid Grid.Row="1" Margin="0" HorizontalAlignment="Stretch" VerticalAlignment="Center">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="auto"/>
-                <ColumnDefinition Width="auto"/>
-                <ColumnDefinition Width="auto"/>
-                <ColumnDefinition Width="auto"/>
-                <ColumnDefinition Width="auto"/>
+                <ColumnDefinition Width=".2*"/>
+                <ColumnDefinition Width=".2*"/>
+                <ColumnDefinition Width=".2*"/>
+                <ColumnDefinition Width=".2*"/>
+                <ColumnDefinition Width=".2*"/>
             </Grid.ColumnDefinitions>
             <Button Grid.Column="0" x:Name="BtnTouchTime" x:Uid="TouchTime" Content="Touch Time" Width="88" Margin="4" Click="BtnAction_Click"/>
             <Button Grid.Column="1" x:Name="BtnTouchMeta" x:Uid="TouchMeta" Content="Touch Meta" Width="88" Margin="4" Click="BtnAction_Click"/>
@@ -72,30 +74,55 @@
             <Button Grid.Column="4" x:Name="BtnOpenFile" x:Uid="OpenFile" Content="Open Files" Width="88" Margin="4" Click="BtnAction_Click"/>
         </Grid>
 
-        <Grid Grid.Row="2" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Margin="4">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="*"/>
-                <RowDefinition Height="auto"/>
-                <RowDefinition Height="auto"/>
-            </Grid.RowDefinitions>
-            <ListBox Grid.Row="0" x:Name="FilesList" x:Uid="FilesList" Margin="4" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" IsTabStop="True" SelectionMode="Extended" SelectionChanged="FilesList_SelectionChanged">
-                <ListBox.ContextMenu>
-                    <ContextMenu>
-                        <MenuItem x:Name="GetFileTimeFromSelected" x:Uid="GetFileTimeFromSelected" Header="Get File Time From Selected File" Click="FilesListAction_Click"/>
-                        <MenuItem x:Name="GetMetaTimeFromSelected" x:Uid="GetMetaTimeFromSelected" Header="Get Meta Time From Selected File" Click="FilesListAction_Click"/>
-                        <Separator/>
-                        <MenuItem x:Name="RemoveSelected" x:Uid="RemoveSelected" Header="Remove Selected File" Click="FilesListAction_Click"/>
-                        <MenuItem x:Name="RemoveAll" x:Uid="RemoveAll" Header="Remove All File" Click="FilesListAction_Click"/>
-                    </ContextMenu>
-                </ListBox.ContextMenu>
-            </ListBox>
-            <TextBlock Grid.Row="1" x:Name="FileTimeInfo" x:Uid="FileTimeInfo" Height="64" Margin="4" HorizontalAlignment="Stretch" VerticalAlignment="Center"/>
-            <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Stretch" Margin="4" VerticalAlignment="Center" Height="32">
-                <TextBlock x:Name="FileTimeImportLabel" x:Uid="FileTimeImportLabel" Text="Formated Date Time :" Margin="4" HorizontalAlignment="Left" VerticalAlignment="Center"/>
-                <TextBox x:Name="FileTimeImportText" x:Uid="FileTimeImportText" Margin="4" Width="262" HorizontalAlignment="Right" VerticalAlignment="Center" TextAlignment="Center"/>
-                <Button x:Name="FileTimeImport" x:Uid="FileTimeImport" Content="Import" Width="56" Margin="4" HorizontalAlignment="Right" VerticalAlignment="Center" Click="BtnAction_Click"/>
-            </StackPanel>
+        <ListBox Grid.Row="2" x:Name="FilesList" x:Uid="FilesList" Margin="6" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" IsTabStop="True" SelectionMode="Extended" SelectionChanged="FilesList_SelectionChanged">
+            <ListBox.ContextMenu>
+                <ContextMenu>
+                    <MenuItem x:Name="GetFileTimeFromSelected" x:Uid="GetFileTimeFromSelected" Header="Get File Time From Selected File" Click="FilesListAction_Click"/>
+                    <MenuItem x:Name="GetMetaTimeFromSelected" x:Uid="GetMetaTimeFromSelected" Header="Get Meta Time From Selected File" Click="FilesListAction_Click"/>
+                    <Separator/>
+                    <MenuItem x:Name="RemoveSelected" x:Uid="RemoveSelected" Header="Remove Selected File" Click="FilesListAction_Click"/>
+                    <MenuItem x:Name="RemoveAll" x:Uid="RemoveAll" Header="Remove All File" Click="FilesListAction_Click"/>
+                </ContextMenu>
+            </ListBox.ContextMenu>
+        </ListBox>
 
+        <TextBlock Grid.Row="3" x:Name="FileTimeInfo" x:Uid="FileTimeInfo" Height="56" Margin="6" HorizontalAlignment="Stretch" VerticalAlignment="Center"/>
+
+        <Grid Grid.Row="4" Margin="2" HorizontalAlignment="Stretch" VerticalAlignment="Bottom">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="auto"/>
+                <ColumnDefinition Width="auto"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="auto"/>
+            </Grid.ColumnDefinitions>
+            <Button Grid.Column="0" x:Name="ShowMetaInputPopup" x:Uid="ShowMetaInputPopup" Content="Meta" Width="56" Margin="4" HorizontalAlignment="Left" VerticalAlignment="Center" Click="BtnAction_Click"/>
+            <TextBlock Grid.Column="1" x:Name="FileTimeImportLabel" x:Uid="FileTimeImportLabel" Text="Date Time :" Margin="4" HorizontalAlignment="Left" VerticalAlignment="Center"/>
+            <TextBox Grid.Column="2" x:Name="FileTimeImportText" x:Uid="FileTimeImportText" Margin="4" HorizontalAlignment="Stretch" VerticalAlignment="Center" TextAlignment="Center"/>
+            <Button Grid.Column="3" x:Name="FileTimeImport" x:Uid="FileTimeImport" Content="Import" Width="56" Margin="4" HorizontalAlignment="Right" VerticalAlignment="Center" Click="BtnAction_Click"/>
         </Grid>
+
+        <Popup x:Name="MetaInputPopup" AllowsTransparency="True" PlacementTarget="{Binding ElementName=ShowMetaInputPopup}" 
+               UseLayoutRounding="True" StaysOpen="False" >
+            <Grid x:Name="MetaInputPopupCanvas" Opacity="0.90">
+                <Grid.RowDefinitions>
+                    
+                </Grid.RowDefinitions>
+                <Border x:Name="MetaInputPopupBorder" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" />
+                <StackPanel Orientation="Vertical" Margin="4" VerticalAlignment="Stretch" HorizontalAlignment="Stretch">
+                    <TextBlock x:Name="MetaInputTitleLabel" x:Uid="MetaInputTitleLabel" Text="Title:" Margin="2" />
+                    <TextBox x:Name="MetaInputTitleText" x:Uid="MetaInputTitleText" Margin="2" />
+                    <TextBlock x:Name="MetaInputSubjectLabel" x:Uid="MetaInputSubjectLabel" Text="Subject:" Margin="2" />
+                    <TextBox x:Name="MetaInputSubjectText" x:Uid="MetaInputSubjectText" Margin="2" />
+                    <TextBlock x:Name="MetaInputKeywordsLabel" x:Uid="MetaInputKeywordsLabel" Text="Keywords:" Margin="2" />
+                    <TextBox x:Name="MetaInputKeywordsText" x:Uid="MetaInputKeywordsText" Margin="2" />
+                    <TextBlock x:Name="MetaInputCommentLabel" x:Uid="MetaInputCommentLabel" Text="Comment:" Margin="2" />
+                    <TextBox x:Name="MetaInputCommentText" x:Uid="MetaInputCommentText" Margin="2" Height="72" TextWrapping="Wrap" VerticalAlignment="Stretch" AcceptsTab="True" AcceptsReturn="True" ScrollViewer.VerticalScrollBarVisibility="Auto" />
+                    <TextBlock x:Name="MetaInputAuthorLabel" x:Uid="MetaInputAuthorLabel" Text="Author:" Margin="2" />
+                    <TextBox x:Name="MetaInputAuthorText" x:Uid="MetaInputAuthorText" Margin="2" />
+                    <TextBlock x:Name="MetaInputCopyrightLabel" x:Uid="MetaInputCopyrightLabel" Text="Copywright:" Margin="2" />
+                    <TextBox x:Name="MetaInputCopyrightText" x:Uid="MetaInputCopyrightText" Margin="2" />
+                </StackPanel>
+            </Grid>
+        </Popup>
     </Grid>
 </Window>

@@ -10,6 +10,7 @@ using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Data;
 using System.Windows.Documents;
 using System.Windows.Input;
@@ -68,7 +69,7 @@ namespace TouchMeta
           //"exif:WinXP-Comment",
           "exif:WinXP-Comments",
         };
-        private static string[] tag_kywords = new string[] {
+        private static string[] tag_keywords = new string[] {
           "exif:WinXP-Keywords",
         };
         private static string[] tag_rating = new string[] {
@@ -222,7 +223,7 @@ namespace TouchMeta
             }
         }
 
-        public static void TouchMeta(string file, bool force = false, DateTime? dtc = null, DateTime? dtm = null, DateTime? dta = null)
+        public static void TouchMeta(string file, bool force = false, DateTime? dtc = null, DateTime? dtm = null, DateTime? dta = null, string title = null, string subject = null, string comment = null, string author = null, string copyright = null, string keywords = null)
         {
             if (File.Exists(file))
             {
@@ -262,7 +263,12 @@ namespace TouchMeta
                 //Log($"MS   : {dm_ms}");
                 //Log($"misc : {dm_misc}");
 
-                var title = Path.GetFileNameWithoutExtension(fi.Name);
+                title = title ?? Path.GetFileNameWithoutExtension(fi.Name);
+                subject = subject ?? title;
+                author = author ?? string.Empty;
+                copyright = copyright ?? author;
+                keywords = keywords ?? string.Empty;
+                comment = comment ?? string.Empty;
 
                 using (MagickImage image = new MagickImage(fi.FullName))
                 {
@@ -272,6 +278,7 @@ namespace TouchMeta
                     var exif = image.HasProfile("exif") ? image.GetExifProfile() : new ExifProfile();
                     var xmp = image.HasProfile("xmp") ? image.GetXmpProfile() : null;
 
+                    #region touch date
                     foreach (var tag in tag_date)
                     {
                         try
@@ -302,11 +309,13 @@ namespace TouchMeta
                         }
                         catch (Exception ex) { Log(ex.Message); }
                     }
+                    #endregion
+                    #region touch title
                     foreach (var tag in tag_title)
                     {
                         try
                         {
-                            if (force || !image.AttributeNames.Contains(tag))
+                            if (force || (!image.AttributeNames.Contains(tag) && string.IsNullOrEmpty(title)))
                             {
                                 var value_old = tag.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(tag)) : image.GetAttribute(tag);
                                 if (tag.StartsWith("exif"))
@@ -326,77 +335,154 @@ namespace TouchMeta
                         }
                         catch (Exception ex) { Log(ex.Message); }
                     }
+                    #endregion
+                    #region touch subject
                     foreach (var tag in tag_subject)
                     {
                         try
                         {
-                            if (force || !image.AttributeNames.Contains(tag))
+                            if (force || (!image.AttributeNames.Contains(tag) && string.IsNullOrEmpty(subject)))
                             {
                                 var value_old = tag.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(tag)) : image.GetAttribute(tag);
+                                var value_new = string.Empty;
                                 if (tag.StartsWith("exif"))
                                 {
-                                    if (tag.Contains("WinXP")) image.SetAttribute(tag, UnicodeToBytes(title));
-                                    else image.SetAttribute(tag, title);
+                                    if (tag.Contains("WinXP")) image.SetAttribute(tag, UnicodeToBytes(subject));
+                                    else image.SetAttribute(tag, subject);
                                 }
-                                else if (tag.StartsWith("png")) image.SetAttribute(tag, title);
-                                else if (tag.StartsWith("Microsoft")) image.SetAttribute(tag, title);
+                                else if (tag.StartsWith("png")) image.SetAttribute(tag, subject);
+                                else if (tag.StartsWith("Microsoft")) image.SetAttribute(tag, subject);
                                 if (is_jpg)
                                 {
                                     if (tag.StartsWith("exif") && tag.Substring(5).Equals("WinXP-Subject"))
-                                        exif.SetValue(ExifTag.XPSubject, Encoding.Unicode.GetBytes(title));
+                                    {
+                                        //value_new = 
+                                        exif.SetValue(ExifTag.XPSubject, Encoding.Unicode.GetBytes(subject));
+                                    }
                                 }
                                 Log($"{$"  {tag}".PadRight(32)}= {(value_old == null ? "NULL" : value_old)} => {(tag.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(tag)) : image.GetAttribute(tag))}");
                             }
                         }
                         catch (Exception ex) { Log(ex.Message); }
                     }
+                    #endregion
+                    #region touch author
+                    foreach (var tag in tag_artist)
+                    {
+                        try
+                        {
+                            if (force || (!image.AttributeNames.Contains(tag) && string.IsNullOrEmpty(author)))
+                            {
+                                var value_old = tag.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(tag)) : image.GetAttribute(tag);
+                                var value_new = string.Empty;
+                                if (tag.StartsWith("exif"))
+                                {
+                                    if (tag.Contains("WinXP")) image.SetAttribute(tag, UnicodeToBytes(author));
+                                    else image.SetAttribute(tag, author);
+                                }
+                                else if (tag.StartsWith("png")) image.SetAttribute(tag, author);
+                                else if (tag.StartsWith("Microsoft")) image.SetAttribute(tag, author);
+                                if (is_jpg)
+                                {
+                                    if (tag.StartsWith("exif") && tag.Substring(5).Equals("WinXP-Author"))
+                                    {
+                                        exif.SetValue(ExifTag.XPAuthor, Encoding.Unicode.GetBytes(author));
+                                    }
+                                }
+                                Log($"{$"  {tag}".PadRight(32)}= {(value_old == null ? "NULL" : value_old)} => {(tag.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(tag)) : image.GetAttribute(tag))}");
+                            }
+                        }
+                        catch (Exception ex) { Log(ex.Message); }
+                    }
+                    #endregion
+                    #region touch copywright
+                    foreach (var tag in tag_copyright)
+                    {
+                        try
+                        {
+                            if (force || (!image.AttributeNames.Contains(tag) && string.IsNullOrEmpty(copyright)))
+                            {
+                                var value_old = tag.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(tag)) : image.GetAttribute(tag);
+                                var value_new = string.Empty;
+                                if (tag.StartsWith("exif"))
+                                {
+                                    if (tag.Contains("WinXP")) image.SetAttribute(tag, UnicodeToBytes(copyright));
+                                    else image.SetAttribute(tag, copyright);
+                                }
+                                else if (tag.StartsWith("png")) image.SetAttribute(tag, copyright);
+                                else if (tag.StartsWith("Microsoft")) image.SetAttribute(tag, copyright);
+                                if (is_jpg)
+                                {
+                                    if (tag.StartsWith("exif") && tag.Substring(5).Equals("Copyright"))
+                                    {
+                                        exif.SetValue(ExifTag.Copyright, copyright);
+                                    }
+                                }
+                                Log($"{$"  {tag}".PadRight(32)}= {(value_old == null ? "NULL" : value_old)} => {(tag.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(tag)) : image.GetAttribute(tag))}");
+                            }
+                        }
+                        catch (Exception ex) { Log(ex.Message); }
+                    }
+                    #endregion
+                    #region touch comment
                     foreach (var tag in tag_comments)
                     {
                         try
                         {
-                            if (force || !image.AttributeNames.Contains(tag))
+                            if (force || (!image.AttributeNames.Contains(tag) && string.IsNullOrEmpty(comment)))
                             {
                                 var value_old = tag.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(tag)) : image.GetAttribute(tag);
                                 if (tag.StartsWith("exif"))
                                 {
-                                    if (tag.Contains("WinXP")) image.SetAttribute(tag, UnicodeToBytes(title));
-                                    else image.SetAttribute(tag, title);
+                                    if (tag.Contains("WinXP")) image.SetAttribute(tag, UnicodeToBytes(comment));
+                                    else image.SetAttribute(tag, comment);
                                 }
-                                else if (tag.StartsWith("png")) image.SetAttribute(tag, title);
-                                else if (tag.StartsWith("Microsoft")) image.SetAttribute(tag, title);
+                                else if (tag.StartsWith("png")) image.SetAttribute(tag, comment);
+                                else if (tag.StartsWith("Microsoft")) image.SetAttribute(tag, comment);
                                 if (is_jpg)
                                 {
                                     if (tag.StartsWith("exif") && tag.Substring(5).Equals("WinXP-Comment"))
-                                        exif.SetValue(ExifTag.XPComment, Encoding.Unicode.GetBytes(title));
+                                        exif.SetValue(ExifTag.XPComment, Encoding.Unicode.GetBytes(comment));
                                     else if (tag.StartsWith("exif") && tag.Substring(5).Equals("WinXP-Comments"))
-                                        exif.SetValue(ExifTag.XPComment, Encoding.Unicode.GetBytes(title));
+                                        exif.SetValue(ExifTag.XPComment, Encoding.Unicode.GetBytes(comment));
                                     else if (tag.StartsWith("exif") && tag.Substring(5).Equals("ImageDescription"))
-                                        exif.SetValue(ExifTag.ImageDescription, title);
+                                        exif.SetValue(ExifTag.ImageDescription, comment);
                                 }
                                 Log($"{$"  {tag}".PadRight(32)}= {(value_old == null ? "NULL" : value_old)} => {(tag.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(tag)) : image.GetAttribute(tag))}");
                             }
                         }
                         catch (Exception ex) { Log(ex.Message); }
                     }
-                    //foreach (var tag in tag_keywords)
-                    //{
-                    //    if (force || !image.AttributeNames.Contains(tag))
-                    //    {
-                    //        var value_old = tag.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(tag)) : image.GetAttribute(tag);
-                    //        if (tag.StartsWith("exif"))
-                    //        {
-                    //            if (tag.Contains("WinXP")) image.SetAttribute(tag, UnicodeToBytes(title));
-                    //            else image.SetAttribute(tag, title);
-                    //        }
-                    //        else if (tag.StartsWith("png")) image.SetAttribute(tag, title);
-                    //        else if (tag.StartsWith("Microsoft")) image.SetAttribute(tag, title);
-                    //        Log($"{$"  {tag}".PadRight(32)}= {value_old} => {(tag.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(tag)) : image.GetAttribute(tag))}");
-                    //    }
-                    //}
+                    #endregion
+                    #region touch keywords
+                    foreach (var tag in tag_keywords)
+                    {
+                        if (force || (!image.AttributeNames.Contains(tag) && string.IsNullOrEmpty(keywords)))
+                        {
+                            var value_old = tag.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(tag)) : image.GetAttribute(tag);
+                            if (tag.StartsWith("exif"))
+                            {
+                                if (tag.Contains("WinXP")) image.SetAttribute(tag, UnicodeToBytes(keywords));
+                                else image.SetAttribute(tag, keywords);
+                                if (tag.Substring(5).Equals("WinXP-Comment"))
+                                    exif.SetValue(ExifTag.XPComment, Encoding.Unicode.GetBytes(keywords));
+                            }
+                            else if (tag.StartsWith("png")) image.SetAttribute(tag, keywords);
+                            else if (tag.StartsWith("Microsoft")) image.SetAttribute(tag, keywords);
+                            if (is_jpg)
+                            {
+                                if (tag.StartsWith("exif") && tag.Substring(5).Equals("WinXP-Keywords"))
+                                    exif.SetValue(ExifTag.XPKeywords, Encoding.Unicode.GetBytes(keywords));
+                            }
+                            Log($"{$"  {tag}".PadRight(32)}= {value_old} => {(tag.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(tag)) : image.GetAttribute(tag))}");
+                        }
+                    }
+                    #endregion
 
                     Log($"{"  Profiles".PadRight(32)}= {string.Join(", ", image.ProfileNames)}");
 
                     if (exif != null) image.SetProfile(exif);
+                    #region touch xmp profile
                     if (xmp != null)
                     {
                         var xml = Encoding.UTF8.GetString(xmp.GetData());
@@ -430,6 +516,8 @@ namespace TouchMeta
                         xmp = new XmpProfile(Encoding.UTF8.GetBytes(xml));
                         image.SetProfile(xmp);
                     }
+                    #endregion
+
                     image.Write(fi.FullName);
 
                     fi.CreationTime = dc;
@@ -550,7 +638,7 @@ namespace TouchMeta
                                 foreach (var v in values)
                                 {
                                     if (v.Length > 64) value = $"{v.Substring(0, 64)} ...";
-                                    var text = $"  {attr.PadRight(32, ' ')}= { v }";
+                                    var text = v.Equals(values.First()) ? $"  {attr.PadRight(32)}= { v }" : $"  {" ".PadRight(34)}{ v }";
                                     Log(text);
                                 }
                                 //tip.Add(text);
@@ -735,6 +823,16 @@ namespace TouchMeta
             SetCreatedTimeToAllEnabled.IsChecked = true;
             SetModifiedTimeToAllEnabled.IsChecked = true;
             SetAccessedTimeToAllEnabled.IsChecked = true;
+
+            MetaInputPopupCanvas.Background = Background;
+            MetaInputPopupBorder.BorderBrush = FilesList.BorderBrush;
+            MetaInputPopupBorder.BorderThickness = FilesList.BorderThickness;
+            MetaInputPopup.Width = Width - 28;
+            MetaInputPopup.Height = 336;
+
+            MetaInputPopup.Placement = PlacementMode.Bottom;
+            MetaInputPopup.HorizontalOffset = MetaInputPopup.Width - ShowMetaInputPopup.ActualWidth;
+            MetaInputPopup.VerticalOffset = -6;
             #endregion
 
             var args = Environment.GetCommandLineArgs();
@@ -902,6 +1000,10 @@ namespace TouchMeta
                 TimeCreated.Value = DateAccessed.SelectedDate;
                 TimeModified.Value = DateAccessed.SelectedDate;
             }
+            else if (sender == ShowMetaInputPopup)
+            {
+                MetaInputPopup.IsOpen = true;
+            }
             else if (sender == FileTimeImport)
             {
                 var dt = DateTime.Now;
@@ -950,12 +1052,24 @@ namespace TouchMeta
                         var dtc = DateCreated.SelectedDate;
                         var dtm = DateModified.SelectedDate;
                         var dta = DateAccessed.SelectedDate;
+                        var title = MetaInputAuthorText.Text;
+                        var subject = MetaInputSubjectText.Text;
+                        var comment = MetaInputCommentText.Text;
+                        var keyword = MetaInputKeywordsText.Text;
+                        var author = MetaInputAuthorText.Text;
+                        var copyright = MetaInputCopyrightText.Text;
+
                         foreach (var item in FilesList.SelectedItems) files.Add(item as string);
                         foreach (var file in files)
                         {
                             Log($"  {file}");
                             Log("-".PadRight(75, '-'));
-                            TouchMeta(file, force: force, dtc: dtc, dtm: dtm, dta: dta);
+                            TouchMeta(file, force: force,
+                                dtc: dtc, dtm: dtm, dta: dta,
+                                title: title, subject: subject,
+                                comment: comment,
+                                keywords: keyword,
+                                author: author, copyright: copyright);
                             Log("=".PadRight(75, '='));
                         }
                         ShowLog();
