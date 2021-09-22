@@ -71,13 +71,13 @@ namespace TouchMeta
           "exif:Copyright",
         };
         private static string[] tag_title = new string[] {
+          "exif:ImageDescription",
           "exif:WinXP-Title",
         };
         private static string[] tag_subject = new string[] {
           "exif:WinXP-Subject",
         };
         private static string[] tag_comments = new string[] {
-          "exif:ImageDescription",
           //"exif:WinXP-Comment",
           "exif:WinXP-Comments",
         };
@@ -124,9 +124,14 @@ namespace TouchMeta
                 dlg.Caption = "Metadata Info";
                 dlg.MaxWidth = 640;
                 dlg.MaxHeight = 480;
+                dlg.MouseDoubleClick += (o, e) => { Clipboard.SetText(dlg.Text); };
                 dlg.ShowDialog();
-                //Xceed.Wpf.Toolkit.MessageBox.Show(contents);
             }));
+        }
+
+        private static void ShowMessage(string text)
+        {
+            Xceed.Wpf.Toolkit.MessageBox.Show(Application.Current.MainWindow, text);
         }
 
         private static MagickColor XYZ2RGB(double x, double y, double z)
@@ -354,6 +359,8 @@ namespace TouchMeta
                                 {
                                     if (tag.StartsWith("exif") && tag.Substring(5).Equals("WinXP-Title"))
                                         exif.SetValue(ExifTag.XPTitle, Encoding.Unicode.GetBytes(title));
+                                    else if (tag.StartsWith("exif") && tag.Substring(5).Equals("ImageDescription"))
+                                        exif.SetValue(ExifTag.ImageDescription, title);
                                 }
                                 Log($"{$"  {tag}".PadRight(32)}= {(value_old == null ? "NULL" : value_old)} => {(tag.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(tag)) : image.GetAttribute(tag))}");
                             }
@@ -470,8 +477,6 @@ namespace TouchMeta
                                         exif.SetValue(ExifTag.XPComment, Encoding.Unicode.GetBytes(comment));
                                     else if (tag.StartsWith("exif") && tag.Substring(5).Equals("WinXP-Comments"))
                                         exif.SetValue(ExifTag.XPComment, Encoding.Unicode.GetBytes(comment));
-                                    else if (tag.StartsWith("exif") && tag.Substring(5).Equals("ImageDescription"))
-                                        exif.SetValue(ExifTag.ImageDescription, comment);
                                 }
                                 Log($"{$"  {tag}".PadRight(32)}= {(value_old == null ? "NULL" : value_old)} => {(tag.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(tag)) : image.GetAttribute(tag))}");
                             }
@@ -708,6 +713,26 @@ namespace TouchMeta
             }
         }
 
+        public DateTime? GetMetaTime(MagickImage image)
+        {
+            DateTime? result = null;
+            if (image is MagickImage)
+            {
+                foreach (var tag in tag_date)
+                {
+                    if (image.AttributeNames.Contains(tag))
+                    {
+                        var v = image.GetAttribute(tag);
+                        var nv = Regex.Replace(v, @"^(\d{4}):(\d{2}):(\d{2})[ |T](.*?)Z?$", "$1-$2-$3T$4");
+                        //Log($"{tag.PadRight(32)}= {v} > {nv}");
+                        result = DateTime.Parse(tag.Contains("png") ? nv.Substring(0, tag.Length - 1) : nv);
+                        break;
+                    }
+                }
+            }
+            return (result);
+        }
+
         public DateTime? GetMetaTime(string file)
         {
             DateTime? result = null;
@@ -726,21 +751,10 @@ namespace TouchMeta
                     {
                         using (MagickImage image = new MagickImage(ms))
                         {
-                            bool is_png = image.FormatInfo.MimeType.Equals("image/png");
-                            foreach (var tag in tag_date)
-                            {
-                                if (image.AttributeNames.Contains(tag))
-                                {
-                                    var v = image.GetAttribute(tag);
-                                    var nv = Regex.Replace(v, @"^(\d{4}):(\d{2}):(\d{2})[ |T](.*?)Z?$", "$1-$2-$3T$4");
-                                    //Log($"{tag.PadRight(32)}= {v} > {nv}");
-                                    dm = DateTime.Parse(tag.Contains("png") ? nv.Substring(0, tag.Length - 1) : nv);
-                                    break;
-                                }
-                            }
+                            dm = GetMetaTime(image) ?? dm;
                         }
                     }
-                    catch (Exception ex) { Xceed.Wpf.Toolkit.MessageBox.Show(this, ex.Message); }
+                    catch (Exception ex) { ShowMessage(ex.Message); }
                 }
                 result = dm;
             }
@@ -751,7 +765,7 @@ namespace TouchMeta
         {
             MetaInfo result = new MetaInfo();
 
-            if(image is MagickImage)
+            if (image is MagickImage)
             {
                 var exif = image.HasProfile("exif") ? image.GetExifProfile() : new ExifProfile();
                 var xmp = image.HasProfile("xmp") ? image.GetXmpProfile() : null;
@@ -775,7 +789,12 @@ namespace TouchMeta
                     if (image.AttributeNames.Contains(tag))
                     {
                         result.Title = tag.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(tag)) : image.GetAttribute(tag);
-                        if (tag.Equals("exif:WinXP-Title"))
+                        if (tag.Equals("exif:ImageDescription"))
+                        {
+                            var value = exif.GetValue(ExifTag.ImageDescription);
+                            result.Title = value == null ? result.Title : (value.Value ?? result.Title);
+                        }
+                        else if (tag.Equals("exif:WinXP-Title"))
                         {
                             var value = exif.GetValue(ExifTag.XPTitle);
                             result.Title = value == null ? result.Title : (Encoding.Unicode.GetString(value.Value) ?? result.Title);
@@ -807,12 +826,7 @@ namespace TouchMeta
                         if (image.AttributeNames.Contains(tag))
                         {
                             result.Comment = tag.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(tag)) : image.GetAttribute(tag);
-                            if (tag.Equals("exif:ImageDescription"))
-                            {
-                                var value = exif.GetValue(ExifTag.ImageDescription);
-                                result.Comment = value == null ? result.Comment : (value.Value ?? result.Comment);
-                            }
-                            else if (tag.Equals("exif:WinXP-Comment"))
+                            if (tag.Equals("exif:WinXP-Comment"))
                             {
                                 var value = exif.GetValue(ExifTag.XPComment);
                                 result.Comment = value == null ? result.Comment : (Encoding.Unicode.GetString(value.Value) ?? result.Comment);
@@ -890,7 +904,7 @@ namespace TouchMeta
                             result = GetMetaInfo(image);
                         }
                     }
-                    catch (Exception ex) { Xceed.Wpf.Toolkit.MessageBox.Show(this, ex.Message); }
+                    catch (Exception ex) { ShowMessage(ex.Message); }
                 }
             }
             return (result);
@@ -926,7 +940,7 @@ namespace TouchMeta
                             TouchMeta(name, dtc: dc, dtm: dm, dta: da, meta: meta);
                         }
                     }
-                    catch (Exception ex) { Xceed.Wpf.Toolkit.MessageBox.Show(this, ex.Message); }
+                    catch (Exception ex) { ShowMessage(ex.Message); }
                 }
                 fi.CreationTime = dc;
                 fi.LastWriteTime = dm;
@@ -961,7 +975,7 @@ namespace TouchMeta
                 foreach (var file in files) FilesList.Items.Add(file);
                 result = true;
             }
-            catch (Exception ex) { Xceed.Wpf.Toolkit.MessageBox.Show(this, ex.Message); }
+            catch (Exception ex) { ShowMessage(ex.Message); }
             return (result);
         }
 
@@ -978,7 +992,7 @@ namespace TouchMeta
                     result = new Func<bool>(() => { return (LoadFiles(files)); }).Invoke();
                 }
             }
-            catch (Exception ex) { Xceed.Wpf.Toolkit.MessageBox.Show(this, ex.Message); }
+            catch (Exception ex) { ShowMessage(ex.Message); }
             return (result);
         }
 
@@ -1005,7 +1019,7 @@ namespace TouchMeta
                     FileTimeInfo.Text = string.Join(Environment.NewLine, info);
                 }
             }
-            catch (Exception ex) { Xceed.Wpf.Toolkit.MessageBox.Show(this, ex.Message); }
+            catch (Exception ex) { ShowMessage(ex.Message); }
         }
 
         public MainWindow()
@@ -1054,6 +1068,8 @@ namespace TouchMeta
             MetaInputPopup.Placement = PlacementMode.Bottom;
             MetaInputPopup.HorizontalOffset = MetaInputPopup.Width - ShowMetaInputPopup.ActualWidth;
             MetaInputPopup.VerticalOffset = -6;
+
+            MetaInputPopup.PreviewMouseDown += (obj, evt) => { Activate(); };
             #endregion
 
             var args = Environment.GetCommandLineArgs();
@@ -1124,7 +1140,7 @@ namespace TouchMeta
                     }
                 }
             }
-            else if(sender == GetMetaInfoFromSelected)
+            else if (sender == GetMetaInfoFromSelected)
             {
                 if (FilesList.SelectedItem != null)
                 {
@@ -1348,7 +1364,7 @@ namespace TouchMeta
             }
             else if (sender == ShowMetaInputPopup)
             {
-                if(MetaInputPopup.StaysOpen)
+                if (MetaInputPopup.StaysOpen)
                     MetaInputPopup.IsOpen = !MetaInputPopup.IsOpen;
                 else
                     MetaInputPopup.IsOpen = true;

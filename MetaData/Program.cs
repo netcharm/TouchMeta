@@ -87,6 +87,11 @@ namespace NetChamr
 #endif
         }
 
+        private static void ShowMessage(string text)
+        {
+            Log(text);
+        }
+
         private static MagickColor XYZ2RGB(double x, double y, double z)
         {
             var r =  3.2410 * x + -1.5374 * y + -0.4986 * z;
@@ -666,6 +671,26 @@ namespace NetChamr
             }
         }
 
+        public DateTime? GetMetaTime(MagickImage image)
+        {
+            DateTime? result = null;
+            if (image is MagickImage)
+            {
+                foreach (var tag in tag_date)
+                {
+                    if (image.AttributeNames.Contains(tag))
+                    {
+                        var v = image.GetAttribute(tag);
+                        var nv = Regex.Replace(v, @"^(\d{4}):(\d{2}):(\d{2})[ |T](.*?)Z?$", "$1-$2-$3T$4");
+                        //Log($"{tag.PadRight(32)}= {v} > {nv}");
+                        result = DateTime.Parse(tag.Contains("png") ? nv.Substring(0, tag.Length - 1) : nv);
+                        break;
+                    }
+                }
+            }
+            return (result);
+        }
+
         public DateTime? GetMetaTime(string file)
         {
             DateTime? result = null;
@@ -684,18 +709,7 @@ namespace NetChamr
                     {
                         using (MagickImage image = new MagickImage(ms))
                         {
-                            bool is_png = image.FormatInfo.MimeType.Equals("image/png");
-                            foreach (var tag in tag_date)
-                            {
-                                if (image.AttributeNames.Contains(tag))
-                                {
-                                    var v = image.GetAttribute(tag);
-                                    var nv = Regex.Replace(v, @"^(\d{4}):(\d{2}):(\d{2})[ |T](.*?)Z?$", "$1-$2-$3T$4");
-                                    //Log($"{tag.PadRight(32)}= {v} > {nv}");
-                                    dm = DateTime.Parse(tag.Contains("png") ? nv.Substring(0, tag.Length - 1) : nv);
-                                    break;
-                                }
-                            }
+                            dm = GetMetaTime(image) ?? dm;
                         }
                     }
                     catch (Exception ex) { Log(ex.Message); }
