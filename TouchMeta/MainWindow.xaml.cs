@@ -98,7 +98,7 @@ namespace TouchMeta
 #else
                 //_log_.Add(text);
 #endif
-                _log_.Add(text);
+                _log_.Add(text.TrimEnd('\0'));
             }
             catch (Exception ex) { Xceed.Wpf.Toolkit.MessageBox.Show(Application.Current.MainWindow, ex.Message); }
         }
@@ -124,7 +124,7 @@ namespace TouchMeta
                 dlg.Caption = "Metadata Info";
                 dlg.MaxWidth = 640;
                 dlg.MaxHeight = 480;
-                dlg.MouseDoubleClick += (o, e) => { Clipboard.SetText(dlg.Text); };
+                dlg.MouseDoubleClick += (o, e) => { Clipboard.SetText(dlg.Text.Replace("\0", string.Empty).TrimEnd('\0')); };
                 dlg.ShowDialog();
             }));
         }
@@ -252,6 +252,12 @@ namespace TouchMeta
                 var copyright = meta is MetaInfo ? meta.Copyright : author;
                 var keywords = meta is MetaInfo ? meta.Keywords : string.Empty;
                 var comment = meta is MetaInfo ? meta.Comment : string.Empty;
+                title.Replace("\0", string.Empty).TrimEnd('\0');
+                subject.Replace("\0", string.Empty).TrimEnd('\0');
+                author.Replace("\0", string.Empty).TrimEnd('\0');
+                copyright.Replace("\0", string.Empty).TrimEnd('\0');
+                keywords.Replace("\0", string.Empty).TrimEnd('\0');
+                comment.Replace("\0", string.Empty).TrimEnd('\0');
 
                 using (MagickImage image = new MagickImage(fi.FullName))
                 {
@@ -563,18 +569,25 @@ namespace TouchMeta
             }
         }
 
-        public static void TouchDate(string file, string dt = null)
+        public static void TouchDate(string file, string dt = null, bool force = false, DateTime? dtc = null, DateTime? dtm = null, DateTime? dta = null)
         {
             if (File.Exists(file))
             {
                 var fi = new FileInfo(file);
-                var dc = fi.CreationTime;
-                var dm = fi.LastWriteTime;
-                var da = fi.LastAccessTime;
+                var dc = dtc ?? fi.CreationTime;
+                var dm = dtm ?? fi.LastWriteTime;
+                var da = dta ?? fi.LastAccessTime;
 
                 var ov = dm.ToString("yyyy-MM-ddTHH:mm:sszzz");
 
-                if (string.IsNullOrEmpty(dt))
+                if (force)
+                {
+                    if (fi.CreationTime != dc) fi.CreationTime = dc;
+                    if (fi.LastWriteTime != dm) fi.LastWriteTime = dm;
+                    if (fi.LastAccessTime != da) fi.LastAccessTime = da;
+                    Log($"  Touching Date From {ov} To {dm.ToString("yyyy-MM-ddTHH:mm:sszzz")}");
+                }
+                else if (string.IsNullOrEmpty(dt))
                 {
                     using (var ms = new FileStream(fi.FullName, FileMode.Open, FileAccess.Read, FileShare.Read))
                     {
@@ -617,10 +630,10 @@ namespace TouchMeta
                         var t = DateTime.Now;
                         if (DateTime.TryParse(dt, out t))
                         {
-                            Log($"  Touching Date From {ov} To {t.ToString("yyyy-MM-ddTHH:mm:sszzz")}");
                             fi.CreationTime = t;
                             fi.LastWriteTime = t;
                             fi.LastAccessTime = t;
+                            Log($"  Touching Date From {ov} To {t.ToString("yyyy-MM-ddTHH:mm:sszzz")}");
                         }
                     }
                     catch (Exception ex) { Log($"{ex.Message}{Environment.NewLine}{ex.StackTrace}"); }
@@ -656,6 +669,7 @@ namespace TouchMeta
                                     else if (attr.Equals("exif:XPKeywords")) value = UNICODE.GetString(exif.GetValue(ExifTag.XPKeywords).Value);
                                     else if (attr.Equals("exif:XPTitle")) value = UNICODE.GetString(exif.GetValue(ExifTag.XPTitle).Value);
                                     else if (attr.Equals("exif:XPSubject")) value = UNICODE.GetString(exif.GetValue(ExifTag.XPSubject).Value);
+                                    if (!string.IsNullOrEmpty(value)) value = value.Replace("\0", string.Empty).TrimEnd('\0');
                                 }
                                 else if (attr.Equals("png:bKGD")) value = image.BackgroundColor.ToString();
                                 else if (attr.Equals("png:cHRM"))
@@ -799,6 +813,7 @@ namespace TouchMeta
                             var value = exif.GetValue(ExifTag.XPTitle);
                             result.Title = value == null ? result.Title : (Encoding.Unicode.GetString(value.Value) ?? result.Title);
                         }
+                        if (!string.IsNullOrEmpty(result.Title)) result.Title = result.Title.Replace("\0", string.Empty).TrimEnd('\0');
                         break;
                     }
                 }
@@ -814,6 +829,7 @@ namespace TouchMeta
                                 var value = exif.GetValue(ExifTag.XPSubject);
                                 result.Subject = value == null ? result.Subject : (Encoding.Unicode.GetString(value.Value) ?? result.Subject);
                             }
+                            if (!string.IsNullOrEmpty(result.Subject)) result.Subject = result.Subject.Replace("\0", string.Empty).TrimEnd('\0');
                             break;
                         }
                         break;
@@ -831,6 +847,7 @@ namespace TouchMeta
                                 var value = exif.GetValue(ExifTag.XPComment);
                                 result.Comment = value == null ? result.Comment : (Encoding.Unicode.GetString(value.Value) ?? result.Comment);
                             }
+                            if (!string.IsNullOrEmpty(result.Comment)) result.Comment = result.Comment.Replace("\0", string.Empty).TrimEnd('\0');
                             break;
                         }
                     }
@@ -847,6 +864,7 @@ namespace TouchMeta
                                 var value = exif.GetValue(ExifTag.XPKeywords);
                                 result.Keywords = value == null ? result.Keywords : (Encoding.Unicode.GetString(value.Value) ?? result.Keywords);
                             }
+                            if (!string.IsNullOrEmpty(result.Keywords)) result.Keywords = result.Keywords.Replace("\0", string.Empty).TrimEnd('\0');
                             break;
                         }
                     }
@@ -863,6 +881,7 @@ namespace TouchMeta
                                 var value = exif.GetValue(ExifTag.XPAuthor);
                                 result.Author = value == null ? result.Author : (Encoding.Unicode.GetString(value.Value) ?? result.Author);
                             }
+                            if (!string.IsNullOrEmpty(result.Author)) result.Author = result.Author.Replace("\0", string.Empty).TrimEnd('\0');
                             break;
                         }
                     }
@@ -879,6 +898,7 @@ namespace TouchMeta
                                 var value = exif.GetValue(ExifTag.Copyright);
                                 result.Copyright = value == null ? result.Copyright : (value.Value ?? result.Copyright);
                             }
+                            if (!string.IsNullOrEmpty(result.Copyright)) result.Copyright = result.Copyright.Replace("\0", string.Empty).TrimEnd('\0');
                             break;
                         }
                     }
@@ -1398,7 +1418,9 @@ namespace TouchMeta
                         {
                             Log($"  {file}");
                             Log("-".PadRight(75, '-'));
-                            TouchDate(file);
+                            if (Keyboard.Modifiers == ModifierKeys.Control)
+                                TouchDate(file, force: true, dtc: DateCreated.SelectedDate, dtm: DateModified.SelectedDate, dta: DateAccessed.SelectedDate);
+                            else TouchDate(file);
                             Log("=".PadRight(75, '='));
                         }
                         ShowLog();

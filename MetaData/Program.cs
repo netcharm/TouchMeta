@@ -210,6 +210,12 @@ namespace NetChamr
                 var copyright = meta is MetaInfo ? meta.Copyright : author;
                 var keywords = meta is MetaInfo ? meta.Keywords : string.Empty;
                 var comment = meta is MetaInfo ? meta.Comment : string.Empty;
+                title.Replace("\0", string.Empty).TrimEnd('\0');
+                subject.Replace("\0", string.Empty).TrimEnd('\0');
+                author.Replace("\0", string.Empty).TrimEnd('\0');
+                copyright.Replace("\0", string.Empty).TrimEnd('\0');
+                keywords.Replace("\0", string.Empty).TrimEnd('\0');
+                comment.Replace("\0", string.Empty).TrimEnd('\0');
 
                 using (MagickImage image = new MagickImage(fi.FullName))
                 {
@@ -317,6 +323,8 @@ namespace NetChamr
                                 {
                                     if (tag.StartsWith("exif") && tag.Substring(5).Equals("WinXP-Title"))
                                         exif.SetValue(ExifTag.XPTitle, Encoding.Unicode.GetBytes(title));
+                                    else if (tag.StartsWith("exif") && tag.Substring(5).Equals("ImageDescription"))
+                                        exif.SetValue(ExifTag.ImageDescription, title);
                                 }
                                 Log($"{$"  {tag}".PadRight(32)}= {(value_old == null ? "NULL" : value_old)} => {(tag.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(tag)) : image.GetAttribute(tag))}");
                             }
@@ -433,8 +441,6 @@ namespace NetChamr
                                         exif.SetValue(ExifTag.XPComment, Encoding.Unicode.GetBytes(comment));
                                     else if (tag.StartsWith("exif") && tag.Substring(5).Equals("WinXP-Comments"))
                                         exif.SetValue(ExifTag.XPComment, Encoding.Unicode.GetBytes(comment));
-                                    else if (tag.StartsWith("exif") && tag.Substring(5).Equals("ImageDescription"))
-                                        exif.SetValue(ExifTag.ImageDescription, comment);
                                 }
                                 Log($"{$"  {tag}".PadRight(32)}= {(value_old == null ? "NULL" : value_old)} => {(tag.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(tag)) : image.GetAttribute(tag))}");
                             }
@@ -521,18 +527,25 @@ namespace NetChamr
             }
         }
 
-        public static void TouchDate(string file, string dt = null)
+        public static void TouchDate(string file, string dt = null, bool force = false, DateTime? dtc = null, DateTime? dtm = null, DateTime? dta = null)
         {
             if (File.Exists(file))
             {
                 var fi = new FileInfo(file);
-                var dc = fi.CreationTime;
-                var dm = fi.LastWriteTime;
-                var da = fi.LastAccessTime;
+                var dc = dtc ?? fi.CreationTime;
+                var dm = dtm ?? fi.LastWriteTime;
+                var da = dta ?? fi.LastAccessTime;
 
                 var ov = dm.ToString("yyyy-MM-ddTHH:mm:sszzz");
 
-                if (string.IsNullOrEmpty(dt))
+                if (force)
+                {
+                    if (fi.CreationTime != dc) fi.CreationTime = dc;
+                    if (fi.LastWriteTime != dm) fi.LastWriteTime = dm;
+                    if (fi.LastAccessTime != da) fi.LastAccessTime = da;
+                    Log($"  Touching Date From {ov} To {dm.ToString("yyyy-MM-ddTHH:mm:sszzz")}");
+                }
+                else if (string.IsNullOrEmpty(dt))
                 {
                     using (var ms = new FileStream(fi.FullName, FileMode.Open, FileAccess.Read, FileShare.Read))
                     {
@@ -575,10 +588,10 @@ namespace NetChamr
                         var t = DateTime.Now;
                         if (DateTime.TryParse(dt, out t))
                         {
-                            Log($"  Touching Date From {ov} To {t.ToString("yyyy-MM-ddTHH:mm:sszzz")}");
                             fi.CreationTime = t;
                             fi.LastWriteTime = t;
                             fi.LastAccessTime = t;
+                            Log($"  Touching Date From {ov} To {t.ToString("yyyy-MM-ddTHH:mm:sszzz")}");
                         }
                     }
                     catch (Exception ex) { Log($"{ex.Message}{Environment.NewLine}{ex.StackTrace}"); }
@@ -614,6 +627,7 @@ namespace NetChamr
                                     else if (attr.Equals("exif:XPKeywords")) value = UNICODE.GetString(exif.GetValue(ExifTag.XPKeywords).Value);
                                     else if (attr.Equals("exif:XPTitle")) value = UNICODE.GetString(exif.GetValue(ExifTag.XPTitle).Value);
                                     else if (attr.Equals("exif:XPSubject")) value = UNICODE.GetString(exif.GetValue(ExifTag.XPSubject).Value);
+                                    if (!string.IsNullOrEmpty(value)) value = value.Replace("\0", string.Empty).TrimEnd('\0');
                                 }
                                 else if (attr.Equals("png:bKGD")) value = image.BackgroundColor.ToString();
                                 else if (attr.Equals("png:cHRM"))
@@ -712,7 +726,7 @@ namespace NetChamr
                             dm = GetMetaTime(image) ?? dm;
                         }
                     }
-                    catch (Exception ex) { Log(ex.Message); }
+                    catch (Exception ex) { ShowMessage(ex.Message); }
                 }
                 result = dm;
             }
@@ -747,11 +761,17 @@ namespace NetChamr
                     if (image.AttributeNames.Contains(tag))
                     {
                         result.Title = tag.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(tag)) : image.GetAttribute(tag);
-                        if (tag.Equals("exif:WinXP-Title"))
+                        if (tag.Equals("exif:ImageDescription"))
+                        {
+                            var value = exif.GetValue(ExifTag.ImageDescription);
+                            result.Title = value == null ? result.Title : (value.Value ?? result.Title);
+                        }
+                        else if (tag.Equals("exif:WinXP-Title"))
                         {
                             var value = exif.GetValue(ExifTag.XPTitle);
                             result.Title = value == null ? result.Title : (Encoding.Unicode.GetString(value.Value) ?? result.Title);
                         }
+                        if (!string.IsNullOrEmpty(result.Title)) result.Title = result.Title.Replace("\0", string.Empty).TrimEnd('\0');
                         break;
                     }
                 }
@@ -767,6 +787,7 @@ namespace NetChamr
                                 var value = exif.GetValue(ExifTag.XPSubject);
                                 result.Subject = value == null ? result.Subject : (Encoding.Unicode.GetString(value.Value) ?? result.Subject);
                             }
+                            if (!string.IsNullOrEmpty(result.Subject)) result.Subject = result.Subject.Replace("\0", string.Empty).TrimEnd('\0');
                             break;
                         }
                         break;
@@ -779,16 +800,12 @@ namespace NetChamr
                         if (image.AttributeNames.Contains(tag))
                         {
                             result.Comment = tag.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(tag)) : image.GetAttribute(tag);
-                            if (tag.Equals("exif:ImageDescription"))
-                            {
-                                var value = exif.GetValue(ExifTag.ImageDescription);
-                                result.Comment = value == null ? result.Comment : (value.Value ?? result.Comment);
-                            }
-                            else if (tag.Equals("exif:WinXP-Comment"))
+                            if (tag.Equals("exif:WinXP-Comment"))
                             {
                                 var value = exif.GetValue(ExifTag.XPComment);
                                 result.Comment = value == null ? result.Comment : (Encoding.Unicode.GetString(value.Value) ?? result.Comment);
                             }
+                            if (!string.IsNullOrEmpty(result.Comment)) result.Comment = result.Comment.Replace("\0", string.Empty).TrimEnd('\0');
                             break;
                         }
                     }
@@ -805,6 +822,7 @@ namespace NetChamr
                                 var value = exif.GetValue(ExifTag.XPKeywords);
                                 result.Keywords = value == null ? result.Keywords : (Encoding.Unicode.GetString(value.Value) ?? result.Keywords);
                             }
+                            if (!string.IsNullOrEmpty(result.Keywords)) result.Keywords = result.Keywords.Replace("\0", string.Empty).TrimEnd('\0');
                             break;
                         }
                     }
@@ -821,6 +839,7 @@ namespace NetChamr
                                 var value = exif.GetValue(ExifTag.XPAuthor);
                                 result.Author = value == null ? result.Author : (Encoding.Unicode.GetString(value.Value) ?? result.Author);
                             }
+                            if (!string.IsNullOrEmpty(result.Author)) result.Author = result.Author.Replace("\0", string.Empty).TrimEnd('\0');
                             break;
                         }
                     }
@@ -837,6 +856,7 @@ namespace NetChamr
                                 var value = exif.GetValue(ExifTag.Copyright);
                                 result.Copyright = value == null ? result.Copyright : (value.Value ?? result.Copyright);
                             }
+                            if (!string.IsNullOrEmpty(result.Copyright)) result.Copyright = result.Copyright.Replace("\0", string.Empty).TrimEnd('\0');
                             break;
                         }
                     }
@@ -862,7 +882,7 @@ namespace NetChamr
                             result = GetMetaInfo(image);
                         }
                     }
-                    catch (Exception ex) { Log(ex.Message); }
+                    catch (Exception ex) { ShowMessage(ex.Message); }
                 }
             }
             return (result);
