@@ -375,6 +375,7 @@ namespace NetChamr
                                 {
                                     if (tag.Contains("WinXP")) image.SetAttribute(tag, UnicodeToBytes(author));
                                     else image.SetAttribute(tag, author);
+                                    if (tag.Equals("exif:Artist")) exif.SetValue(ExifTag.Artist, author);
                                 }
                                 else if (tag.StartsWith("png")) image.SetAttribute(tag, author);
                                 else if (tag.StartsWith("Microsoft")) image.SetAttribute(tag, author);
@@ -609,6 +610,7 @@ namespace NetChamr
                     using (MagickImage image = new MagickImage(ms))
                     {
                         var exif = image.HasProfile("exif") ? image.GetExifProfile() : null;
+                        var exif_invalid = exif.InvalidTags;
                         foreach (var attr in image.AttributeNames)
                         {
                             try
@@ -618,15 +620,24 @@ namespace NetChamr
                                 if (attr.Contains("WinXP")) value = BytesToUnicode(value);
                                 else if (attr.StartsWith("exif", StringComparison.CurrentCultureIgnoreCase) && exif is ExifProfile)
                                 {
-                                    if (attr.Equals("exif:ImageDescription")) value = exif.GetValue(ExifTag.ImageDescription).Value;
-                                    else if (attr.Equals("exif:Copyright")) value = exif.GetValue(ExifTag.Copyright).Value;
-                                    else if (attr.Equals("exif:Artist")) value = exif.GetValue(ExifTag.Artist).Value;
-                                    else if (attr.Equals("exif:UserComment")) value = UNICODE.GetString(exif.GetValue(ExifTag.UserComment).Value);
-                                    else if (attr.Equals("exif:XPAuthor")) value = UNICODE.GetString(exif.GetValue(ExifTag.XPAuthor).Value);
-                                    else if (attr.Equals("exif:XPComment")) value = UNICODE.GetString(exif.GetValue(ExifTag.XPComment).Value);
-                                    else if (attr.Equals("exif:XPKeywords")) value = UNICODE.GetString(exif.GetValue(ExifTag.XPKeywords).Value);
-                                    else if (attr.Equals("exif:XPTitle")) value = UNICODE.GetString(exif.GetValue(ExifTag.XPTitle).Value);
-                                    else if (attr.Equals("exif:XPSubject")) value = UNICODE.GetString(exif.GetValue(ExifTag.XPSubject).Value);
+                                    if (attr.Equals("exif:ImageDescription"))
+                                        value = exif.GetValue(ExifTag.ImageDescription) != null ? exif.GetValue(ExifTag.ImageDescription).Value : string.Empty;
+                                    else if (attr.Equals("exif:Copyright"))
+                                        value = exif.GetValue(ExifTag.Copyright) != null ? exif.GetValue(ExifTag.Copyright).Value : string.Empty;
+                                    else if (attr.Equals("exif:Artist"))
+                                        value = exif.GetValue(ExifTag.Artist) != null ? exif.GetValue(ExifTag.Artist).Value : string.Empty;
+                                    else if (attr.Equals("exif:UserComment"))
+                                        value = exif.GetValue(ExifTag.UserComment) != null ? UNICODE.GetString(exif.GetValue(ExifTag.UserComment).Value) : string.Empty;
+                                    else if (attr.Equals("exif:XPAuthor"))
+                                        value = exif.GetValue(ExifTag.XPAuthor) != null ? UNICODE.GetString(exif.GetValue(ExifTag.XPAuthor).Value) : string.Empty;
+                                    else if (attr.Equals("exif:XPComment"))
+                                        value = exif.GetValue(ExifTag.XPComment) != null ? UNICODE.GetString(exif.GetValue(ExifTag.XPComment).Value) : string.Empty;
+                                    else if (attr.Equals("exif:XPKeywords"))
+                                        value = exif.GetValue(ExifTag.XPKeywords) != null ? UNICODE.GetString(exif.GetValue(ExifTag.XPKeywords).Value) : string.Empty;
+                                    else if (attr.Equals("exif:XPTitle"))
+                                        value = exif.GetValue(ExifTag.XPTitle) != null ? UNICODE.GetString(exif.GetValue(ExifTag.XPTitle).Value) : string.Empty;
+                                    else if (attr.Equals("exif:XPSubject"))
+                                        value = exif.GetValue(ExifTag.XPSubject) != null ? UNICODE.GetString(exif.GetValue(ExifTag.XPSubject).Value) : string.Empty;
                                     if (!string.IsNullOrEmpty(value)) value = value.Replace("\0", string.Empty).TrimEnd('\0');
                                 }
                                 else if (attr.Equals("png:bKGD")) value = image.BackgroundColor.ToString();

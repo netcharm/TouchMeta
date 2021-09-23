@@ -417,6 +417,7 @@ namespace TouchMeta
                                 {
                                     if (tag.Contains("WinXP")) image.SetAttribute(tag, UnicodeToBytes(author));
                                     else image.SetAttribute(tag, author);
+                                    if (tag.Equals("exif:Artist")) exif.SetValue(ExifTag.Artist, author);
                                 }
                                 else if (tag.StartsWith("png")) image.SetAttribute(tag, author);
                                 else if (tag.StartsWith("Microsoft")) image.SetAttribute(tag, author);
@@ -651,6 +652,7 @@ namespace TouchMeta
                     using (MagickImage image = new MagickImage(ms))
                     {
                         var exif = image.HasProfile("exif") ? image.GetExifProfile() : null;
+                        var exif_invalid = exif.InvalidTags;
                         foreach (var attr in image.AttributeNames)
                         {
                             try
@@ -660,15 +662,24 @@ namespace TouchMeta
                                 if (attr.Contains("WinXP")) value = BytesToUnicode(value);
                                 else if (attr.StartsWith("exif", StringComparison.CurrentCultureIgnoreCase) && exif is ExifProfile)
                                 {
-                                    if (attr.Equals("exif:ImageDescription")) value = exif.GetValue(ExifTag.ImageDescription).Value;
-                                    else if (attr.Equals("exif:Copyright")) value = exif.GetValue(ExifTag.Copyright).Value;
-                                    else if (attr.Equals("exif:Artist")) value = exif.GetValue(ExifTag.Artist).Value;
-                                    else if (attr.Equals("exif:UserComment")) value = UNICODE.GetString(exif.GetValue(ExifTag.UserComment).Value);
-                                    else if (attr.Equals("exif:XPAuthor")) value = UNICODE.GetString(exif.GetValue(ExifTag.XPAuthor).Value);
-                                    else if (attr.Equals("exif:XPComment")) value = UNICODE.GetString(exif.GetValue(ExifTag.XPComment).Value);
-                                    else if (attr.Equals("exif:XPKeywords")) value = UNICODE.GetString(exif.GetValue(ExifTag.XPKeywords).Value);
-                                    else if (attr.Equals("exif:XPTitle")) value = UNICODE.GetString(exif.GetValue(ExifTag.XPTitle).Value);
-                                    else if (attr.Equals("exif:XPSubject")) value = UNICODE.GetString(exif.GetValue(ExifTag.XPSubject).Value);
+                                    if (attr.Equals("exif:ImageDescription"))
+                                        value = exif.GetValue(ExifTag.ImageDescription) != null ? exif.GetValue(ExifTag.ImageDescription).Value : image.GetAttribute(attr) ?? string.Empty;
+                                    else if (attr.Equals("exif:Copyright"))
+                                        value = exif.GetValue(ExifTag.Copyright) != null ? exif.GetValue(ExifTag.Copyright).Value : image.GetAttribute(attr) ?? string.Empty;
+                                    else if (attr.Equals("exif:Artist"))
+                                        value = exif.GetValue(ExifTag.Artist) != null ? exif.GetValue(ExifTag.Artist).Value : image.GetAttribute(attr) ?? string.Empty;
+                                    else if (attr.Equals("exif:UserComment"))
+                                        value = exif.GetValue(ExifTag.UserComment) != null ? UNICODE.GetString(exif.GetValue(ExifTag.UserComment).Value) : image.GetAttribute(attr) ?? string.Empty;
+                                    else if (attr.Equals("exif:XPAuthor"))
+                                        value = exif.GetValue(ExifTag.XPAuthor) != null ? UNICODE.GetString(exif.GetValue(ExifTag.XPAuthor).Value) : image.GetAttribute(attr) ?? string.Empty;
+                                    else if (attr.Equals("exif:XPComment"))
+                                        value = exif.GetValue(ExifTag.XPComment) != null ? UNICODE.GetString(exif.GetValue(ExifTag.XPComment).Value) : image.GetAttribute(attr) ?? string.Empty;
+                                    else if (attr.Equals("exif:XPKeywords"))
+                                        value = exif.GetValue(ExifTag.XPKeywords) != null ? UNICODE.GetString(exif.GetValue(ExifTag.XPKeywords).Value) : image.GetAttribute(attr) ?? string.Empty;
+                                    else if (attr.Equals("exif:XPTitle"))
+                                        value = exif.GetValue(ExifTag.XPTitle) != null ? UNICODE.GetString(exif.GetValue(ExifTag.XPTitle).Value) : image.GetAttribute(attr) ?? string.Empty;
+                                    else if (attr.Equals("exif:XPSubject"))
+                                        value = exif.GetValue(ExifTag.XPSubject) != null ? UNICODE.GetString(exif.GetValue(ExifTag.XPSubject).Value) : image.GetAttribute(attr) ?? string.Empty;
                                     if (!string.IsNullOrEmpty(value)) value = value.Replace("\0", string.Empty).TrimEnd('\0');
                                 }
                                 else if (attr.Equals("png:bKGD")) value = image.BackgroundColor.ToString();
@@ -977,6 +988,41 @@ namespace TouchMeta
             return (result);
         }
 
+        public void ConvertImagesTo(IEnumerable<string> files, MagickFormat fmt)
+        {
+            if (files is IEnumerable<string>)
+            {
+                foreach (var file in files)
+                {
+                    Log($"  {file}");
+                    Log("-".PadRight(75, '-'));
+                    var ret = ConvertImageTo(file, fmt);
+                    if (!string.IsNullOrEmpty(ret) && File.Exists(ret))
+                    {
+                        var idx = FilesList.Items.IndexOf(ret);
+                        if (idx >= 0) FilesList.Items.RemoveAt(idx);
+                        FilesList.Items.Add(ret);
+                    }
+                    Log("=".PadRight(75, '='));
+                }
+            }
+        }
+
+        public void ConvertImagesTo(MagickFormat fmt)
+        {
+            if (FilesList.Items.Count >= 1)
+            {
+                ClearLog();
+                List<string> files = new List<string>();
+                Dispatcher.InvokeAsync(() =>
+                {
+                    foreach (var item in FilesList.SelectedItems.Count > 0 ? FilesList.SelectedItems : FilesList.Items) files.Add(item as string);
+                    ConvertImagesTo(files, fmt);
+                    ShowLog();
+                });
+            }
+        }
+
         public static void InitMagicK()
         {
             try
@@ -1058,7 +1104,13 @@ namespace TouchMeta
         private void Window_Loaded(object sender, RoutedEventArgs e)
         {
             Icon = new BitmapImage(new Uri("pack://application:,,,/TouchMeta;component/Resources/exif.ico"));
-
+#if DEBUG
+            WindowStartupLocation = WindowStartupLocation.Manual;
+            Topmost = false;
+#else
+            WindowStartupLocation = WindowStartupLocation.CenterScreen;
+            Topmost = true;
+#endif
             InitMagicK();
 
             #region Default UI values
@@ -1193,87 +1245,19 @@ namespace TouchMeta
             }
             else if (sender == ConvertSelectedToJpg)
             {
-                if (FilesList.Items.Count >= 1)
-                {
-                    ClearLog();
-                    List<string> files = new List<string>();
-                    Dispatcher.InvokeAsync(() =>
-                    {
-                        foreach (var item in FilesList.SelectedItems.Count > 0 ? FilesList.SelectedItems : FilesList.Items) files.Add(item as string);
-                        foreach (var file in files)
-                        {
-                            Log($"  {file}");
-                            Log("-".PadRight(75, '-'));
-                            var ret = ConvertImageTo(file, MagickFormat.Jpg);
-                            if (!string.IsNullOrEmpty(ret) && files.IndexOf(ret) < 0 && File.Exists(ret)) FilesList.Items.Add(ret);
-                            Log("=".PadRight(75, '='));
-                        }
-                        ShowLog();
-                    });
-                }
+                ConvertImagesTo(MagickFormat.Jpg);
             }
             else if (sender == ConvertSelectedToPng)
             {
-                if (FilesList.Items.Count >= 1)
-                {
-                    ClearLog();
-                    List<string> files = new List<string>();
-                    Dispatcher.InvokeAsync(() =>
-                    {
-                        foreach (var item in FilesList.SelectedItems.Count > 0 ? FilesList.SelectedItems : FilesList.Items) files.Add(item as string);
-                        foreach (var file in files)
-                        {
-                            Log($"  {file}");
-                            Log("-".PadRight(75, '-'));
-                            var ret = ConvertImageTo(file, MagickFormat.Png);
-                            if (!string.IsNullOrEmpty(ret) && files.IndexOf(ret) < 0 && File.Exists(ret)) FilesList.Items.Add(ret);
-                            Log("=".PadRight(75, '='));
-                        }
-                        ShowLog();
-                    });
-                }
+                ConvertImagesTo(MagickFormat.Png);
             }
             else if (sender == ConvertSelectedToGif)
             {
-                if (FilesList.Items.Count >= 1)
-                {
-                    ClearLog();
-                    List<string> files = new List<string>();
-                    Dispatcher.InvokeAsync(() =>
-                    {
-                        foreach (var item in FilesList.SelectedItems.Count > 0 ? FilesList.SelectedItems : FilesList.Items) files.Add(item as string);
-                        foreach (var file in files)
-                        {
-                            Log($"  {file}");
-                            Log("-".PadRight(75, '-'));
-                            var ret = ConvertImageTo(file, MagickFormat.Gif);
-                            if (!string.IsNullOrEmpty(ret) && files.IndexOf(ret) < 0 && File.Exists(ret)) FilesList.Items.Add(ret);
-                            Log("=".PadRight(75, '='));
-                        }
-                        ShowLog();
-                    });
-                }
+                ConvertImagesTo(MagickFormat.Gif);
             }
             else if (sender == ConvertSelectedToWebp)
             {
-                if (FilesList.Items.Count >= 1)
-                {
-                    ClearLog();
-                    List<string> files = new List<string>();
-                    Dispatcher.InvokeAsync(() =>
-                    {
-                        foreach (var item in FilesList.SelectedItems.Count > 0 ? FilesList.SelectedItems : FilesList.Items) files.Add(item as string);
-                        foreach (var file in files)
-                        {
-                            Log($"  {file}");
-                            Log("-".PadRight(75, '-'));
-                            var ret = ConvertImageTo(file, MagickFormat.WebP);
-                            if (!string.IsNullOrEmpty(ret) && files.IndexOf(ret) < 0 && File.Exists(ret)) FilesList.Items.Add(ret);
-                            Log("=".PadRight(75, '='));
-                        }
-                        ShowLog();
-                    });
-                }
+                ConvertImagesTo(MagickFormat.WebP);
             }
             else if (sender == RemoveSelected)
             {
@@ -1396,6 +1380,7 @@ namespace TouchMeta
                     MetaInputPopup.IsOpen = !MetaInputPopup.IsOpen;
                 else
                     MetaInputPopup.IsOpen = true;
+                MetaInputPopup.StaysOpen = Keyboard.Modifiers == ModifierKeys.Control;
             }
             else if (sender == FileTimeImport)
             {
