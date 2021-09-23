@@ -1452,12 +1452,12 @@ namespace TouchMeta
                         var dta = DateAccessed.SelectedDate;
                         var meta = new MetaInfo()
                         {
-                            Title = MetaInputTitleText.Text,
-                            Subject = MetaInputSubjectText.Text,
-                            Comment = MetaInputCommentText.Text,
-                            Keywords = MetaInputKeywordsText.Text,
-                            Author = MetaInputAuthorText.Text,
-                            Copyright = MetaInputCopyrightText.Text
+                            Title = string.IsNullOrEmpty(MetaInputTitleText.Text) ? null : MetaInputTitleText.Text,
+                            Subject = string.IsNullOrEmpty(MetaInputSubjectText.Text) ? null : MetaInputSubjectText.Text,
+                            Comment = string.IsNullOrEmpty(MetaInputCommentText.Text) ? null : MetaInputCommentText.Text,
+                            Keywords = string.IsNullOrEmpty(MetaInputKeywordsText.Text) ? null : MetaInputKeywordsText.Text,
+                            Author = string.IsNullOrEmpty(MetaInputAuthorText.Text) ? null : MetaInputAuthorText.Text,
+                            Copyright = string.IsNullOrEmpty(MetaInputCopyrightText.Text) ? null : MetaInputCopyrightText.Text
                         };
 
                         foreach (var item in FilesList.SelectedItems.Count > 0 ? FilesList.SelectedItems : FilesList.Items) files.Add(item as string);
