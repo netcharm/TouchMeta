@@ -555,13 +555,12 @@ namespace NetChamr
                             bool is_png = image.FormatInfo.MimeType.Equals("image/png");
                             foreach (var tag in tag_date)
                             {
-                                if (image.AttributeNames.Contains(tag))
+                                if (image.AttributeNames.Contains(tag) && !tag.Equals("date:modify") && !tag.Equals("date:create"))
                                 {
                                     var v = image.GetAttribute(tag);
                                     var nv = Regex.Replace(v, @"^(\d{4}):(\d{2}):(\d{2})[ |T](.*?)Z?$", "$1-$2-$3T$4");
                                     //Log($"{tag.PadRight(32)}= {v} > {nv}");
-                                    dm = DateTime.Parse(tag.Contains("png") ? nv.Substring(0, tag.Length - 1) : nv);
-                                    break;
+                                    if (DateTime.TryParse(tag.Contains("png") ? nv.Substring(0, tag.Length - 1) : nv, out dm)) break;
                                 }
                             }
                         }
