@@ -60,7 +60,7 @@ namespace TouchMeta
           "Creation Time",
           "create-date",
           "modify-date",
-          "date:create",
+          //"date:create",
           "date:modify",
         };
         private static string[] tag_author = new string[] {
@@ -651,8 +651,29 @@ namespace TouchMeta
                 {
                     using (MagickImage image = new MagickImage(ms))
                     {
-                        var exif = image.HasProfile("exif") ? image.GetExifProfile() : null;
+                        var exif = image.HasProfile("exif") ? image.GetExifProfile() : new ExifProfile();
                         var exif_invalid = exif.InvalidTags;
+                        Log($"  {"Dimensions".PadRight(32)}= {image.Width}x{image.Height}x{image.Depth*image.ChannelCount}");
+                        Log($"  {"TotalPixels".PadRight(32)}= {image.Width * image.Height / 1000.0 / 1000.0:F2} MegaPixels");
+                        Log($"  {"ColorSpace".PadRight(32)}= {image.ColorSpace.ToString()}");
+                        Log($"  {"ColorType".PadRight(32)}= {image.ColorType.ToString()}");
+                        //Log($"  {"TotalColors".PadRight(32)}= {image.TotalColors}");
+                        Log($"  {"FormatInfo".PadRight(32)}= {image.FormatInfo.Format.ToString()}, MIME:{image.FormatInfo.MimeType}");
+                        Log($"  {"Compression".PadRight(32)}= {image.Compression.ToString()}");
+                        Log($"  {"Filter".PadRight(32)}= {(image.FilterType == FilterType.Undefined ? "Adaptive" : image.FilterType.ToString())}");
+                        Log($"  {"Interlace".PadRight(32)}= {image.Interlace.ToString()}");
+                        Log($"  {"Interpolate".PadRight(32)}= {image.Interpolate.ToString()}");
+                        if (image.Density != null)
+                        {
+                            var is_ppi = image.Density.Units == DensityUnit.PixelsPerInch;
+                            var is_ppc = image.Density.Units == DensityUnit.PixelsPerCentimeter;
+                            var density = is_ppi ? image.Density : image.Density.ChangeUnits(DensityUnit.PixelsPerInch);
+                            var unit = is_ppi ? "PPI" : (is_ppc ? "PPC" : "UNK");
+                            if (is_ppi)
+                                Log($"  {"Resolution/Density".PadRight(32)}= {density.X:F0} PPI x {density.Y:F0} PPI");
+                            else
+                                Log($"  {"Resolution/Density".PadRight(32)}= {density.X:F0} PPI x {density.Y:F0} PPI [{image.Density.X:F2} {unit} x {image.Density.Y:F2} {unit}]");
+                        }
                         foreach (var attr in image.AttributeNames)
                         {
                             try
@@ -689,9 +710,9 @@ namespace TouchMeta
                                     var cg = XYZ2RGB(image.ChromaGreenPrimary.X, image.ChromaGreenPrimary.Y, image.ChromaGreenPrimary.Z);
                                     var cb = XYZ2RGB(image.ChromaBluePrimary.X, image.ChromaBluePrimary.Y, image.ChromaBluePrimary.Z);
 
-                                    var r = $"[{image.ChromaRedPrimary.X:F2},{image.ChromaRedPrimary.Y:F2},{image.ChromaRedPrimary.Z:F2}]";
-                                    var g = $"[{image.ChromaGreenPrimary.X:F2},{image.ChromaGreenPrimary.Y:F2},{image.ChromaGreenPrimary.Z:F2}]";
-                                    var b = $"[{image.ChromaBluePrimary.X:F2},{image.ChromaBluePrimary.Y:F2},{image.ChromaBluePrimary.Z:F2}]";
+                                    var r = $"[{image.ChromaRedPrimary.X:F5},{image.ChromaRedPrimary.Y:F5},{image.ChromaRedPrimary.Z:F5}]";
+                                    var g = $"[{image.ChromaGreenPrimary.X:F5},{image.ChromaGreenPrimary.Y:F5},{image.ChromaGreenPrimary.Z:F5}]";
+                                    var b = $"[{image.ChromaBluePrimary.X:F5},{image.ChromaBluePrimary.Y:F5},{image.ChromaBluePrimary.Z:F5}]";
                                     //value = $"R: {r}{Environment.NewLine}{" ".PadRight(36)}G: {g}{Environment.NewLine}{" ".PadRight(36)}B: {b}";
                                     value = $"R:{cr.ToString()}, G:{cg.ToString()}, B:{cb.ToString()}{Environment.NewLine}XYZ-R: {r}{Environment.NewLine}XYZ-G: {g}{Environment.NewLine}XYZ-B: {b}";
                                 }
@@ -725,8 +746,6 @@ namespace TouchMeta
                             }
                             catch (Exception ex) { Log(ex.Message); }
                         }
-                        Log($"  {"Color Space".PadRight(32)}= {Path.GetFileName(image.ColorSpace.ToString())}");
-                        Log($"  {"Format Info".PadRight(32)}= {image.FormatInfo.Format.ToString()}, {image.FormatInfo.MimeType}");
                         var xmp = image.HasProfile("xmp") ? image.GetXmpProfile() : null;
                         if (xmp != null)
                         {

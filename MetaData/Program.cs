@@ -609,8 +609,29 @@ namespace NetChamr
                 {
                     using (MagickImage image = new MagickImage(ms))
                     {
-                        var exif = image.HasProfile("exif") ? image.GetExifProfile() : null;
+                        var exif = image.HasProfile("exif") ? image.GetExifProfile() : new ExifProfile();
                         var exif_invalid = exif.InvalidTags;
+                        Log($"  {"Dimensions".PadRight(32)}= {image.Width}x{image.Height}x{image.Depth * image.ChannelCount}");
+                        Log($"  {"TotalPixels".PadRight(32)}= {image.Width * image.Height / 1000.0 / 1000.0:F2} MegaPixels");
+                        Log($"  {"ColorSpace".PadRight(32)}= {image.ColorSpace.ToString()}");
+                        Log($"  {"ColorType".PadRight(32)}= {image.ColorType.ToString()}");
+                        //Log($"  {"TotalColors".PadRight(32)}= {image.TotalColors}");
+                        Log($"  {"FormatInfo".PadRight(32)}= {image.FormatInfo.Format.ToString()}, MIME:{image.FormatInfo.MimeType}");
+                        Log($"  {"Compression".PadRight(32)}= {image.Compression.ToString()}");
+                        Log($"  {"Filter".PadRight(32)}= {(image.FilterType == FilterType.Undefined ? "Adaptive" : image.FilterType.ToString())}");
+                        Log($"  {"Interlace".PadRight(32)}= {image.Interlace.ToString()}");
+                        Log($"  {"Interpolate".PadRight(32)}= {image.Interpolate.ToString()}");
+                        if (image.Density != null)
+                        {
+                            var is_ppi = image.Density.Units == DensityUnit.PixelsPerInch;
+                            var is_ppc = image.Density.Units == DensityUnit.PixelsPerCentimeter;
+                            var density = is_ppi ? image.Density : image.Density.ChangeUnits(DensityUnit.PixelsPerInch);
+                            var unit = is_ppi ? "PPI" : (is_ppc ? "PPC" : "UNK");
+                            if (is_ppi)
+                                Log($"  {"Resolution/Density".PadRight(32)}= {density.X:F0} PPI x {density.Y:F0} PPI");
+                            else
+                                Log($"  {"Resolution/Density".PadRight(32)}= {density.X:F0} PPI x {density.Y:F0} PPI [{image.Density.X:F2} {unit} x {image.Density.Y:F2} {unit}]");
+                        }
                         foreach (var attr in image.AttributeNames)
                         {
                             try
@@ -621,23 +642,23 @@ namespace NetChamr
                                 else if (attr.StartsWith("exif", StringComparison.CurrentCultureIgnoreCase) && exif is ExifProfile)
                                 {
                                     if (attr.Equals("exif:ImageDescription"))
-                                        value = exif.GetValue(ExifTag.ImageDescription) != null ? exif.GetValue(ExifTag.ImageDescription).Value : string.Empty;
+                                        value = exif.GetValue(ExifTag.ImageDescription) != null ? exif.GetValue(ExifTag.ImageDescription).Value : image.GetAttribute(attr) ?? string.Empty;
                                     else if (attr.Equals("exif:Copyright"))
-                                        value = exif.GetValue(ExifTag.Copyright) != null ? exif.GetValue(ExifTag.Copyright).Value : string.Empty;
+                                        value = exif.GetValue(ExifTag.Copyright) != null ? exif.GetValue(ExifTag.Copyright).Value : image.GetAttribute(attr) ?? string.Empty;
                                     else if (attr.Equals("exif:Artist"))
-                                        value = exif.GetValue(ExifTag.Artist) != null ? exif.GetValue(ExifTag.Artist).Value : string.Empty;
+                                        value = exif.GetValue(ExifTag.Artist) != null ? exif.GetValue(ExifTag.Artist).Value : image.GetAttribute(attr) ?? string.Empty;
                                     else if (attr.Equals("exif:UserComment"))
-                                        value = exif.GetValue(ExifTag.UserComment) != null ? UNICODE.GetString(exif.GetValue(ExifTag.UserComment).Value) : string.Empty;
+                                        value = exif.GetValue(ExifTag.UserComment) != null ? UNICODE.GetString(exif.GetValue(ExifTag.UserComment).Value) : image.GetAttribute(attr) ?? string.Empty;
                                     else if (attr.Equals("exif:XPAuthor"))
-                                        value = exif.GetValue(ExifTag.XPAuthor) != null ? UNICODE.GetString(exif.GetValue(ExifTag.XPAuthor).Value) : string.Empty;
+                                        value = exif.GetValue(ExifTag.XPAuthor) != null ? UNICODE.GetString(exif.GetValue(ExifTag.XPAuthor).Value) : image.GetAttribute(attr) ?? string.Empty;
                                     else if (attr.Equals("exif:XPComment"))
-                                        value = exif.GetValue(ExifTag.XPComment) != null ? UNICODE.GetString(exif.GetValue(ExifTag.XPComment).Value) : string.Empty;
+                                        value = exif.GetValue(ExifTag.XPComment) != null ? UNICODE.GetString(exif.GetValue(ExifTag.XPComment).Value) : image.GetAttribute(attr) ?? string.Empty;
                                     else if (attr.Equals("exif:XPKeywords"))
-                                        value = exif.GetValue(ExifTag.XPKeywords) != null ? UNICODE.GetString(exif.GetValue(ExifTag.XPKeywords).Value) : string.Empty;
+                                        value = exif.GetValue(ExifTag.XPKeywords) != null ? UNICODE.GetString(exif.GetValue(ExifTag.XPKeywords).Value) : image.GetAttribute(attr) ?? string.Empty;
                                     else if (attr.Equals("exif:XPTitle"))
-                                        value = exif.GetValue(ExifTag.XPTitle) != null ? UNICODE.GetString(exif.GetValue(ExifTag.XPTitle).Value) : string.Empty;
+                                        value = exif.GetValue(ExifTag.XPTitle) != null ? UNICODE.GetString(exif.GetValue(ExifTag.XPTitle).Value) : image.GetAttribute(attr) ?? string.Empty;
                                     else if (attr.Equals("exif:XPSubject"))
-                                        value = exif.GetValue(ExifTag.XPSubject) != null ? UNICODE.GetString(exif.GetValue(ExifTag.XPSubject).Value) : string.Empty;
+                                        value = exif.GetValue(ExifTag.XPSubject) != null ? UNICODE.GetString(exif.GetValue(ExifTag.XPSubject).Value) : image.GetAttribute(attr) ?? string.Empty;
                                     if (!string.IsNullOrEmpty(value)) value = value.Replace("\0", string.Empty).TrimEnd('\0');
                                 }
                                 else if (attr.Equals("png:bKGD")) value = image.BackgroundColor.ToString();
@@ -647,9 +668,9 @@ namespace NetChamr
                                     var cg = XYZ2RGB(image.ChromaGreenPrimary.X, image.ChromaGreenPrimary.Y, image.ChromaGreenPrimary.Z);
                                     var cb = XYZ2RGB(image.ChromaBluePrimary.X, image.ChromaBluePrimary.Y, image.ChromaBluePrimary.Z);
 
-                                    var r = $"[{image.ChromaRedPrimary.X:F2},{image.ChromaRedPrimary.Y:F2},{image.ChromaRedPrimary.Z:F2}]";
-                                    var g = $"[{image.ChromaGreenPrimary.X:F2},{image.ChromaGreenPrimary.Y:F2},{image.ChromaGreenPrimary.Z:F2}]";
-                                    var b = $"[{image.ChromaBluePrimary.X:F2},{image.ChromaBluePrimary.Y:F2},{image.ChromaBluePrimary.Z:F2}]";
+                                    var r = $"[{image.ChromaRedPrimary.X:F5},{image.ChromaRedPrimary.Y:F5},{image.ChromaRedPrimary.Z:F5}]";
+                                    var g = $"[{image.ChromaGreenPrimary.X:F5},{image.ChromaGreenPrimary.Y:F5},{image.ChromaGreenPrimary.Z:F5}]";
+                                    var b = $"[{image.ChromaBluePrimary.X:F5},{image.ChromaBluePrimary.Y:F5},{image.ChromaBluePrimary.Z:F5}]";
                                     //value = $"R: {r}{Environment.NewLine}{" ".PadRight(36)}G: {g}{Environment.NewLine}{" ".PadRight(36)}B: {b}";
                                     value = $"R:{cr.ToString()}, G:{cg.ToString()}, B:{cb.ToString()}{Environment.NewLine}XYZ-R: {r}{Environment.NewLine}XYZ-G: {g}{Environment.NewLine}XYZ-B: {b}";
                                 }
@@ -683,8 +704,6 @@ namespace NetChamr
                             }
                             catch (Exception ex) { Log(ex.Message); }
                         }
-                        Log($"  {"Color Space".PadRight(32)}= {Path.GetFileName(image.ColorSpace.ToString())}");
-                        Log($"  {"Format Info".PadRight(32)}= {image.FormatInfo.Format.ToString()}, {image.FormatInfo.MimeType}");
                         var xmp = image.HasProfile("xmp") ? image.GetXmpProfile() : null;
                         if (xmp != null)
                         {
