@@ -15,6 +15,7 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="auto"/>
             <RowDefinition Height="auto"/>
+            <RowDefinition Height="auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="auto"/>
             <RowDefinition Height="auto"/>
@@ -74,7 +75,9 @@
             <Button Grid.Column="4" x:Name="BtnOpenFile" x:Uid="OpenFile" Content="Open Files" Width="88" Margin="4" Click="BtnAction_Click"/>
         </Grid>
 
-        <ListBox Grid.Row="2" x:Name="FilesList" x:Uid="FilesList" Margin="6" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" IsTabStop="True" SelectionMode="Extended" SelectionChanged="FilesList_SelectionChanged">
+        <ProgressBar Grid.Row="2" x:Name="Progress" x:Uid="Progress" Height="4" Margin="4" Value="50" HorizontalAlignment="Stretch" VerticalAlignment="Center"/>
+        
+        <ListBox Grid.Row="3" x:Name="FilesList" x:Uid="FilesList" Margin="6" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" IsTabStop="True" SelectionMode="Extended" SelectionChanged="FilesList_SelectionChanged">
             <ListBox.ContextMenu>
                 <ContextMenu>
                     <MenuItem x:Name="GetFileTimeFromSelected" x:Uid="GetFileTimeFromSelected" Header="Get File Time From Selected File" Click="FilesListAction_Click"/>
@@ -85,6 +88,8 @@
                     <MenuItem x:Name="ConvertSelectedToJpg" x:Uid="ConvertSelectedToJpg" Header="Convert Selected Files to JPG" Click="FilesListAction_Click"/>
                     <MenuItem x:Name="ConvertSelectedToPng" x:Uid="ConvertSelectedToPng" Header="Convert Selected Files to PNG" Click="FilesListAction_Click"/>
                     <MenuItem x:Name="ConvertSelectedToGif" x:Uid="ConvertSelectedToGif" Header="Convert Selected Files to GIF" Click="FilesListAction_Click"/>
+                    <MenuItem x:Name="ConvertSelectedToPdf" x:Uid="ConvertSelectedToPdf" Header="Convert Selected Files to PDF" Click="FilesListAction_Click"/>
+                    <MenuItem x:Name="ConvertSelectedToAvif" x:Uid="ConvertSelectedToAvif" Header="Convert Selected Files to AVIF" Click="FilesListAction_Click"/>
                     <MenuItem x:Name="ConvertSelectedToWebp" x:Uid="ConvertSelectedToWebp" Header="Convert Selected Files to WEBP" Click="FilesListAction_Click"/>
                     <Separator/>
                     <MenuItem x:Name="RemoveSelected" x:Uid="RemoveSelected" Header="Remove Selected File" Click="FilesListAction_Click"/>
@@ -93,9 +98,9 @@
             </ListBox.ContextMenu>
         </ListBox>
 
-        <TextBlock Grid.Row="3" x:Name="FileTimeInfo" x:Uid="FileTimeInfo" Height="56" Margin="6" HorizontalAlignment="Stretch" VerticalAlignment="Center"/>
+        <TextBlock Grid.Row="4" x:Name="FileTimeInfo" x:Uid="FileTimeInfo" Height="56" Margin="6" HorizontalAlignment="Stretch" VerticalAlignment="Center"/>
 
-        <Grid Grid.Row="4" Margin="2" HorizontalAlignment="Stretch" VerticalAlignment="Bottom">
+        <Grid Grid.Row="5" Margin="2" HorizontalAlignment="Stretch" VerticalAlignment="Bottom">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="auto"/>
                 <ColumnDefinition Width="auto"/>

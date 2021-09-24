@@ -1,12 +1,14 @@
 ﻿using ImageMagick;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -17,6 +19,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
+using System.Windows.Threading;
 using System.Xml;
 
 namespace TouchMeta
@@ -44,10 +47,70 @@ namespace TouchMeta
         private static string AppPath = Path.GetDirectoryName(AppExec);
         private static string AppName = Path.GetFileNameWithoutExtension(AppPath);
         private static string CachePath =  "cache";
+        private string DefaultTitle = null;
+
         private static Encoding DBCS = Encoding.GetEncoding("GB18030");
         private static Encoding UTF8 = Encoding.UTF8;
         private static Encoding UNICODE = Encoding.Unicode;
         private static MetaInfo CurrentMeta = null;
+
+        private IProgress<KeyValuePair<double, string>> progress = null;
+        private Action<double, string> ReportProgress = null;
+        private BackgroundWorker bgWorker = null;
+
+        #region DoEvent Helper
+        private static object ExitFrame(object state)
+        {
+            ((DispatcherFrame)state).Continue = false;
+            return null;
+        }
+
+        private static SemaphoreSlim CanDoEvents = new SemaphoreSlim(1, 1);
+        public static async void DoEvents()
+        {
+            if (await CanDoEvents.WaitAsync(0))
+            {
+                try
+                {
+                    if (Application.Current.Dispatcher.CheckAccess())
+                    {
+                        await Dispatcher.Yield(DispatcherPriority.Render);
+                        //await System.Windows.Threading.Dispatcher.Yield();
+
+                        //DispatcherFrame frame = new DispatcherFrame();
+                        //await Application.Current.Dispatcher.BeginInvoke(DispatcherPriority.Render, new DispatcherOperationCallback(ExitFrame), frame);
+                        //Dispatcher.PushFrame(frame);
+                    }
+                }
+                catch (Exception)
+                {
+                    try
+                    {
+                        if (Application.Current.Dispatcher.CheckAccess())
+                        {
+                            DispatcherFrame frame = new DispatcherFrame();
+                            //Dispatcher.CurrentDispatcher.BeginInvoke(DispatcherPriority.Render, new Action(delegate { }));
+                            //Dispatcher.CurrentDispatcher.BeginInvoke(DispatcherPriority.Send, new Action(delegate { }));
+
+                            //await Dispatcher.CurrentDispatcher.BeginInvoke(DispatcherPriority.Background, new DispatcherOperationCallback(ExitFrame), frame);
+                            //await Dispatcher.CurrentDispatcher.BeginInvoke(DispatcherPriority.Render, new DispatcherOperationCallback(ExitFrame), frame);
+                            await Application.Current.Dispatcher.BeginInvoke(DispatcherPriority.Send, new DispatcherOperationCallback(ExitFrame), frame);
+                            Dispatcher.PushFrame(frame);
+                        }
+                    }
+                    catch (Exception)
+                    {
+                        await Task.Delay(1);
+                    }
+                }
+                finally
+                {
+                    //CanDoEvents.Release(max: 1);
+                    if (CanDoEvents is SemaphoreSlim && CanDoEvents.CurrentCount <= 0) CanDoEvents.Release();
+                }
+            }
+        }
+        #endregion
 
         #region below tags will be touching
         private static string[] tag_date = new string[] {
@@ -92,6 +155,8 @@ namespace TouchMeta
           "MicrosoftPhoto:Rating",
         };
         #endregion
+
+        #region Log/MessageBox helper
         private static List<string> _log_ = new List<string>();
         private static void Log(string text)
         {
@@ -109,11 +174,11 @@ namespace TouchMeta
 
         private static void ClearLog()
         {
-            Application.Current.Dispatcher.BeginInvoke(new Action(() =>
-            {
+            //Application.Current.Dispatcher.BeginInvoke(new Action(() =>
+            //{
                 try { _log_.Clear(); }
-                catch (Exception ex) { Xceed.Wpf.Toolkit.MessageBox.Show(Application.Current.MainWindow, ex.Message); }
-            }));
+                catch (Exception ex) { ShowMessage(ex.Message, "ERROR"); }
+            //}));
         }
 
         private static void ShowLog()
@@ -138,6 +203,13 @@ namespace TouchMeta
             Xceed.Wpf.Toolkit.MessageBox.Show(Application.Current.MainWindow, text);
         }
 
+        private static void ShowMessage(string text, string title)
+        {
+            Xceed.Wpf.Toolkit.MessageBox.Show(Application.Current.MainWindow, text, title);
+        }
+        #endregion
+
+        #region Text/Color Converting Helper
         private static MagickColor XYZ2RGB(double x, double y, double z)
         {
             var r =  3.2410 * x + -1.5374 * y + -0.4986 * z;
@@ -206,6 +278,28 @@ namespace TouchMeta
             return (DBCS.GetString(UTF8.GetBytes(text)));
         }
 
+        private static double VALUE_GB = 1024 * 1024 * 1024;
+        private static double VALUE_MB = 1024 * 1024;
+        private static double VALUE_KB = 1024;
+
+        private static string SmartFileSize(long v, double factor = 1, bool unit = true, int padleft = 0) { return (SmartFileSize((double)v, factor, unit, padleft: padleft)); }
+
+        private static string SmartFileSize(double v, double factor = 1, bool unit = true, bool trimzero = true, int padleft = 0)
+        {
+            string v_str = string.Empty;
+            string u_str = string.Empty;
+            if (double.IsNaN(v) || double.IsInfinity(v) || double.IsNegativeInfinity(v) || double.IsPositiveInfinity(v)) { v_str = "0"; u_str = "B"; }
+            else if (v >= VALUE_GB) { v_str = $"{v / factor / VALUE_GB:F2}"; u_str = "GB"; }
+            else if (v >= VALUE_MB) { v_str = $"{v / factor / VALUE_MB:F2}"; u_str = "MB"; }
+            else if (v >= VALUE_KB) { v_str = $"{v / factor / VALUE_KB:F2}"; u_str = "KB"; }
+            else { v_str = $"{v / factor:F0}"; u_str = "B"; }
+            var vs = trimzero && !u_str.Equals("B") ? v_str.Trim('0').TrimEnd('.') : v_str;
+            return ((unit ? $"{vs} {u_str}" : vs).PadLeft(padleft));
+        }
+
+        #endregion
+
+        #region XML Formating Helper
         private static string FormatXML(string xml)
         {
             var result = xml;
@@ -215,7 +309,7 @@ namespace TouchMeta
                 doc.LoadXml(xml);
                 result = FormatXML(doc);
             }
-            catch(Exception ex) { ShowMessage(ex.Message); }
+            catch (Exception ex) { ShowMessage(ex.Message, "ERROR"); }
             return (result);
         }
 
@@ -266,7 +360,9 @@ namespace TouchMeta
             }
             return (result);
         }
+        #endregion
 
+        #region Metadata Helper
         public static void ClearMeta(string file)
         {
             if (File.Exists(file))
@@ -927,11 +1023,13 @@ namespace TouchMeta
                     {
                         var exif = image.HasProfile("exif") ? image.GetExifProfile() : new ExifProfile();
                         var exif_invalid = exif.InvalidTags;
-                        Log($"{"Dimensions".PadRight(32)}= {image.Width}x{image.Height}x{image.Depth*image.ChannelCount}");
+                        Log($"{"FileSize".PadRight(32)}= {SmartFileSize(fi.Length)} [{fi.Length:N0} B]");
+                        Log($"{"Dimensions".PadRight(32)}= {image.Width}x{image.Height}x{image.Depth * image.ChannelCount}");
                         Log($"{"TotalPixels".PadRight(32)}= {image.Width * image.Height / 1000.0 / 1000.0:F2} MegaPixels");
                         Log($"{"ColorSpace".PadRight(32)}= {image.ColorSpace.ToString()}");
                         Log($"{"ColorType".PadRight(32)}= {image.ColorType.ToString()}");
                         //Log($"{"TotalColors".PadRight(32)}= {image.TotalColors}");
+                        Log($"{"ColormapSize".PadRight(32)}= {image.ColormapSize}");
                         Log($"{"FormatInfo".PadRight(32)}= {image.FormatInfo.Format.ToString()}, MIME:{image.FormatInfo.MimeType}");
                         Log($"{"Compression".PadRight(32)}= {image.Compression.ToString()}");
                         Log($"{"Filter".PadRight(32)}= {(image.FilterType == FilterType.Undefined ? "Adaptive" : image.FilterType.ToString())}");
@@ -1027,7 +1125,7 @@ namespace TouchMeta
 
                             var xml_doc = new XmlDocument();
                             xml_doc.LoadXml(xml);
-                            foreach(XmlNode node in xml_doc.GetElementsByTagName("rdf:Description"))
+                            foreach (XmlNode node in xml_doc.GetElementsByTagName("rdf:Description"))
                             {
                                 foreach (XmlAttribute attr in node.Attributes)
                                 {
@@ -1043,7 +1141,7 @@ namespace TouchMeta
                                     }
                                     if (child.Name.Equals("dc:title", StringComparison.CurrentCultureIgnoreCase))
                                         Log($"    {"dc:Title".PadRight(28)}= {child.InnerText}");
-                                    else if(child.Name.Equals("MicrosoftPhoto:DateAcquired", StringComparison.CurrentCultureIgnoreCase))
+                                    else if (child.Name.Equals("MicrosoftPhoto:DateAcquired", StringComparison.CurrentCultureIgnoreCase))
                                         Log($"    {"MicrosoftPhoto:DateAcquired".PadRight(28)}= {child.InnerText}");
                                     else if (child.Name.Equals("MicrosoftPhoto:DateTaken", StringComparison.CurrentCultureIgnoreCase))
                                         Log($"    {"MicrosoftPhoto:DateTaken".PadRight(28)}= {child.InnerText}");
@@ -1104,7 +1202,7 @@ namespace TouchMeta
                             dm = GetMetaTime(image) ?? dm;
                         }
                     }
-                    catch (Exception ex) { ShowMessage(ex.Message); }
+                    catch (Exception ex) { ShowMessage(ex.Message, "ERROR"); }
                 }
                 result = dm;
             }
@@ -1270,12 +1368,14 @@ namespace TouchMeta
                             result = GetMetaInfo(image);
                         }
                     }
-                    catch (Exception ex) { ShowMessage(ex.Message); }
+                    catch (Exception ex) { ShowMessage(ex.Message, "ERROR"); }
                 }
             }
             return (result);
         }
+        #endregion
 
+        #region Converting Image Format Helper
         public string ConvertImageTo(string file, MagickFormat fmt)
         {
             var result = file;
@@ -1316,7 +1416,7 @@ namespace TouchMeta
                             result = name;
                         }
                     }
-                    catch (Exception ex) { ShowMessage(ex.Message); }
+                    catch (Exception ex) { Log(ex.Message); }
                 }
                 fi.CreationTime = dc;
                 fi.LastWriteTime = dm;
@@ -1329,18 +1429,33 @@ namespace TouchMeta
         {
             if (files is IEnumerable<string>)
             {
-                foreach (var file in files)
+                ClearLog();
+                Progress.Value = 0;
+                if (bgWorker is BackgroundWorker && !bgWorker.IsBusy)
                 {
-                    Log($"{file}");
-                    Log("-".PadRight(75, '-'));
-                    var ret = ConvertImageTo(file, fmt);
-                    if (!string.IsNullOrEmpty(ret) && File.Exists(ret))
+                    bgWorker.RunWorkerAsync(new Action(() =>
                     {
-                        var idx = FilesList.Items.IndexOf(ret);
-                        if (idx >= 0) FilesList.Items.RemoveAt(idx);
-                        FilesList.Items.Add(ret);
-                    }
-                    Log("=".PadRight(75, '='));
+                        double count = 0;
+                        foreach (var file in files)
+                        {
+                            if (ReportProgress is Action<double, string>) ReportProgress.Invoke(count / files.Count(), file);
+                            Log($"{file}");
+                            Log("-".PadRight(75, '-'));
+                            var ret = ConvertImageTo(file, fmt);
+                            if (!string.IsNullOrEmpty(ret) && File.Exists(ret))
+                            {
+                                Dispatcher.Invoke(() =>
+                                {
+                                    var idx = FilesList.Items.IndexOf(ret);
+                                    if (idx >= 0) FilesList.Items.RemoveAt(idx);
+                                    FilesList.Items.Add(ret);
+                                });
+                            }
+                            Log("=".PadRight(75, '='));
+                            if (ReportProgress is Action<double, string>) ReportProgress.Invoke(++count / files.Count(), file);
+                        }
+                        ShowLog();
+                    }));
                 }
             }
         }
@@ -1349,44 +1464,31 @@ namespace TouchMeta
         {
             if (FilesList.Items.Count >= 1)
             {
-                ClearLog();
                 List<string> files = new List<string>();
-                Dispatcher.InvokeAsync(() =>
-                {
-                    foreach (var item in FilesList.SelectedItems.Count > 0 ? FilesList.SelectedItems : FilesList.Items) files.Add(item as string);
-                    ConvertImagesTo(files, fmt);
-                    ShowLog();
-                });
+                foreach (var item in FilesList.SelectedItems.Count > 0 ? FilesList.SelectedItems : FilesList.Items) files.Add(item as string);
+                ConvertImagesTo(files, fmt);
             }
         }
+        #endregion
 
-        public static void InitMagicK()
-        {
-            try
-            {
-                var magick_cache = Path.IsPathRooted(CachePath) ? CachePath : Path.Combine(AppPath, CachePath);
-                //if (!Directory.Exists(magick_cache)) Directory.CreateDirectory(magick_cache);
-                if (Directory.Exists(magick_cache)) MagickAnyCPU.CacheDirectory = magick_cache;
-                ResourceLimits.Memory = 256 * 1024 * 1024;
-                ResourceLimits.LimitMemory(new Percentage(5));
-                ResourceLimits.Thread = 4;
-                //ResourceLimits.Area = 4096 * 4096;
-                //ResourceLimits.Throttle = 
-                OpenCL.IsEnabled = true;
-                if (Directory.Exists(magick_cache)) OpenCL.SetCacheDirectory(magick_cache);
-            }
-            catch (Exception ex) { Log(ex.Message); }
-        }
-
+        #region Add File(s) Helper
         private bool LoadFiles(IEnumerable<string> files)
         {
             var result = false;
             try
             {
-                foreach (var file in files) FilesList.Items.Add(file);
+                foreach (var file in files)
+                {
+                    if (Directory.Exists(file))
+                    {
+                        var fs = Directory.EnumerateFiles(file);
+                        foreach (var f in fs) if (FilesList.Items.IndexOf(f) < 0) FilesList.Items.Add(f);
+                    }
+                    else if (FilesList.Items.IndexOf(file) < 0) FilesList.Items.Add(file);
+                }
                 result = true;
             }
-            catch (Exception ex) { ShowMessage(ex.Message); }
+            catch (Exception ex) { ShowMessage(ex.Message, "ERROR"); }
             return (result);
         }
 
@@ -1403,9 +1505,10 @@ namespace TouchMeta
                     result = new Func<bool>(() => { return (LoadFiles(files)); }).Invoke();
                 }
             }
-            catch (Exception ex) { ShowMessage(ex.Message); }
+            catch (Exception ex) { ShowMessage(ex.Message, "ERROR"); }
             return (result);
         }
+        #endregion
 
         private void UpdateFileTimeInfo(string file = null)
         {
@@ -1430,7 +1533,99 @@ namespace TouchMeta
                     FileTimeInfo.Text = string.Join(Environment.NewLine, info);
                 }
             }
-            catch (Exception ex) { ShowMessage(ex.Message); }
+            catch (Exception ex) { ShowMessage(ex.Message, "ERROR"); }
+        }
+
+        private void BgWorker_ProgressChanged(object sender, ProgressChangedEventArgs e)
+        {
+            if (ReportProgress is Action<double, string>) ReportProgress.Invoke(e.ProgressPercentage, "");
+        }
+
+        private void BgWorker_RunWorkerCompleted(object sender, RunWorkerCompletedEventArgs e)
+        {
+            //Progress.Value = 100;
+        }
+
+        private void BgWorker_DoWork(object sender, DoWorkEventArgs e)
+        {
+            if (e.Argument is Action)
+            {
+                var action = e.Argument as Action;
+                action.Invoke();
+            }
+        }
+
+        private void InitBgWorker()
+        {
+            if (bgWorker == null)
+            {
+                bgWorker = new BackgroundWorker() { WorkerReportsProgress = true, WorkerSupportsCancellation = true };
+                bgWorker.DoWork += BgWorker_DoWork;
+                bgWorker.RunWorkerCompleted += BgWorker_RunWorkerCompleted;
+                bgWorker.ProgressChanged += BgWorker_ProgressChanged;
+            }
+            if (progress == null)
+            {
+                progress = new Progress<KeyValuePair<double, string>>(kv =>
+                {
+                    try
+                    {
+                        var k = kv.Key;
+                        var v = kv.Value;
+                        Progress.Value = k * 100;
+                        if (k >= 1) Progress.ToolTip = $"100% : {v}";
+                        else if (k <= 0) Progress.ToolTip = $"0% : {v}";
+                        else Progress.ToolTip = $"{k:P1} : {v}";
+                    }
+                    catch { }
+                });
+            }
+            if (ReportProgress == null)
+            {
+                Progress.Minimum = 0;
+                Progress.Maximum = 100;
+                Progress.Value = 0;
+                ReportProgress = new Action<double, string>((percent, tooltip) =>
+                {
+                    Dispatcher.Invoke(async () =>
+                    {
+                        //if (progress is IProgress<KeyValuePair<double, string>>)
+                        //    progress.Report(new KeyValuePair<double, string>(percent, tooltip));
+                        try
+                        {
+                            Progress.Value = percent * 100;
+                            if (percent >= 1) Progress.ToolTip = $"100% : {tooltip}";
+                            else if (percent <= 0) Progress.ToolTip = $"0% : {tooltip}";
+                            else Progress.ToolTip = $"{percent:P1} : {tooltip}";
+                        }
+                        catch { }
+
+                        if (percent >= 1 || percent <= 0) Title = DefaultTitle;
+                        else Title = $"{DefaultTitle} [{percent:P1}]";
+
+                        await Task.Delay(1);
+                        DoEvents();
+                    });
+                });
+            }
+        }
+
+        public static void InitMagicK()
+        {
+            try
+            {
+                var magick_cache = Path.IsPathRooted(CachePath) ? CachePath : Path.Combine(AppPath, CachePath);
+                //if (!Directory.Exists(magick_cache)) Directory.CreateDirectory(magick_cache);
+                if (Directory.Exists(magick_cache)) MagickAnyCPU.CacheDirectory = magick_cache;
+                ResourceLimits.Memory = 256 * 1024 * 1024;
+                ResourceLimits.LimitMemory(new Percentage(5));
+                ResourceLimits.Thread = 4;
+                //ResourceLimits.Area = 4096 * 4096;
+                //ResourceLimits.Throttle = 
+                OpenCL.IsEnabled = true;
+                if (Directory.Exists(magick_cache)) OpenCL.SetCacheDirectory(magick_cache);
+            }
+            catch (Exception ex) { Log(ex.Message); }
         }
 
         public MainWindow()
@@ -1448,6 +1643,7 @@ namespace TouchMeta
             WindowStartupLocation = WindowStartupLocation.CenterScreen;
             Topmost = true;
 #endif
+            DefaultTitle = Title;
             InitMagicK();
 
             #region Default UI values
@@ -1489,6 +1685,8 @@ namespace TouchMeta
             MetaInputPopup.PreviewMouseDown += (obj, evt) => { Activate(); };
             #endregion
 
+            InitBgWorker();
+
             var args = Environment.GetCommandLineArgs();
             LoadFiles(args.Skip(1).ToArray());
         }
@@ -1515,108 +1713,6 @@ namespace TouchMeta
                 {
                     LoadFiles((files as IEnumerable<string>).ToArray());
                 }
-            }
-        }
-
-        private void FilesListAction_Click(object sender, RoutedEventArgs e)
-        {
-            if (sender == GetFileTimeFromSelected)
-            {
-                if (FilesList.SelectedItem != null)
-                {
-                    var file = FilesList.SelectedItem as string;
-                    if (File.Exists(file))
-                    {
-                        var fi = new FileInfo(file);
-
-                        DateCreated.SelectedDate = fi.CreationTime;
-                        DateModified.SelectedDate = fi.LastWriteTime;
-                        DateAccessed.SelectedDate = fi.LastAccessTime;
-
-                        TimeCreated.Value = fi.CreationTime;
-                        TimeModified.Value = fi.LastWriteTime;
-                        TimeAccessed.Value = fi.LastAccessTime;
-                    }
-                }
-            }
-            else if (sender == GetMetaTimeFromSelected)
-            {
-                if (FilesList.SelectedItem != null)
-                {
-                    var file = FilesList.SelectedItem as string;
-                    var dt = GetMetaTime(file);
-                    if (dt != null)
-                    {
-                        DateCreated.SelectedDate = dt;
-                        DateModified.SelectedDate = dt;
-                        DateAccessed.SelectedDate = dt;
-
-                        TimeCreated.Value = dt;
-                        TimeModified.Value = dt;
-                        TimeAccessed.Value = dt;
-                    }
-                }
-            }
-            else if (sender == GetMetaInfoFromSelected)
-            {
-                if (FilesList.SelectedItem != null)
-                {
-                    var file = FilesList.SelectedItem as string;
-                    CurrentMeta = GetMetaInfo(file);
-
-                    DateCreated.SelectedDate = CurrentMeta.DateAcquired ?? CurrentMeta.DateTaken ?? DateCreated.SelectedDate;
-                    DateModified.SelectedDate = CurrentMeta.DateAcquired ?? CurrentMeta.DateTaken ?? DateModified.SelectedDate;
-                    DateAccessed.SelectedDate = CurrentMeta.DateAcquired ?? CurrentMeta.DateTaken ?? DateAccessed.SelectedDate;
-
-                    TimeCreated.Value = CurrentMeta.DateAcquired ?? CurrentMeta.DateTaken ?? TimeCreated.Value;
-                    TimeModified.Value = CurrentMeta.DateAcquired ?? CurrentMeta.DateTaken ?? TimeModified.Value;
-                    TimeAccessed.Value = CurrentMeta.DateAcquired ?? CurrentMeta.DateTaken ?? TimeAccessed.Value;
-
-                    MetaInputTitleText.Text = CurrentMeta.Title ?? MetaInputTitleText.Text;
-                    MetaInputSubjectText.Text = CurrentMeta.Subject ?? MetaInputSubjectText.Text;
-                    MetaInputCommentText.Text = CurrentMeta.Comment ?? MetaInputCommentText.Text;
-                    MetaInputKeywordsText.Text = CurrentMeta.Keywords ?? MetaInputKeywordsText.Text;
-                    MetaInputAuthorText.Text = CurrentMeta.Author ?? MetaInputAuthorText.Text;
-                    MetaInputCopyrightText.Text = CurrentMeta.Copyright ?? MetaInputCopyrightText.Text;
-                }
-            }
-            else if (sender == ConvertSelectedToJpg)
-            {
-                ConvertImagesTo(MagickFormat.Jpg);
-            }
-            else if (sender == ConvertSelectedToPng)
-            {
-                ConvertImagesTo(MagickFormat.Png);
-            }
-            else if (sender == ConvertSelectedToGif)
-            {
-                ConvertImagesTo(MagickFormat.Gif);
-            }
-            else if (sender == ConvertSelectedToWebp)
-            {
-                ConvertImagesTo(MagickFormat.WebP);
-            }
-            else if (sender == RemoveSelected)
-            {
-                try
-                {
-                    foreach (var i in FilesList.SelectedItems.OfType<string>().ToList())
-                        FilesList.Items.Remove(i);
-                }
-                catch (Exception ex) { Xceed.Wpf.Toolkit.MessageBox.Show(Application.Current.MainWindow, ex.Message); }
-            }
-            else if (sender == RemoveAll)
-            {
-                FilesList.Items.Clear();
-            }
-        }
-
-        private void FilesList_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            if (FilesList.SelectedItem != null)
-            {
-                var file = FilesList.SelectedItem as string;
-                UpdateFileTimeInfo(file);
             }
         }
 
@@ -1688,39 +1784,166 @@ namespace TouchMeta
             }
         }
 
+        private void FilesList_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (FilesList.SelectedItem != null)
+            {
+                var file = FilesList.SelectedItem as string;
+                UpdateFileTimeInfo(file);
+            }
+        }
+
+        private void FilesListAction_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender == GetFileTimeFromSelected)
+            {
+                if (FilesList.SelectedItem != null)
+                {
+                    #region Get File DateTime From Selected File
+                    var file = FilesList.SelectedItem as string;
+                    if (File.Exists(file))
+                    {
+                        var fi = new FileInfo(file);
+
+                        DateCreated.SelectedDate = fi.CreationTime;
+                        DateModified.SelectedDate = fi.LastWriteTime;
+                        DateAccessed.SelectedDate = fi.LastAccessTime;
+
+                        TimeCreated.Value = fi.CreationTime;
+                        TimeModified.Value = fi.LastWriteTime;
+                        TimeAccessed.Value = fi.LastAccessTime;
+                    }
+                    #endregion
+                }
+            }
+            else if (sender == GetMetaTimeFromSelected)
+            {
+                if (FilesList.SelectedItem != null)
+                {
+                    #region Get Metadata DateTime From Selected File
+                    var file = FilesList.SelectedItem as string;
+                    var dt = GetMetaTime(file);
+                    if (dt != null)
+                    {
+                        DateCreated.SelectedDate = dt;
+                        DateModified.SelectedDate = dt;
+                        DateAccessed.SelectedDate = dt;
+
+                        TimeCreated.Value = dt;
+                        TimeModified.Value = dt;
+                        TimeAccessed.Value = dt;
+                    }
+                    #endregion
+                }
+            }
+            else if (sender == GetMetaInfoFromSelected)
+            {
+                if (FilesList.SelectedItem != null)
+                {
+                    #region Get Metadata Infomation From Selected File
+                    var file = FilesList.SelectedItem as string;
+                    CurrentMeta = GetMetaInfo(file);
+
+                    DateCreated.SelectedDate = CurrentMeta.DateAcquired ?? CurrentMeta.DateTaken ?? DateCreated.SelectedDate;
+                    DateModified.SelectedDate = CurrentMeta.DateAcquired ?? CurrentMeta.DateTaken ?? DateModified.SelectedDate;
+                    DateAccessed.SelectedDate = CurrentMeta.DateAcquired ?? CurrentMeta.DateTaken ?? DateAccessed.SelectedDate;
+
+                    TimeCreated.Value = CurrentMeta.DateAcquired ?? CurrentMeta.DateTaken ?? TimeCreated.Value;
+                    TimeModified.Value = CurrentMeta.DateAcquired ?? CurrentMeta.DateTaken ?? TimeModified.Value;
+                    TimeAccessed.Value = CurrentMeta.DateAcquired ?? CurrentMeta.DateTaken ?? TimeAccessed.Value;
+
+                    MetaInputTitleText.Text = CurrentMeta.Title ?? MetaInputTitleText.Text;
+                    MetaInputSubjectText.Text = CurrentMeta.Subject ?? MetaInputSubjectText.Text;
+                    MetaInputCommentText.Text = CurrentMeta.Comment ?? MetaInputCommentText.Text;
+                    MetaInputKeywordsText.Text = CurrentMeta.Keywords ?? MetaInputKeywordsText.Text;
+                    MetaInputAuthorText.Text = CurrentMeta.Author ?? MetaInputAuthorText.Text;
+                    MetaInputCopyrightText.Text = CurrentMeta.Copyright ?? MetaInputCopyrightText.Text;
+                    #endregion
+                }
+            }
+            else if (sender == ConvertSelectedToJpg)
+            {
+                ConvertImagesTo(MagickFormat.Jpg);
+            }
+            else if (sender == ConvertSelectedToPng)
+            {
+                ConvertImagesTo(MagickFormat.Png);
+            }
+            else if (sender == ConvertSelectedToGif)
+            {
+                ConvertImagesTo(MagickFormat.Gif);
+            }
+            else if (sender == ConvertSelectedToAvif)
+            {
+                ConvertImagesTo(MagickFormat.Avif);
+            }
+            else if (sender == ConvertSelectedToWebp)
+            {
+                ConvertImagesTo(MagickFormat.WebP);
+            }
+            else if (sender == ConvertSelectedToPdf)
+            {
+                ConvertImagesTo(MagickFormat.Pdf);
+            }
+            else if (sender == RemoveSelected)
+            {
+                #region From Files List Remove Selected Files
+                try
+                {
+                    foreach (var i in FilesList.SelectedItems.OfType<string>().ToList())
+                        FilesList.Items.Remove(i);
+                }
+                catch (Exception ex) { Xceed.Wpf.Toolkit.MessageBox.Show(Application.Current.MainWindow, ex.Message); }
+                #endregion
+            }
+            else if (sender == RemoveAll)
+            {
+                FilesList.Items.Clear();
+            }
+        }
+
         private void BtnAction_Click(object sender, RoutedEventArgs e)
         {
             if (sender == SetCreatedDateTimeToAll)
             {
+                #region Set Created DateTime To All
                 DateModified.SelectedDate = DateCreated.SelectedDate;
                 DateAccessed.SelectedDate = DateCreated.SelectedDate;
                 TimeModified.Value = DateCreated.SelectedDate;
                 TimeAccessed.Value = DateCreated.SelectedDate;
+                #endregion
             }
             else if (sender == SetModifiedDateTimeToAll)
             {
+                #region Set Modified DateTime To All
                 DateCreated.SelectedDate = DateModified.SelectedDate;
                 DateAccessed.SelectedDate = DateModified.SelectedDate;
                 TimeCreated.Value = DateModified.SelectedDate;
                 TimeAccessed.Value = DateModified.SelectedDate;
+                #endregion
             }
             else if (sender == SetAccessedDateTimeToAll)
             {
+                #region Set Accessed DateTime To All
                 DateCreated.SelectedDate = DateAccessed.SelectedDate;
                 DateModified.SelectedDate = DateAccessed.SelectedDate;
                 TimeCreated.Value = DateAccessed.SelectedDate;
                 TimeModified.Value = DateAccessed.SelectedDate;
+                #endregion
             }
             else if (sender == ShowMetaInputPopup)
             {
+                #region Popup Metadata Input Panel
                 if (MetaInputPopup.StaysOpen)
                     MetaInputPopup.IsOpen = !MetaInputPopup.IsOpen;
                 else
                     MetaInputPopup.IsOpen = true;
                 MetaInputPopup.StaysOpen = Keyboard.Modifiers == ModifierKeys.Control;
+                #endregion
             }
             else if (sender == FileTimeImport)
             {
+                #region Parsing DateTime
                 var dt = DateTime.Now;
                 if (DateTime.TryParse(FileTimeImportText.Text, out dt))
                 {
@@ -1734,37 +1957,55 @@ namespace TouchMeta
 
                     UpdateFileTimeInfo();
                 }
+                #endregion
             }
             else if (sender == BtnTouchTime)
             {
                 if (FilesList.Items.Count >= 1)
                 {
+                    #region Touching File Time
                     ClearLog();
-                    List<string> files = new List<string>();
-                    Dispatcher.InvokeAsync(() =>
+                    Progress.Value = 0;
+                    if (bgWorker is BackgroundWorker && !bgWorker.IsBusy)
                     {
+                        List<string> files = new List<string>();
                         foreach (var item in FilesList.SelectedItems.Count > 0 ? FilesList.SelectedItems : FilesList.Items) files.Add(item as string);
-                        foreach (var file in files)
+
+                        var force = Keyboard.Modifiers == ModifierKeys.Control;
+                        var dtc = DateCreated.SelectedDate;
+                        var dtm = DateModified.SelectedDate;
+                        var dta = DateAccessed.SelectedDate;
+
+                        bgWorker.RunWorkerAsync(new Action(() =>
                         {
-                            Log($"{file}");
-                            Log("-".PadRight(75, '-'));
-                            if (Keyboard.Modifiers == ModifierKeys.Control)
-                                TouchDate(file, force: true, dtc: DateCreated.SelectedDate, dtm: DateModified.SelectedDate, dta: DateAccessed.SelectedDate);
-                            else TouchDate(file, dtc: DateCreated.SelectedDate, dtm: DateModified.SelectedDate, dta: DateAccessed.SelectedDate);
-                            Log("=".PadRight(75, '='));
-                        }
-                        ShowLog();
-                    });
+                            double count = 0;
+                            foreach (var file in files)
+                            {
+                                if (ReportProgress is Action<double, string>) ReportProgress.Invoke(count / files.Count, file);
+                                Log($"{file}");
+                                Log("-".PadRight(75, '-'));
+                                TouchDate(file, force: force, dtc: dtc, dtm: dtm, dta: dta);
+                                Log("=".PadRight(75, '='));
+                                if (ReportProgress is Action<double, string>) ReportProgress.Invoke(++count / files.Count, file);
+                            }
+                            ShowLog();
+                        }));
+                    }
+                    #endregion
                 }
             }
             else if (sender == BtnTouchMeta)
             {
                 if (FilesList.Items.Count >= 1)
                 {
+                    #region Touching Metadata
                     ClearLog();
-                    List<string> files = new List<string>();
-                    Dispatcher.InvokeAsync(() =>
+                    Progress.Value = 0;
+                    if (bgWorker is BackgroundWorker && !bgWorker.IsBusy)
                     {
+                        List<string> files = new List<string>();
+                        foreach (var item in FilesList.SelectedItems.Count > 0 ? FilesList.SelectedItems : FilesList.Items) files.Add(item as string);
+
                         var force = Keyboard.Modifiers == ModifierKeys.Control;
                         var dtc = DateCreated.SelectedDate;
                         var dtm = DateModified.SelectedDate;
@@ -1777,64 +2018,88 @@ namespace TouchMeta
                         meta.Author = string.IsNullOrEmpty(MetaInputAuthorText.Text) ? null : MetaInputAuthorText.Text;
                         meta.Copyright = string.IsNullOrEmpty(MetaInputCopyrightText.Text) ? null : MetaInputCopyrightText.Text;
 
-                        foreach (var item in FilesList.SelectedItems.Count > 0 ? FilesList.SelectedItems : FilesList.Items) files.Add(item as string);
-                        foreach (var file in files)
+                        bgWorker.RunWorkerAsync(new Action(() =>
                         {
-                            Log($"{file}");
-                            Log("-".PadRight(75, '-'));
-                            TouchMeta(file, force: force, dtc: dtc, dtm: dtm, dta: dta, meta: meta);
-                            Log("=".PadRight(75, '='));
-                        }
-                        ShowLog();
-                    });
+                            double count = 0;
+                            foreach (var file in files)
+                            {
+                                if (ReportProgress is Action<double, string>) ReportProgress.Invoke(count / files.Count, file);
+                                Log($"{file}");
+                                Log("-".PadRight(75, '-'));
+                                TouchMeta(file, force: force, dtc: dtc, dtm: dtm, dta: dta, meta: meta);
+                                Log("=".PadRight(75, '='));
+                                if (ReportProgress is Action<double, string>) ReportProgress.Invoke(++count / files.Count, file);
+                            }
+                            ShowLog();
+                        }));
+                    }
+                    #endregion
                 }
             }
             else if (sender == BtnClearMeta)
             {
                 if (FilesList.Items.Count >= 1)
                 {
+                    #region Clear Metadata
                     ClearLog();
-                    List<string> files = new List<string>();
-                    Dispatcher.InvokeAsync(() =>
+                    Progress.Value = 0;
+                    if (bgWorker is BackgroundWorker && !bgWorker.IsBusy)
                     {
+                        List<string> files = new List<string>();
                         foreach (var item in FilesList.SelectedItems.Count > 0 ? FilesList.SelectedItems : FilesList.Items) files.Add(item as string);
-                        foreach (var file in files)
+
+                        bgWorker.RunWorkerAsync(new Action(() =>
                         {
-                            Log($"{file}");
-                            Log("-".PadRight(75, '-'));
-                            ClearMeta(file);
-                            Log("=".PadRight(75, '='));
-                        }
-                        ShowLog();
-                    });
+                            double count = 0;
+                            foreach (var file in files)
+                            {
+                                if (ReportProgress is Action<double, string>) ReportProgress.Invoke(count / files.Count, file);
+                                Log($"{file}");
+                                Log("-".PadRight(75, '-'));
+                                ClearMeta(file);
+                                Log("=".PadRight(75, '='));
+                                if (ReportProgress is Action<double, string>) ReportProgress.Invoke(++count / files.Count, file);
+                            }
+                            ShowLog();
+                        }));
+                    }
+                    #endregion
                 }
             }
             else if (sender == BtnShowMeta)
             {
                 if (FilesList.Items.Count >= 1)
                 {
+                    #region Show Metadata
                     ClearLog();
-                    List<string> files = new List<string>();
-                    Dispatcher.InvokeAsync(() =>
+                    Progress.Value = 0;
+                    if (bgWorker is BackgroundWorker && !bgWorker.IsBusy)
                     {
+                        List<string> files = new List<string>();
                         foreach (var item in FilesList.SelectedItems.Count > 0 ? FilesList.SelectedItems : FilesList.Items) files.Add(item as string);
-                        foreach (var file in files)
+
+                        bgWorker.RunWorkerAsync(new Action(() =>
                         {
-                            Log($"{file}");
-                            Log("-".PadRight(75, '-'));
-                            ShowMeta(file);
-                            Log("=".PadRight(75, '='));
-                        }
-                        ShowLog();
-                    });
+                            double count = 0;
+                            foreach (var file in files)
+                            {
+                                if (ReportProgress is Action<double, string>) ReportProgress.Invoke(count / files.Count, file);
+                                Log($"{file}");
+                                Log("-".PadRight(75, '-'));
+                                ShowMeta(file);
+                                Log("=".PadRight(75, '='));
+                                if (ReportProgress is Action<double, string>) ReportProgress.Invoke(++count / files.Count, file);
+                            }
+                            ShowLog();
+                        }));
+                    }
+                    #endregion
                 }
             }
             else if (sender == BtnOpenFile)
             {
                 LoadFiles();
             }
-
         }
-
     }
 }
