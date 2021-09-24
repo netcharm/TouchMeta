@@ -9,6 +9,7 @@ using System.Windows;
 using System.Windows.Media;
 
 using ImageMagick;
+using System.Xml;
 
 namespace NetChamr
 {
@@ -160,6 +161,67 @@ namespace NetChamr
             return (DBCS.GetString(UTF8.GetBytes(text)));
         }
 
+        private static string FormatXML(string xml)
+        {
+            var result = xml;
+            try
+            {
+                var doc = new XmlDocument();
+                doc.LoadXml(xml);
+                result = FormatXML(doc);
+            }
+            catch (Exception ex) { ShowMessage(ex.Message); }
+            return (result);
+        }
+
+        private static string FormatXML(XmlDocument xml)
+        {
+            var result = xml.OuterXml;
+            using (var ms = new MemoryStream())
+            {
+                var writer = new XmlTextWriter(ms, Encoding.UTF8);
+                writer.Formatting = Formatting.Indented;
+                xml.WriteContentTo(writer);
+                writer.Flush();
+                ms.Flush();
+                ms.Seek(0, SeekOrigin.Begin);
+                using (var sr = new StreamReader(ms)) { result = sr.ReadToEnd(); }
+            }
+            return (result);
+        }
+
+        private static string FormatXML(XmlNode xml)
+        {
+            var result = xml.OuterXml;
+            using (var ms = new MemoryStream())
+            {
+                var writer = new XmlTextWriter(ms, Encoding.UTF8);
+                writer.Formatting = Formatting.Indented;
+                xml.WriteTo(writer);
+                writer.Flush();
+                ms.Flush();
+                ms.Seek(0, SeekOrigin.Begin);
+                using (var sr = new StreamReader(ms)) { result = sr.ReadToEnd(); }
+            }
+            return (result);
+        }
+
+        private static string FormatXML(XmlElement xml)
+        {
+            var result = xml.OuterXml;
+            using (var ms = new MemoryStream())
+            {
+                var writer = new XmlTextWriter(ms, Encoding.UTF8);
+                writer.Formatting = Formatting.Indented;
+                xml.WriteTo(writer);
+                writer.Flush();
+                ms.Flush();
+                ms.Seek(0, SeekOrigin.Begin);
+                using (var sr = new StreamReader(ms)) { result = sr.ReadToEnd(); }
+            }
+            return (result);
+        }
+
         public static void ClearMeta(string file)
         {
             if (File.Exists(file))
@@ -298,7 +360,7 @@ namespace NetChamr
                                     else if (tag.StartsWith("exif") && tag.Substring(5).Equals("DateTimeOriginal"))
                                         exif.SetValue(ExifTag.DateTimeOriginal, dm_exif);
                                 }
-                                Log($"{$"  {tag}".PadRight(32)}= {(value_old == null ? "NULL" : value_old)} => {image.GetAttribute(tag)}");
+                                Log($"{$"{tag}".PadRight(32)}= {(value_old == null ? "NULL" : value_old)} => {image.GetAttribute(tag)}");
                             }
                         }
                         catch (Exception ex) { Log(ex.Message); }
@@ -326,7 +388,7 @@ namespace NetChamr
                                     else if (tag.StartsWith("exif") && tag.Substring(5).Equals("ImageDescription"))
                                         exif.SetValue(ExifTag.ImageDescription, title);
                                 }
-                                Log($"{$"  {tag}".PadRight(32)}= {(value_old == null ? "NULL" : value_old)} => {(tag.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(tag)) : image.GetAttribute(tag))}");
+                                Log($"{$"{tag}".PadRight(32)}= {(value_old == null ? "NULL" : value_old)} => {(tag.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(tag)) : image.GetAttribute(tag))}");
                             }
                         }
                         catch (Exception ex) { Log(ex.Message); }
@@ -356,7 +418,7 @@ namespace NetChamr
                                         exif.SetValue(ExifTag.XPSubject, Encoding.Unicode.GetBytes(subject));
                                     }
                                 }
-                                Log($"{$"  {tag}".PadRight(32)}= {(value_old == null ? "NULL" : value_old)} => {(tag.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(tag)) : image.GetAttribute(tag))}");
+                                Log($"{$"{tag}".PadRight(32)}= {(value_old == null ? "NULL" : value_old)} => {(tag.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(tag)) : image.GetAttribute(tag))}");
                             }
                         }
                         catch (Exception ex) { Log(ex.Message); }
@@ -386,7 +448,7 @@ namespace NetChamr
                                         exif.SetValue(ExifTag.XPAuthor, Encoding.Unicode.GetBytes(author));
                                     }
                                 }
-                                Log($"{$"  {tag}".PadRight(32)}= {(value_old == null ? "NULL" : value_old)} => {(tag.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(tag)) : image.GetAttribute(tag))}");
+                                Log($"{$"{tag}".PadRight(32)}= {(value_old == null ? "NULL" : value_old)} => {(tag.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(tag)) : image.GetAttribute(tag))}");
                             }
                         }
                         catch (Exception ex) { Log(ex.Message); }
@@ -415,7 +477,7 @@ namespace NetChamr
                                         exif.SetValue(ExifTag.Copyright, copyright);
                                     }
                                 }
-                                Log($"{$"  {tag}".PadRight(32)}= {(value_old == null ? "NULL" : value_old)} => {(tag.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(tag)) : image.GetAttribute(tag))}");
+                                Log($"{$"{tag}".PadRight(32)}= {(value_old == null ? "NULL" : value_old)} => {(tag.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(tag)) : image.GetAttribute(tag))}");
                             }
                         }
                         catch (Exception ex) { Log(ex.Message); }
@@ -443,7 +505,7 @@ namespace NetChamr
                                     else if (tag.StartsWith("exif") && tag.Substring(5).Equals("WinXP-Comments"))
                                         exif.SetValue(ExifTag.XPComment, Encoding.Unicode.GetBytes(comment));
                                 }
-                                Log($"{$"  {tag}".PadRight(32)}= {(value_old == null ? "NULL" : value_old)} => {(tag.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(tag)) : image.GetAttribute(tag))}");
+                                Log($"{$"{tag}".PadRight(32)}= {(value_old == null ? "NULL" : value_old)} => {(tag.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(tag)) : image.GetAttribute(tag))}");
                             }
                         }
                         catch (Exception ex) { Log(ex.Message); }
@@ -469,7 +531,7 @@ namespace NetChamr
                                 if (tag.StartsWith("exif") && tag.Substring(5).Equals("WinXP-Keywords"))
                                     exif.SetValue(ExifTag.XPKeywords, Encoding.Unicode.GetBytes(keywords));
                             }
-                            Log($"{$"  {tag}".PadRight(32)}= {value_old} => {(tag.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(tag)) : image.GetAttribute(tag))}");
+                            Log($"{$"{tag}".PadRight(32)}= {value_old} => {(tag.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(tag)) : image.GetAttribute(tag))}");
                         }
                     }
                     #endregion
@@ -478,42 +540,223 @@ namespace NetChamr
 
                     if (exif != null) image.SetProfile(exif);
                     #region touch xmp profile
+                    if (xmp == null)
+                    {
+                        //var xml = $"<?xpacket begin='?' id='W5M0MpCehiHzreSzNTczkc9d'?>{Environment.NewLine}<x:xmpmeta xmlns:x=\"adobe:ns:meta/\"><rdf:RDF xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\"><rdf:Description rdf:about=\"uuid:faf5bdd5-ba3d-11da-ad31-d33d75182f1b\" xmlns:MicrosoftPhoto=\"http://ns.microsoft.com/photo/1.0/\"><MicrosoftPhoto:DateAcquired>{dm_msxmp}</MicrosoftPhoto:DateAcquired></rdf:Description></rdf:RDF></x:xmpmeta>{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}                            <?xpacket end='w'?>";
+                        var xml = $"<?xpacket begin='?' id='W5M0MpCehiHzreSzNTczkc9d'?><x:xmpmeta xmlns:x=\"adobe:ns:meta/\"><rdf:RDF xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\"><rdf:Description rdf:about=\"uuid:faf5bdd5-ba3d-11da-ad31-d33d75182f1b\" xmlns:MicrosoftPhoto=\"http://ns.microsoft.com/photo/1.0/\"><MicrosoftPhoto:DateAcquired>{dm_msxmp}</MicrosoftPhoto:DateAcquired><MicrosoftPhoto:DateTaken>{dm_msxmp}</MicrosoftPhoto:DateTaken></rdf:Description><rdf:Description about='' xmlns:exif='http://ns.adobe.com/exif/1.0/'><exif:DateTimeDigitized>{dm_ms}</exif:DateTimeDigitized><exif:DateTimeOriginal></exif:DateTimeOriginal></rdf:Description>{dm_ms}</rdf:RDF></x:xmpmeta><?xpacket end='w'?>";
+
+                        xmp = new XmpProfile(Encoding.UTF8.GetBytes(xml));
+                        image.SetProfile(xmp);
+                    }
                     if (xmp != null)
                     {
                         var xml = Encoding.UTF8.GetString(xmp.GetData());
 
-                        var pattern_ms_da = @"(<MicrosoftPhoto:DateAcquired>).*?(</MicrosoftPhoto:DateAcquired>)";
-                        if (Regex.IsMatch(xml, pattern_ms_da, RegexOptions.IgnoreCase))
+                        try
                         {
-                            xml = Regex.Replace(xml, pattern_ms_da, $"$1{dm_msxmp}$2", RegexOptions.IgnoreCase);
-                            xml = xml.Replace("$1", "<MicrosoftPhoto:DateAcquired>");
-                        }
-                        else
-                        {
-                            var msda_xml = $"<rdf:Description rdf:about=\"uuid:faf5bdd5-ba3d-11da-ad31-d33d75182f1b\" xmlns:MicrosoftPhoto=\"http://ns.microsoft.com/photo/1.0/\"><MicrosoftPhoto:DateAcquired>{dm_msxmp}</MicrosoftPhoto:DateAcquired></rdf:Description>";
-                            xml = Regex.Replace(xml, @"(</rdf:RDF></x:xmpmeta>)", $"{msda_xml}$1", RegexOptions.IgnoreCase);
-                        }
+                            var xml_doc = new XmlDocument();
+                            xml_doc.LoadXml(xml);
+                            var root_nodes = xml_doc.GetElementsByTagName("rdf:RDF");
+                            if (root_nodes.Count >= 1)
+                            {
+                                #region xml nodes changing
+                                var root_node = root_nodes.Item(0);
+                                if (xml_doc.GetElementsByTagName("dc:title").Count <= 0)
+                                {
+                                    var desc = xml_doc.CreateElement("rdf:Description", "rdf");
+                                    desc.SetAttribute("rdf:about", "");
+                                    desc.SetAttribute("xmlns:dc", "http://purl.org/dc/elements/1.1/");
+                                    desc.AppendChild(xml_doc.CreateElement("dc:title", "dc"));
+                                    root_node.AppendChild(desc);
+                                }
+                                if (xml_doc.GetElementsByTagName("exif:DateTimeDigitized").Count <= 0)
+                                {
+                                    if (xml_doc.GetElementsByTagName("exif:DateTimeOriginal").Count > 0)
+                                    {
+                                        var node_msdt = xml_doc.GetElementsByTagName("exif:DateTimeOriginal").Item(0);
+                                        node_msdt.ParentNode.AppendChild(xml_doc.CreateElement("exif:DateTimeDigitized", "exif"));
+                                    }
+                                    else
+                                    {
+                                        var desc = xml_doc.CreateElement("rdf:Description", "rdf");
+                                        desc.SetAttribute("rdf:about", "");
+                                        desc.SetAttribute("xmlns:exif", "http://ns.adobe.com/exif/1.0/");
+                                        desc.AppendChild(xml_doc.CreateElement("exif:DateTimeDigitized", "exif"));
+                                        root_node.AppendChild(desc);
+                                    }
+                                }
+                                if (xml_doc.GetElementsByTagName("exif:DateTimeOriginal").Count <= 0)
+                                {
+                                    if (xml_doc.GetElementsByTagName("exif:DateTimeDigitized").Count > 0)
+                                    {
+                                        var node_msdt = xml_doc.GetElementsByTagName("exif:DateTimeDigitized").Item(0);
+                                        node_msdt.ParentNode.AppendChild(xml_doc.CreateElement("exif:DateTimeOriginal", "exif"));
+                                    }
+                                    else
+                                    {
+                                        var desc = xml_doc.CreateElement("rdf:Description", "rdf");
+                                        desc.SetAttribute("rdf:about", "");
+                                        desc.SetAttribute("xmlns:exif", "http://ns.adobe.com/exif/1.0/");
+                                        desc.AppendChild(xml_doc.CreateElement("exif:DateTimeOriginal", "exif"));
+                                        root_node.AppendChild(desc);
+                                    }
+                                }
+                                if (xml_doc.GetElementsByTagName("tiff:DateTime").Count <= 0)
+                                {
+                                    var desc = xml_doc.CreateElement("rdf:Description", "rdf");
+                                    desc.SetAttribute("rdf:about", "");
+                                    desc.SetAttribute("xmlns:tiff", "http://ns.adobe.com/tiff/1.0/");
+                                    desc.AppendChild(xml_doc.CreateElement("tiff:DateTime", "tiff"));
+                                    root_node.AppendChild(desc);
+                                }
+                                if (xml_doc.GetElementsByTagName("MicrosoftPhoto:DateAcquired").Count <= 0)
+                                {
+                                    if (xml_doc.GetElementsByTagName("MicrosoftPhoto:DateTaken").Count > 0)
+                                    {
+                                        var node_msdt = xml_doc.GetElementsByTagName("MicrosoftPhoto:DateTaken").Item(0);
+                                        node_msdt.ParentNode.AppendChild(xml_doc.CreateElement("MicrosoftPhoto:DateAcquired", "MicrosoftPhoto"));
+                                    }
+                                    else
+                                    {
+                                        var desc = xml_doc.CreateElement("rdf:Description", "rdf");
+                                        desc.SetAttribute("rdf:about", "uuid:faf5bdd5-ba3d-11da-ad31-d33d75182f1b");
+                                        desc.SetAttribute("xmlns:MicrosoftPhoto", "http://ns.microsoft.com/photo/1.0");
+                                        desc.AppendChild(xml_doc.CreateElement("MicrosoftPhoto:DateAcquired", "MicrosoftPhoto"));
+                                        root_node.AppendChild(desc);
+                                    }
+                                }
+                                if (xml_doc.GetElementsByTagName("MicrosoftPhoto:DateTaken").Count <= 0)
+                                {
+                                    if (xml_doc.GetElementsByTagName("MicrosoftPhoto:DateAcquired").Count > 0)
+                                    {
+                                        var node_msdt = xml_doc.GetElementsByTagName("MicrosoftPhoto:DateAcquired").Item(0);
+                                        node_msdt.ParentNode.AppendChild(xml_doc.CreateElement("MicrosoftPhoto:DateTaken", "MicrosoftPhoto"));
+                                    }
+                                    else
+                                    {
+                                        var desc = xml_doc.CreateElement("rdf:Description", "rdf");
+                                        desc.SetAttribute("rdf:about", "uuid:faf5bdd5-ba3d-11da-ad31-d33d75182f1b");
+                                        desc.SetAttribute("xmlns:MicrosoftPhoto", "http://ns.microsoft.com/photo/1.0");
+                                        desc.AppendChild(xml_doc.CreateElement("MicrosoftPhoto:DateTaken", "MicrosoftPhoto"));
+                                        root_node.AppendChild(desc);
+                                    }
+                                }
 
-                        var pattern_ms_dt = @"(<MicrosoftPhoto:DateTaken>).*?(</MicrosoftPhoto:DateTaken>)";
-                        if (Regex.IsMatch(xml, pattern_ms_dt, RegexOptions.IgnoreCase))
-                        {
-                            xml = Regex.Replace(xml, pattern_ms_dt, $"$1{dm_msxmp}$2", RegexOptions.IgnoreCase);
-                            xml = xml.Replace("$1", "<MicrosoftPhoto:DateTaken>");
+                                foreach (XmlNode node in xml_doc.GetElementsByTagName("rdf:Description"))
+                                {
+                                    foreach (XmlNode child in node.ChildNodes)
+                                    {
+                                        if (child.Name.Equals("dc:title", StringComparison.CurrentCultureIgnoreCase))
+                                        {
+                                            child.RemoveAll();
+                                            var node_title = xml_doc.CreateElement("rdf:Alt", "rdf");
+                                            var node_title_li = xml_doc.CreateElement("rdf:li", "rdf");
+                                            node_title_li.SetAttribute("xml:lang", "x-default");
+                                            node_title_li.InnerText = title;
+                                            node_title.AppendChild(node_title_li);
+                                            child.AppendChild(node_title);
+                                        }
+                                        else if (child.Name.Equals("MicrosoftPhoto:DateAcquired", StringComparison.CurrentCultureIgnoreCase))
+                                            child.InnerText = dm_msxmp;
+                                        else if (child.Name.Equals("MicrosoftPhoto:DateTaken", StringComparison.CurrentCultureIgnoreCase))
+                                            child.InnerText = dm_msxmp;
+                                        else if (child.Name.Equals("exif:DateTimeDigitized", StringComparison.CurrentCultureIgnoreCase))
+                                            child.InnerText = dm_ms;
+                                        else if (child.Name.Equals("exif:DateTimeOriginal", StringComparison.CurrentCultureIgnoreCase))
+                                            child.InnerText = dm_ms;
+                                        else if (child.Name.Equals("tiff:DateTime", StringComparison.CurrentCultureIgnoreCase))
+                                            child.InnerText = dm_ms;
+                                    }
+                                }
+                                #endregion
+                                xml = FormatXML(xml_doc).Replace("\"", "'");
+                                foreach (var ns in new string[] { "rdf", "dc", "exif", "tiff", "MicrosoftPhoto" })
+                                {
+                                    xml = xml.Replace($" xmlns:{ns}='{ns}'", "");
+                                }
+                            }
                         }
-                        else
+                        catch
                         {
-                            var msdt_xml = $"<rdf:Description rdf:about=\"uuid:faf5bdd5-ba3d-11da-ad31-d33d75182f1b\" xmlns:MicrosoftPhoto=\"http://ns.microsoft.com/photo/1.0/\"><MicrosoftPhoto:DateTaken>{dm_msxmp}</MicrosoftPhoto:DateTaken></rdf:Description>";
-                            xml = Regex.Replace(xml, @"(</rdf:RDF></x:xmpmeta>)", $"{msdt_xml}$1", RegexOptions.IgnoreCase);
+                            #region Title
+                            var pattern_title = @"(<dc:title>.*?<rdf:li.*?xml:lang='.*?')(>).*?(</rdf:li></rdf:Alt></dc:title>)";
+                            if (Regex.IsMatch(xml, pattern_title, RegexOptions.IgnoreCase | RegexOptions.Multiline))
+                            {
+                                xml = Regex.Replace(xml, pattern_title, $"$1$2{title}$3", RegexOptions.IgnoreCase | RegexOptions.Multiline);
+                                xml = xml.Replace("$2", ">");
+                            }
+                            else
+                            {
+                                var title_xml = $"<rdf:Description rdf:about='' xmlns:dc='http://purl.org/dc/elements/1.1/'><dc:title><rdf:Alt><rdf:li xml:lang='x-default'>{title}</rdf:li></rdf:Alt></dc:title></rdf:Description>";
+                                xml = Regex.Replace(xml, @"(</rdf:RDF>.*?</x:xmpmeta>)", $"{title_xml}$1", RegexOptions.IgnoreCase);
+                            }
+                            #endregion
+                            #region MS Photo DateAcquired
+                            var pattern_ms_da = @"(<MicrosoftPhoto:DateAcquired>).*?(</MicrosoftPhoto:DateAcquired>)";
+                            if (Regex.IsMatch(xml, pattern_ms_da, RegexOptions.IgnoreCase))
+                            {
+                                xml = Regex.Replace(xml, pattern_ms_da, $"$1{dm_msxmp}$2", RegexOptions.IgnoreCase);
+                                xml = xml.Replace("$1", "<MicrosoftPhoto:DateAcquired>");
+                            }
+                            else
+                            {
+                                var msda_xml = $"<rdf:Description rdf:about=\"uuid:faf5bdd5-ba3d-11da-ad31-d33d75182f1b\" xmlns:MicrosoftPhoto=\"http://ns.microsoft.com/photo/1.0/\"><MicrosoftPhoto:DateAcquired>{dm_msxmp}</MicrosoftPhoto:DateAcquired></rdf:Description>";
+                                xml = Regex.Replace(xml, @"(</rdf:RDF></x:xmpmeta>)", $"{msda_xml}$1", RegexOptions.IgnoreCase);
+                            }
+                            #endregion
+                            #region MS Photo DateTaken
+                            var pattern_ms_dt = @"(<MicrosoftPhoto:DateTaken>).*?(</MicrosoftPhoto:DateTaken>)";
+                            if (Regex.IsMatch(xml, pattern_ms_dt, RegexOptions.IgnoreCase))
+                            {
+                                xml = Regex.Replace(xml, pattern_ms_dt, $"$1{dm_msxmp}$2", RegexOptions.IgnoreCase);
+                                xml = xml.Replace("$1", "<MicrosoftPhoto:DateTaken>");
+                            }
+                            else
+                            {
+                                var msdt_xml = $"<rdf:Description rdf:about=\"uuid:faf5bdd5-ba3d-11da-ad31-d33d75182f1b\" xmlns:MicrosoftPhoto=\"http://ns.microsoft.com/photo/1.0/\"><MicrosoftPhoto:DateTaken>{dm_msxmp}</MicrosoftPhoto:DateTaken></rdf:Description>";
+                                xml = Regex.Replace(xml, @"(</rdf:RDF></x:xmpmeta>)", $"{msdt_xml}$1", RegexOptions.IgnoreCase);
+                            }
+                            #endregion
+                            #region tiff:DateTime
+                            var pattern_tiff_dt = @"(<tiff:DateTime>).*?(</tiff:DateTime>)";
+                            if (Regex.IsMatch(xml, pattern_tiff_dt, RegexOptions.IgnoreCase))
+                            {
+                                xml = Regex.Replace(xml, pattern_tiff_dt, $"$1{dm_ms}$2", RegexOptions.IgnoreCase);
+                                xml = xml.Replace("$1", "<tiff:DateTime>");
+                            }
+                            else
+                            {
+                                var tiffdt_xml = $"<rdf:Description rdf:about='' xmlns:tiff='http://ns.adobe.com/tiff/1.0/'><tiff:DateTime>{dm_ms}</tiff:DateTime></rdf:Description>";
+                                xml = Regex.Replace(xml, @"(</rdf:RDF></x:xmpmeta>)", $"{tiffdt_xml}$1", RegexOptions.IgnoreCase);
+                            }
+                            #endregion
+                            #region exif:DateTimeDigitized
+                            var pattern_exif_dd = @"(<exif:DateTimeDigitized>).*?(</exif:DateTimeDigitized>)";
+                            if (Regex.IsMatch(xml, pattern_exif_dd, RegexOptions.IgnoreCase))
+                            {
+                                xml = Regex.Replace(xml, pattern_exif_dd, $"$1{dm_ms}$2", RegexOptions.IgnoreCase);
+                                xml = xml.Replace("$1", "<exif:DateTimeDigitized>");
+                            }
+                            else
+                            {
+                                var exifdo_xml = $"<rdf:Description rdf:about='' xmlns:exif='http://ns.adobe.com/exif/1.0/'><exif:DateTimeDigitized>{dm_ms}</exif:DateTimeDigitized></rdf:Description>";
+                                xml = Regex.Replace(xml, @"(</rdf:RDF></x:xmpmeta>)", $"{exifdo_xml}$1", RegexOptions.IgnoreCase);
+                            }
+                            #endregion
+                            #region exif:DateTimeOriginal
+                            var pattern_exif_do = @"(<exif:DateTimeOriginal>).*?(</exif:DateTimeOriginal>)";
+                            if (Regex.IsMatch(xml, pattern_exif_do, RegexOptions.IgnoreCase))
+                            {
+                                xml = Regex.Replace(xml, pattern_exif_do, $"$1{dm_ms}$2", RegexOptions.IgnoreCase);
+                                xml = xml.Replace("$1", "<exif:DateTimeOriginal>");
+                            }
+                            else
+                            {
+                                var exifdo_xml = $"<rdf:Description rdf:about='' xmlns:exif='http://ns.adobe.com/exif/1.0/'><exif:DateTimeOriginal>{dm_ms}</exif:DateTimeOriginal></rdf:Description>";
+                                xml = Regex.Replace(xml, @"(</rdf:RDF></x:xmpmeta>)", $"{exifdo_xml}$1", RegexOptions.IgnoreCase);
+                            }
+                            #endregion
                         }
-
-                        //Log(xml);
-                        xmp = new XmpProfile(Encoding.UTF8.GetBytes(xml));
-                        image.SetProfile(xmp);
-                    }
-                    else
-                    {
-                        var xml = $"<?xpacket begin='?' id='W5M0MpCehiHzreSzNTczkc9d'?>{Environment.NewLine}<x:xmpmeta xmlns:x=\"adobe:ns:meta/\"><rdf:RDF xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\"><rdf:Description rdf:about=\"uuid:faf5bdd5-ba3d-11da-ad31-d33d75182f1b\" xmlns:MicrosoftPhoto=\"http://ns.microsoft.com/photo/1.0/\"><MicrosoftPhoto:DateAcquired>{dm_msxmp}</MicrosoftPhoto:DateAcquired></rdf:Description></rdf:RDF></x:xmpmeta>{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}                            <?xpacket end='w'?>";
-                        //Log(xml);
                         xmp = new XmpProfile(Encoding.UTF8.GetBytes(xml));
                         image.SetProfile(xmp);
                     }
@@ -544,7 +787,7 @@ namespace NetChamr
                     if (fi.CreationTime != dc) fi.CreationTime = dc;
                     if (fi.LastWriteTime != dm) fi.LastWriteTime = dm;
                     if (fi.LastAccessTime != da) fi.LastAccessTime = da;
-                    Log($"  Touching Date From {ov} To {dm.ToString("yyyy-MM-ddTHH:mm:sszzz")}");
+                    Log($"Touching Date From {ov} To {dm.ToString("yyyy-MM-ddTHH:mm:sszzz")}");
                 }
                 else if (string.IsNullOrEmpty(dt))
                 {
@@ -570,7 +813,7 @@ namespace NetChamr
                         fi.CreationTime = dm;
                         fi.LastWriteTime = dm;
                         fi.LastAccessTime = dm;
-                        Log($"  Touching Date From {ov} To {dm.ToString("yyyy-MM-ddTHH:mm:sszzz")}");
+                        Log($"Touching Date From {ov} To {dm.ToString("yyyy-MM-ddTHH:mm:sszzz")}");
                     }
                     catch (Exception ex)
                     {
@@ -591,7 +834,7 @@ namespace NetChamr
                             fi.CreationTime = t;
                             fi.LastWriteTime = t;
                             fi.LastAccessTime = t;
-                            Log($"  Touching Date From {ov} To {t.ToString("yyyy-MM-ddTHH:mm:sszzz")}");
+                            Log($"Touching Date From {ov} To {t.ToString("yyyy-MM-ddTHH:mm:sszzz")}");
                         }
                     }
                     catch (Exception ex) { Log($"{ex.Message}{Environment.NewLine}{ex.StackTrace}"); }
@@ -610,16 +853,16 @@ namespace NetChamr
                     {
                         var exif = image.HasProfile("exif") ? image.GetExifProfile() : new ExifProfile();
                         var exif_invalid = exif.InvalidTags;
-                        Log($"  {"Dimensions".PadRight(32)}= {image.Width}x{image.Height}x{image.Depth * image.ChannelCount}");
-                        Log($"  {"TotalPixels".PadRight(32)}= {image.Width * image.Height / 1000.0 / 1000.0:F2} MegaPixels");
-                        Log($"  {"ColorSpace".PadRight(32)}= {image.ColorSpace.ToString()}");
-                        Log($"  {"ColorType".PadRight(32)}= {image.ColorType.ToString()}");
-                        //Log($"  {"TotalColors".PadRight(32)}= {image.TotalColors}");
-                        Log($"  {"FormatInfo".PadRight(32)}= {image.FormatInfo.Format.ToString()}, MIME:{image.FormatInfo.MimeType}");
-                        Log($"  {"Compression".PadRight(32)}= {image.Compression.ToString()}");
-                        Log($"  {"Filter".PadRight(32)}= {(image.FilterType == FilterType.Undefined ? "Adaptive" : image.FilterType.ToString())}");
-                        Log($"  {"Interlace".PadRight(32)}= {image.Interlace.ToString()}");
-                        Log($"  {"Interpolate".PadRight(32)}= {image.Interpolate.ToString()}");
+                        Log($"{"Dimensions".PadRight(32)}= {image.Width}x{image.Height}x{image.Depth * image.ChannelCount}");
+                        Log($"{"TotalPixels".PadRight(32)}= {image.Width * image.Height / 1000.0 / 1000.0:F2} MegaPixels");
+                        Log($"{"ColorSpace".PadRight(32)}= {image.ColorSpace.ToString()}");
+                        Log($"{"ColorType".PadRight(32)}= {image.ColorType.ToString()}");
+                        //Log($"{"TotalColors".PadRight(32)}= {image.TotalColors}");
+                        Log($"{"FormatInfo".PadRight(32)}= {image.FormatInfo.Format.ToString()}, MIME:{image.FormatInfo.MimeType}");
+                        Log($"{"Compression".PadRight(32)}= {image.Compression.ToString()}");
+                        Log($"{"Filter".PadRight(32)}= {(image.FilterType == FilterType.Undefined ? "Adaptive" : image.FilterType.ToString())}");
+                        Log($"{"Interlace".PadRight(32)}= {image.Interlace.ToString()}");
+                        Log($"{"Interpolate".PadRight(32)}= {image.Interpolate.ToString()}");
                         if (image.Density != null)
                         {
                             var is_ppi = image.Density.Units == DensityUnit.PixelsPerInch;
@@ -627,9 +870,9 @@ namespace NetChamr
                             var density = is_ppi ? image.Density : image.Density.ChangeUnits(DensityUnit.PixelsPerInch);
                             var unit = is_ppi ? "PPI" : (is_ppc ? "PPC" : "UNK");
                             if (is_ppi)
-                                Log($"  {"Resolution/Density".PadRight(32)}= {density.X:F0} PPI x {density.Y:F0} PPI");
+                                Log($"{"Resolution/Density".PadRight(32)}= {density.X:F0} PPI x {density.Y:F0} PPI");
                             else
-                                Log($"  {"Resolution/Density".PadRight(32)}= {density.X:F0} PPI x {density.Y:F0} PPI [{image.Density.X:F2} {unit} x {image.Density.Y:F2} {unit}]");
+                                Log($"{"Resolution/Density".PadRight(32)}= {density.X:F0} PPI x {density.Y:F0} PPI [{image.Density.X:F2} {unit} x {image.Density.Y:F2} {unit}]");
                         }
                         foreach (var attr in image.AttributeNames)
                         {
@@ -677,14 +920,14 @@ namespace NetChamr
                                 foreach (var v in values)
                                 {
                                     if (v.Length > 64) value = $"{v.Substring(0, 64)} ...";
-                                    var text = v.Equals(values.First()) ? $"  {attr.PadRight(32)}= { v }" : $"  {" ".PadRight(34)}{ v }";
+                                    var text = v.Equals(values.First()) ? $"{attr.PadRight(32)}= { v }" : $"{" ".PadRight(34)}{ v }";
                                     Log(text);
                                 }
                                 //tip.Add(text);
                             }
                             catch (Exception ex) { MessageBox.Show($"{attr} : {ex.Message}"); }
                         }
-                        Log($"  {"Profiles".PadRight(32)}= {string.Join(", ", image.ProfileNames)}");
+                        Log($"{"Profiles".PadRight(32)}= {string.Join(", ", image.ProfileNames)}");
                         foreach (var profile_name in image.ProfileNames)
                         {
                             try
@@ -692,14 +935,14 @@ namespace NetChamr
                                 var profile = image.GetProfile(profile_name);
                                 var prefix = $"Profile {profile.Name}".PadRight(32, ' ');
                                 var bytes = profile.ToByteArray().Select(b => $"{b}");
-                                Log($"  {prefix}= {bytes.Count()} bytes");// [{profile.GetType()}]");
+                                Log($"{prefix}= {bytes.Count()} bytes");// [{profile.GetType()}]");
                                 //if (profile_name.Equals("8bim"))
                                 //{
                                 //    var _8bim = image.Get8BimProfile();
                                 //    Log(_8bim.Values.Count());
-                                //    foreach (var v in _8bim.Values) Log($"    0x{v.ID:X2} : {v.ToString()}");
+                                //    foreach (var v in _8bim.Values) Log($"  0x{v.ID:X2} : {v.ToString()}");
                                 //}
-                                //Log($"  {prefix}= {bytes.Count()} bytes [{string.Join(", ", bytes)}]");
+                                //Log($"{prefix}= {bytes.Count()} bytes [{string.Join(", ", bytes)}]");
                             }
                             catch (Exception ex) { Log(ex.Message); }
                         }
@@ -707,7 +950,39 @@ namespace NetChamr
                         if (xmp != null)
                         {
                             var xml = Encoding.UTF8.GetString(xmp.GetData());
-                            Log($"  {"XMP XML Contents".PadRight(32)}= {xml}");
+
+                            var xml_doc = new XmlDocument();
+                            xml_doc.LoadXml(xml);
+                            foreach (XmlNode node in xml_doc.GetElementsByTagName("rdf:Description"))
+                            {
+                                foreach (XmlAttribute attr in node.Attributes)
+                                {
+                                    if (string.IsNullOrEmpty(attr.Value)) continue;
+                                    Log($"  {$"{attr.Name}".PadRight(30)}= {attr.Value}");
+                                }
+                                foreach (XmlNode child in node.ChildNodes)
+                                {
+                                    foreach (XmlAttribute attr in child.Attributes)
+                                    {
+                                        if (string.IsNullOrEmpty(attr.Value)) continue;
+                                        Log($"    {$"{attr.Name}".PadRight(28)}= {attr.Value}");
+                                    }
+                                    if (child.Name.Equals("dc:title", StringComparison.CurrentCultureIgnoreCase))
+                                        Log($"    {"dc:Title".PadRight(28)}= {child.InnerText}");
+                                    else if (child.Name.Equals("MicrosoftPhoto:DateAcquired", StringComparison.CurrentCultureIgnoreCase))
+                                        Log($"    {"MicrosoftPhoto:DateAcquired".PadRight(28)}= {child.InnerText}");
+                                    else if (child.Name.Equals("MicrosoftPhoto:DateTaken", StringComparison.CurrentCultureIgnoreCase))
+                                        Log($"    {"MicrosoftPhoto:DateTaken".PadRight(28)}= {child.InnerText}");
+                                    else if (child.Name.Equals("exif:DateTimeDigitized", StringComparison.CurrentCultureIgnoreCase))
+                                        Log($"    {"exif:DateTimeDigitized".PadRight(28)}= {child.InnerText}");
+                                    else if (child.Name.Equals("exif:DateTimeOriginal", StringComparison.CurrentCultureIgnoreCase))
+                                        Log($"    {"exif:DateTimeOriginal".PadRight(28)}= {child.InnerText}");
+                                    else if (child.Name.Equals("tiff:DateTime", StringComparison.CurrentCultureIgnoreCase))
+                                        Log($"    {"tiff:DateTime".PadRight(28)}= {child.InnerText}");
+                                    else Log($"    {$"{child.Name}".PadRight(28)}= {child.InnerText}");
+                                }
+                            }
+                            Log($"{"  XML Contents".PadRight(32)}= {FormatXML(xml).Replace("\"", "'")}");
                         }
                     }
                 }
@@ -954,7 +1229,7 @@ namespace NetChamr
                         try
                         {
                             var fn = Path.GetFullPath(Path.Combine(path, file));
-                            Log($"  {fn}");
+                            Log($"{fn}");
                             Log($"-".PadRight(80, '-'));
                             ShowMeta(fn);
                             Log("=".PadRight(80, '='));
@@ -976,7 +1251,7 @@ namespace NetChamr
                         try
                         {
                             var fn = Path.GetFullPath(Path.Combine(path, file));
-                            Log($"  {fn}");
+                            Log($"{fn}");
                             Log($"-".PadRight(80, '-'));
                             if (opt.Equals("-M", StringComparison.CurrentCultureIgnoreCase)) TouchMeta(fn);
                             else if (opt.Equals("-MF", StringComparison.CurrentCultureIgnoreCase)) TouchMeta(fn, force: true);
