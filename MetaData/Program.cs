@@ -23,6 +23,8 @@ namespace NetChamr
         public string Comment { get; set; } = null;
         public string Author { get; set; } = null;
         public string Copyright { get; set; } = null;
+        public Dictionary<string, string> Attributes { get; set; } = null;
+        public Dictionary<string, IImageProfile> Profiles { get; set; } = null;
     }
 
     class Metadata
@@ -283,6 +285,35 @@ namespace NetChamr
                 {
                     bool is_png = image.FormatInfo.MimeType.Equals("image/png", StringComparison.CurrentCultureIgnoreCase);
                     bool is_jpg = image.FormatInfo.MimeType.Equals("image/jpeg", StringComparison.CurrentCultureIgnoreCase);
+
+                    #region touch attributes and profiles
+                    if (meta.Attributes != null && meta.Attributes.Count > 0)
+                    {
+                        foreach (var kv in meta.Attributes)
+                        {
+                            try
+                            {
+                                var attr = kv.Key;
+                                var value = kv.Value;
+                                if (force || !image.AttributeNames.Contains(attr)) image.SetAttribute(attr, value);
+                            }
+                            catch { }
+                        }
+                    }
+                    if (meta.Profiles != null && meta.Profiles.Count > 0)
+                    {
+                        foreach (var kv in meta.Profiles)
+                        {
+                            try
+                            {
+                                var profile_name = kv.Key;
+                                var profile = kv.Value;
+                                if (force || !image.HasProfile(profile_name)) image.SetProfile(profile);
+                            }
+                            catch { }
+                        }
+                    }
+                    #endregion
 
                     var exif = image.HasProfile("exif") ? image.GetExifProfile() : new ExifProfile();
                     var xmp = image.HasProfile("xmp") ? image.GetXmpProfile() : null;
@@ -1043,9 +1074,19 @@ namespace NetChamr
 
             if (image is MagickImage)
             {
+                if (image.AttributeNames.Count() > 0)
+                {
+                    result.Attributes = new Dictionary<string, string>();
+                    foreach (var attr in image.AttributeNames) { try { result.Attributes.Add(attr, image.GetAttribute(attr)); } catch { } }
+                }
+                if (image.ProfileNames.Count() > 0)
+                {
+                    result.Profiles = new Dictionary<string, IImageProfile>();
+                    foreach (var profile in image.ProfileNames) { try { result.Profiles.Add(profile, image.GetProfile(profile)); } catch { } }
+                }
+
                 var exif = image.HasProfile("exif") ? image.GetExifProfile() : new ExifProfile();
                 var xmp = image.HasProfile("xmp") ? image.GetXmpProfile() : null;
-
 
                 bool is_png = image.FormatInfo.MimeType.Equals("image/png");
                 foreach (var tag in tag_date)

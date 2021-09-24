@@ -31,6 +31,8 @@ namespace TouchMeta
         public string Comment { get; set; } = null;
         public string Author { get; set; } = null;
         public string Copyright { get; set; } = null;
+        public Dictionary<string, string> Attributes { get; set; } = null;
+        public Dictionary<string, IImageProfile> Profiles { get; set; } = null;
     }
 
     /// <summary>
@@ -45,6 +47,7 @@ namespace TouchMeta
         private static Encoding DBCS = Encoding.GetEncoding("GB18030");
         private static Encoding UTF8 = Encoding.UTF8;
         private static Encoding UNICODE = Encoding.Unicode;
+        private static MetaInfo CurrentMeta = null;
 
         #region below tags will be touching
         private static string[] tag_date = new string[] {
@@ -325,6 +328,35 @@ namespace TouchMeta
                 {
                     bool is_png = image.FormatInfo.MimeType.Equals("image/png", StringComparison.CurrentCultureIgnoreCase);
                     bool is_jpg = image.FormatInfo.MimeType.Equals("image/jpeg", StringComparison.CurrentCultureIgnoreCase);
+
+                    #region touch attributes and profiles
+                    if (meta.Attributes != null && meta.Attributes.Count > 0)
+                    {
+                        foreach (var kv in meta.Attributes)
+                        {
+                            try
+                            {
+                                var attr = kv.Key;
+                                var value = kv.Value;
+                                if (force || !image.AttributeNames.Contains(attr)) image.SetAttribute(attr, value);
+                            }
+                            catch { }
+                        }
+                    }
+                    if (meta.Profiles != null && meta.Profiles.Count > 0)
+                    {
+                        foreach (var kv in meta.Profiles)
+                        {
+                            try
+                            {
+                                var profile_name = kv.Key;
+                                var profile = kv.Value;
+                                if (force || !image.HasProfile(profile_name)) image.SetProfile(profile);
+                            }
+                            catch { }
+                        }
+                    }
+                    #endregion
 
                     var exif = image.HasProfile("exif") ? image.GetExifProfile() : new ExifProfile();
                     var xmp = image.HasProfile("xmp") ? image.GetXmpProfile() : null;
@@ -1085,9 +1117,19 @@ namespace TouchMeta
 
             if (image is MagickImage)
             {
+                if (image.AttributeNames.Count() > 0)
+                {
+                    result.Attributes = new Dictionary<string, string>();
+                    foreach (var attr in image.AttributeNames) { try { result.Attributes.Add(attr, image.GetAttribute(attr)); } catch { } }
+                }
+                if (image.ProfileNames.Count() > 0)
+                {
+                    result.Profiles = new Dictionary<string, IImageProfile>();
+                    foreach (var profile in image.ProfileNames) { try { result.Profiles.Add(profile, image.GetProfile(profile)); } catch { } }
+                }
+
                 var exif = image.HasProfile("exif") ? image.GetExifProfile() : new ExifProfile();
                 var xmp = image.HasProfile("xmp") ? image.GetXmpProfile() : null;
-
 
                 bool is_png = image.FormatInfo.MimeType.Equals("image/png");
                 foreach (var tag in tag_date)
@@ -1249,6 +1291,8 @@ namespace TouchMeta
                     {
                         using (MagickImage image = new MagickImage(ms))
                         {
+                            var meta = GetMetaInfo(image);
+
                             var fmt_info = MagickNET.SupportedFormats.Where(f => f.Format == fmt).FirstOrDefault();
                             var ext = fmt_info is MagickFormatInfo ? fmt_info.Format.ToString() : fmt.ToString();
                             var name = Path.ChangeExtension(fi.FullName, $".{ext.ToLower()}");
@@ -1265,7 +1309,7 @@ namespace TouchMeta
                             nfi.CreationTime = dc;
                             nfi.LastWriteTime = dm;
                             nfi.LastAccessTime = da;
-                            var meta = GetMetaInfo(image);
+
                             Log($"Convert {file} => {name}");
                             Log("~".PadRight(75, '~'));
                             TouchMeta(name, dtc: dc, dtm: dm, dta: da, meta: meta);
@@ -1518,22 +1562,22 @@ namespace TouchMeta
                 if (FilesList.SelectedItem != null)
                 {
                     var file = FilesList.SelectedItem as string;
-                    var meta = GetMetaInfo(file);
+                    CurrentMeta = GetMetaInfo(file);
 
-                    DateCreated.SelectedDate = meta.DateAcquired ?? meta.DateTaken ?? DateCreated.SelectedDate;
-                    DateModified.SelectedDate = meta.DateAcquired ?? meta.DateTaken ?? DateModified.SelectedDate;
-                    DateAccessed.SelectedDate = meta.DateAcquired ?? meta.DateTaken ?? DateAccessed.SelectedDate;
+                    DateCreated.SelectedDate = CurrentMeta.DateAcquired ?? CurrentMeta.DateTaken ?? DateCreated.SelectedDate;
+                    DateModified.SelectedDate = CurrentMeta.DateAcquired ?? CurrentMeta.DateTaken ?? DateModified.SelectedDate;
+                    DateAccessed.SelectedDate = CurrentMeta.DateAcquired ?? CurrentMeta.DateTaken ?? DateAccessed.SelectedDate;
 
-                    TimeCreated.Value = meta.DateAcquired ?? meta.DateTaken ?? TimeCreated.Value;
-                    TimeModified.Value = meta.DateAcquired ?? meta.DateTaken ?? TimeModified.Value;
-                    TimeAccessed.Value = meta.DateAcquired ?? meta.DateTaken ?? TimeAccessed.Value;
+                    TimeCreated.Value = CurrentMeta.DateAcquired ?? CurrentMeta.DateTaken ?? TimeCreated.Value;
+                    TimeModified.Value = CurrentMeta.DateAcquired ?? CurrentMeta.DateTaken ?? TimeModified.Value;
+                    TimeAccessed.Value = CurrentMeta.DateAcquired ?? CurrentMeta.DateTaken ?? TimeAccessed.Value;
 
-                    MetaInputTitleText.Text = meta.Title ?? MetaInputTitleText.Text;
-                    MetaInputSubjectText.Text = meta.Subject ?? MetaInputSubjectText.Text;
-                    MetaInputCommentText.Text = meta.Comment ?? MetaInputCommentText.Text;
-                    MetaInputKeywordsText.Text = meta.Keywords ?? MetaInputKeywordsText.Text;
-                    MetaInputAuthorText.Text = meta.Author ?? MetaInputAuthorText.Text;
-                    MetaInputCopyrightText.Text = meta.Copyright ?? MetaInputCopyrightText.Text;
+                    MetaInputTitleText.Text = CurrentMeta.Title ?? MetaInputTitleText.Text;
+                    MetaInputSubjectText.Text = CurrentMeta.Subject ?? MetaInputSubjectText.Text;
+                    MetaInputCommentText.Text = CurrentMeta.Comment ?? MetaInputCommentText.Text;
+                    MetaInputKeywordsText.Text = CurrentMeta.Keywords ?? MetaInputKeywordsText.Text;
+                    MetaInputAuthorText.Text = CurrentMeta.Author ?? MetaInputAuthorText.Text;
+                    MetaInputCopyrightText.Text = CurrentMeta.Copyright ?? MetaInputCopyrightText.Text;
                 }
             }
             else if (sender == ConvertSelectedToJpg)
@@ -1725,7 +1769,7 @@ namespace TouchMeta
                         var dtc = DateCreated.SelectedDate;
                         var dtm = DateModified.SelectedDate;
                         var dta = DateAccessed.SelectedDate;
-                        var meta = new MetaInfo()
+                        var meta = CurrentMeta ?? new MetaInfo()
                         {
                             Title = string.IsNullOrEmpty(MetaInputTitleText.Text) ? null : MetaInputTitleText.Text,
                             Subject = string.IsNullOrEmpty(MetaInputSubjectText.Text) ? null : MetaInputSubjectText.Text,
