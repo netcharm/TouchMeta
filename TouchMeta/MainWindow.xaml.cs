@@ -1,5 +1,4 @@
-﻿using ImageMagick;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
@@ -22,10 +21,16 @@ using System.Windows.Navigation;
 using System.Windows.Threading;
 using System.Xml;
 
+using ImageMagick;
+
 namespace TouchMeta
 {
     public class MetaInfo
     {
+        public DateTime? DateCreated { get; set; } = null;
+        public DateTime? DateModified { get; set; } = null;
+        public DateTime? DateAccesed { get; set; } = null;
+
         public DateTime? DateAcquired { get; set; } = null;
         public DateTime? DateTaken { get; set; } = null;
         public string Title { get; set; } = null;
@@ -52,7 +57,53 @@ namespace TouchMeta
         private static Encoding DBCS = Encoding.GetEncoding("GB18030");
         private static Encoding UTF8 = Encoding.UTF8;
         private static Encoding UNICODE = Encoding.Unicode;
-        private static MetaInfo CurrentMeta = null;
+        //private static MetaInfo CurrentMeta = null;
+        private MetaInfo _current_meta_ = null;
+        private MetaInfo CurrentMeta
+        {
+            get
+            {
+                if (_current_meta_ == null) _current_meta_ = new MetaInfo();
+                Dispatcher.Invoke(() =>
+                {
+                    _current_meta_.DateCreated = DateCreated.SelectedDate;
+                    _current_meta_.DateModified = DateModified.SelectedDate;
+                    _current_meta_.DateAccesed = DateAccessed.SelectedDate;
+
+                    _current_meta_.Title = string.IsNullOrEmpty(MetaInputTitleText.Text) ? null : MetaInputTitleText.Text;
+                    _current_meta_.Subject = string.IsNullOrEmpty(MetaInputSubjectText.Text) ? null : MetaInputSubjectText.Text;
+                    _current_meta_.Comment = string.IsNullOrEmpty(MetaInputCommentText.Text) ? null : MetaInputCommentText.Text;
+                    _current_meta_.Keywords = string.IsNullOrEmpty(MetaInputKeywordsText.Text) ? null : MetaInputKeywordsText.Text;
+                    _current_meta_.Author = string.IsNullOrEmpty(MetaInputAuthorText.Text) ? null : MetaInputAuthorText.Text;
+                    _current_meta_.Copyright = string.IsNullOrEmpty(MetaInputCopyrightText.Text) ? null : MetaInputCopyrightText.Text;
+                });
+                return (_current_meta_);
+            }
+            set
+            {
+                _current_meta_ = value;
+                Dispatcher.Invoke(() =>
+                {
+                    if (_current_meta_ != null)
+                    {
+                        DateCreated.SelectedDate = _current_meta_.DateAcquired ?? _current_meta_.DateTaken ?? DateCreated.SelectedDate;
+                        DateModified.SelectedDate = _current_meta_.DateAcquired ?? _current_meta_.DateTaken ?? DateModified.SelectedDate;
+                        DateAccessed.SelectedDate = _current_meta_.DateAcquired ?? _current_meta_.DateTaken ?? DateAccessed.SelectedDate;
+
+                        TimeCreated.Value = _current_meta_.DateAcquired ?? _current_meta_.DateTaken ?? TimeCreated.Value;
+                        TimeModified.Value = _current_meta_.DateAcquired ?? _current_meta_.DateTaken ?? TimeModified.Value;
+                        TimeAccessed.Value = _current_meta_.DateAcquired ?? _current_meta_.DateTaken ?? TimeAccessed.Value;
+
+                        MetaInputTitleText.Text = _current_meta_.Title;
+                        MetaInputSubjectText.Text = _current_meta_.Subject;
+                        MetaInputCommentText.Text = _current_meta_.Comment;
+                        MetaInputKeywordsText.Text = _current_meta_.Keywords;
+                        MetaInputAuthorText.Text = _current_meta_.Author;
+                        MetaInputCopyrightText.Text = _current_meta_.Copyright;
+                    }
+                });
+            }
+        }
 
         private IProgress<KeyValuePair<double, string>> progress = null;
         private Action<double, string> ReportProgress = null;
@@ -356,6 +407,39 @@ namespace TouchMeta
                 ms.Flush();
                 ms.Seek(0, SeekOrigin.Begin);
                 using (var sr = new StreamReader(ms)) { result = sr.ReadToEnd(); }
+            }
+            return (result);
+        }
+        #endregion
+
+        #region Get/Set Datetime Helper
+        private void SetCustomDateTime(DateTime? dt = null, DateTime? dtc = null, DateTime? dtm = null, DateTime? dta = null)
+        {
+            Dispatcher.Invoke(() =>
+            {
+                DateCreated.SelectedDate = dtc ?? dt ?? DateCreated.SelectedDate;
+                DateModified.SelectedDate = dtm ?? dt ?? DateModified.SelectedDate;
+                DateAccessed.SelectedDate = dta ?? dt ?? DateAccessed.SelectedDate;
+
+                TimeCreated.Value = dtc ?? dt ?? TimeCreated.Value;
+                TimeModified.Value = dtm ?? dt ?? TimeModified.Value;
+                TimeAccessed.Value = dta ?? dt ?? TimeAccessed.Value;
+
+                UpdateFileTimeInfo();
+            });
+        }
+        
+        private DateTime? GetCustomDateTime(FrameworkElement element_date, FrameworkElement element_time)
+        {
+            DateTime? result = null;
+            if (element_date is DatePicker && element_time is Xceed.Wpf.Toolkit.TimePicker)
+            {
+                var date = element_date as DatePicker;
+                var time = element_time as Xceed.Wpf.Toolkit.TimePicker;
+
+                var d_value = date.SelectedDate ?? time.Value ?? DateTime.Now;
+                var t_value = time.Value ?? date.SelectedDate ?? DateTime.Now;
+                result = d_value.Date + t_value.TimeOfDay;
             }
             return (result);
         }
@@ -672,9 +756,9 @@ namespace TouchMeta
                     var xmp = image.HasProfile("xmp") ? image.GetXmpProfile() : null;
 
                     #region touch date
-                    var dc = dtc ?? fi.CreationTime;
-                    var dm = dtm ?? fi.LastWriteTime;
-                    var da = dta ?? fi.LastAccessTime;
+                    var dc = dtc ?? (meta is MetaInfo ? meta.DateCreated : null) ?? fi.CreationTime;
+                    var dm = dtm ?? (meta is MetaInfo ? meta.DateModified : null) ?? fi.LastWriteTime;
+                    var da = dta ?? (meta is MetaInfo ? meta.DateAccesed : null) ?? fi.LastAccessTime;
 
                     if (!force)
                     {
@@ -1156,14 +1240,14 @@ namespace TouchMeta
             else Log($"File \"{file}\" not exists!");
         }
 
-        public static void TouchDate(string file, string dt = null, bool force = false, DateTime? dtc = null, DateTime? dtm = null, DateTime? dta = null)
+        public static void TouchDate(string file, string dt = null, bool force = false, DateTime? dtc = null, DateTime? dtm = null, DateTime? dta = null, MetaInfo meta = null)
         {
             if (File.Exists(file))
             {
                 var fi = new FileInfo(file);
-                var dc = dtc ?? fi.CreationTime;
-                var dm = dtm ?? fi.LastWriteTime;
-                var da = dta ?? fi.LastAccessTime;
+                var dc = dtc ?? (meta is MetaInfo ? meta.DateCreated : null) ?? fi.CreationTime;
+                var dm = dtm ?? (meta is MetaInfo ? meta.DateModified : null) ?? fi.LastWriteTime;
+                var da = dta ?? (meta is MetaInfo ? meta.DateAccesed : null) ?? fi.LastAccessTime;
 
                 var ov = dm.ToString("yyyy-MM-ddTHH:mm:sszzz");
 
@@ -1591,7 +1675,7 @@ namespace TouchMeta
             }
             else Log($"File \"{file}\" not exists!");
             return (result);
-        }
+        }        
         #endregion
 
         #region Converting Image Format Helper
@@ -1785,23 +1869,20 @@ namespace TouchMeta
                 _date_changed_ = true;
                 if (sender == DateCreated)
                 {
-                    var d_value = DateCreated.SelectedDate ?? TimeCreated.Value ?? DateTime.Now;
-                    var t_value = TimeCreated.Value ?? DateCreated.SelectedDate ?? DateTime.Now;
-                    DateCreated.SelectedDate = d_value.Date + t_value.TimeOfDay;
+                    var dt = GetCustomDateTime(DateCreated, TimeCreated);
+                    DateCreated.SelectedDate = dt ?? DateCreated.SelectedDate;
                     TimeCreated.Value = DateCreated.SelectedDate;
                 }
                 else if (sender == DateModified)
                 {
-                    var d_value = DateModified.SelectedDate ?? TimeModified.Value ?? DateTime.Now;
-                    var t_value = TimeModified.Value ?? DateModified.SelectedDate ?? DateTime.Now;
-                    DateModified.SelectedDate = d_value.Date + t_value.TimeOfDay;
+                    var dt = GetCustomDateTime(DateModified, TimeModified);
+                    DateModified.SelectedDate = dt ?? DateModified.SelectedDate;
                     TimeModified.Value = DateModified.SelectedDate;
                 }
                 else if (sender == DateAccessed)
                 {
-                    var d_value = DateAccessed.SelectedDate ?? TimeAccessed.Value ?? DateTime.Now;
-                    var t_value = TimeAccessed.Value ?? DateAccessed.SelectedDate ?? DateTime.Now;
-                    DateAccessed.SelectedDate = d_value.Date + t_value.TimeOfDay;
+                    var dt = GetCustomDateTime(DateAccessed, TimeAccessed);
+                    DateAccessed.SelectedDate = dt ?? DateAccessed.SelectedDate;
                     TimeAccessed.Value = DateAccessed.SelectedDate;
                 }
                 UpdateFileTimeInfo();
@@ -1818,23 +1899,20 @@ namespace TouchMeta
                 _time_changed_ = true;
                 if (sender == TimeCreated)
                 {
-                    var d_value = DateCreated.SelectedDate ?? TimeCreated.Value ?? DateTime.Now;
-                    var t_value = TimeCreated.Value ?? DateCreated.SelectedDate ?? DateTime.Now;
-                    DateCreated.SelectedDate = d_value.Date + t_value.TimeOfDay;
+                    var dt = GetCustomDateTime(DateCreated, TimeCreated);
+                    DateCreated.SelectedDate = dt ?? DateCreated.SelectedDate;
                     TimeCreated.Value = DateCreated.SelectedDate;
                 }
                 else if (sender == TimeModified)
                 {
-                    var d_value = DateModified.SelectedDate ?? TimeModified.Value ?? DateTime.Now;
-                    var t_value = TimeModified.Value ?? DateModified.SelectedDate ?? DateTime.Now;
-                    DateModified.SelectedDate = d_value.Date + t_value.TimeOfDay;
+                    var dt = GetCustomDateTime(DateModified, TimeModified);
+                    DateModified.SelectedDate = dt ?? DateModified.SelectedDate;
                     TimeModified.Value = DateModified.SelectedDate;
                 }
                 else if (sender == TimeAccessed)
                 {
-                    var d_value = DateAccessed.SelectedDate ?? TimeAccessed.Value ?? DateTime.Now;
-                    var t_value = TimeAccessed.Value ?? DateAccessed.SelectedDate ?? DateTime.Now;
-                    DateAccessed.SelectedDate = d_value.Date + t_value.TimeOfDay;
+                    var dt = GetCustomDateTime(DateAccessed, TimeAccessed);
+                    DateAccessed.SelectedDate = dt ?? DateAccessed.SelectedDate;
                     TimeAccessed.Value = DateAccessed.SelectedDate;
                 }
                 UpdateFileTimeInfo();
@@ -1862,14 +1940,7 @@ namespace TouchMeta
                     if (File.Exists(file))
                     {
                         var fi = new FileInfo(file);
-
-                        DateCreated.SelectedDate = fi.CreationTime;
-                        DateModified.SelectedDate = fi.LastWriteTime;
-                        DateAccessed.SelectedDate = fi.LastAccessTime;
-
-                        TimeCreated.Value = fi.CreationTime;
-                        TimeModified.Value = fi.LastWriteTime;
-                        TimeAccessed.Value = fi.LastAccessTime;
+                        SetCustomDateTime(dtc: fi.CreationTime, dtm: fi.LastWriteTime, dta: fi.LastAccessTime);
                     }
                     #endregion
                 }
@@ -1881,16 +1952,7 @@ namespace TouchMeta
                     #region Get Metadata DateTime From Selected File
                     var file = FilesList.SelectedItem as string;
                     var dt = GetMetaTime(file);
-                    if (dt != null)
-                    {
-                        DateCreated.SelectedDate = dt;
-                        DateModified.SelectedDate = dt;
-                        DateAccessed.SelectedDate = dt;
-
-                        TimeCreated.Value = dt;
-                        TimeModified.Value = dt;
-                        TimeAccessed.Value = dt;
-                    }
+                    if (dt != null) SetCustomDateTime(dt: dt);
                     #endregion
                 }
             }
@@ -1901,21 +1963,6 @@ namespace TouchMeta
                     #region Get Metadata Infomation From Selected File
                     var file = FilesList.SelectedItem as string;
                     CurrentMeta = GetMetaInfo(file);
-
-                    DateCreated.SelectedDate = CurrentMeta.DateAcquired ?? CurrentMeta.DateTaken ?? DateCreated.SelectedDate;
-                    DateModified.SelectedDate = CurrentMeta.DateAcquired ?? CurrentMeta.DateTaken ?? DateModified.SelectedDate;
-                    DateAccessed.SelectedDate = CurrentMeta.DateAcquired ?? CurrentMeta.DateTaken ?? DateAccessed.SelectedDate;
-
-                    TimeCreated.Value = CurrentMeta.DateAcquired ?? CurrentMeta.DateTaken ?? TimeCreated.Value;
-                    TimeModified.Value = CurrentMeta.DateAcquired ?? CurrentMeta.DateTaken ?? TimeModified.Value;
-                    TimeAccessed.Value = CurrentMeta.DateAcquired ?? CurrentMeta.DateTaken ?? TimeAccessed.Value;
-
-                    MetaInputTitleText.Text = CurrentMeta.Title ?? MetaInputTitleText.Text;
-                    MetaInputSubjectText.Text = CurrentMeta.Subject ?? MetaInputSubjectText.Text;
-                    MetaInputCommentText.Text = CurrentMeta.Comment ?? MetaInputCommentText.Text;
-                    MetaInputKeywordsText.Text = CurrentMeta.Keywords ?? MetaInputKeywordsText.Text;
-                    MetaInputAuthorText.Text = CurrentMeta.Author ?? MetaInputAuthorText.Text;
-                    MetaInputCopyrightText.Text = CurrentMeta.Copyright ?? MetaInputCopyrightText.Text;
                     #endregion
                 }
             }
@@ -1976,28 +2023,19 @@ namespace TouchMeta
             if (sender == SetCreatedDateTimeToAll)
             {
                 #region Set Created DateTime To All
-                DateModified.SelectedDate = DateCreated.SelectedDate;
-                DateAccessed.SelectedDate = DateCreated.SelectedDate;
-                TimeModified.Value = DateCreated.SelectedDate;
-                TimeAccessed.Value = DateCreated.SelectedDate;
+                SetCustomDateTime(dtm: DateCreated.SelectedDate, dta: DateCreated.SelectedDate);
                 #endregion
             }
             else if (sender == SetModifiedDateTimeToAll)
             {
                 #region Set Modified DateTime To All
-                DateCreated.SelectedDate = DateModified.SelectedDate;
-                DateAccessed.SelectedDate = DateModified.SelectedDate;
-                TimeCreated.Value = DateModified.SelectedDate;
-                TimeAccessed.Value = DateModified.SelectedDate;
+                SetCustomDateTime(dtc: DateModified.SelectedDate, dta: DateModified.SelectedDate);
                 #endregion
             }
             else if (sender == SetAccessedDateTimeToAll)
             {
                 #region Set Accessed DateTime To All
-                DateCreated.SelectedDate = DateAccessed.SelectedDate;
-                DateModified.SelectedDate = DateAccessed.SelectedDate;
-                TimeCreated.Value = DateAccessed.SelectedDate;
-                TimeModified.Value = DateAccessed.SelectedDate;
+                SetCustomDateTime(dtc: DateAccessed.SelectedDate, dtm: DateAccessed.SelectedDate);
                 #endregion
             }
             else if (sender == ShowMetaInputPopup)
@@ -2014,31 +2052,18 @@ namespace TouchMeta
             {
                 #region Parsing DateTime
                 var dt = DateTime.Now;
-                if (DateTime.TryParse(FileTimeImportText.Text, out dt))
-                {
-                    DateCreated.SelectedDate = dt;
-                    DateModified.SelectedDate = dt;
-                    DateAccessed.SelectedDate = dt;
-
-                    TimeCreated.Value = dt;
-                    TimeModified.Value = dt;
-                    TimeAccessed.Value = dt;
-
-                    UpdateFileTimeInfo();
-                }
+                if (DateTime.TryParse(FileTimeImportText.Text, out dt)) SetCustomDateTime(dt);
                 #endregion
             }
             else if (sender == BtnTouchTime)
             {
                 #region Touching File Time
                 var force = Keyboard.Modifiers == ModifierKeys.Control;
-                var dtc = DateCreated.SelectedDate;
-                var dtm = DateModified.SelectedDate;
-                var dta = DateAccessed.SelectedDate;
+                var meta = CurrentMeta;
 
                 RunBgWorker(new Action<string>((file) =>
                 {
-                    TouchDate(file, force: force, dtc: dtc, dtm: dtm, dta: dta);
+                    TouchDate(file, force: force, meta: meta);
                 }));
                 #endregion
             }
@@ -2046,20 +2071,11 @@ namespace TouchMeta
             {
                 #region Touching Metadata
                 var force = Keyboard.Modifiers == ModifierKeys.Control;
-                var dtc = DateCreated.SelectedDate;
-                var dtm = DateModified.SelectedDate;
-                var dta = DateAccessed.SelectedDate;
-                var meta = CurrentMeta ?? new MetaInfo();
-                meta.Title = string.IsNullOrEmpty(MetaInputTitleText.Text) ? null : MetaInputTitleText.Text;
-                meta.Subject = string.IsNullOrEmpty(MetaInputSubjectText.Text) ? null : MetaInputSubjectText.Text;
-                meta.Comment = string.IsNullOrEmpty(MetaInputCommentText.Text) ? null : MetaInputCommentText.Text;
-                meta.Keywords = string.IsNullOrEmpty(MetaInputKeywordsText.Text) ? null : MetaInputKeywordsText.Text;
-                meta.Author = string.IsNullOrEmpty(MetaInputAuthorText.Text) ? null : MetaInputAuthorText.Text;
-                meta.Copyright = string.IsNullOrEmpty(MetaInputCopyrightText.Text) ? null : MetaInputCopyrightText.Text;
+                var meta = CurrentMeta;
 
                 RunBgWorker(new Action<string>((file) =>
                 {
-                    TouchMeta(file, force: force, dtc: dtc, dtm: dtm, dta: dta, meta: meta);
+                    TouchMeta(file, force: force, meta: meta);
                 }));
                 #endregion
             }
@@ -2081,7 +2097,7 @@ namespace TouchMeta
                 }));
                 #endregion
             }
-            else if (sender == BtnOpenFile)
+            else if (sender == BtnAddFile)
             {
                 LoadFiles();
             }

@@ -72,7 +72,7 @@
             <Button Grid.Column="1" x:Name="BtnTouchMeta" x:Uid="TouchMeta" Content="Touch Meta" Width="88" Margin="4" Click="BtnAction_Click"/>
             <Button Grid.Column="2" x:Name="BtnClearMeta" x:Uid="ClearMeta" Content="Clear Meta" Width="88" Margin="4" Click="BtnAction_Click"/>
             <Button Grid.Column="3" x:Name="BtnShowMeta" x:Uid="ShowMeta" Content="Show Meta" Width="88" Margin="4" Click="BtnAction_Click"/>
-            <Button Grid.Column="4" x:Name="BtnOpenFile" x:Uid="OpenFile" Content="Open Files" Width="88" Margin="4" Click="BtnAction_Click"/>
+            <Button Grid.Column="4" x:Name="BtnAddFile" x:Uid="OpenFile" Content="Add Files" Width="88" Margin="4" Click="BtnAction_Click"/>
         </Grid>
 
         <ProgressBar Grid.Row="2" x:Name="Progress" x:Uid="Progress" Height="4" Margin="6 4" Value="50" HorizontalAlignment="Stretch" VerticalAlignment="Center"/>

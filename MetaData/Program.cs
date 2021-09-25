@@ -15,6 +15,10 @@ namespace NetChamr
 {
     public class MetaInfo
     {
+        public DateTime? DateCreated { get; set; } = null;
+        public DateTime? DateModified { get; set; } = null;
+        public DateTime? DateAccesed { get; set; } = null;
+
         public DateTime? DateAcquired { get; set; } = null;
         public DateTime? DateTaken { get; set; } = null;
         public string Title { get; set; } = null;
@@ -319,9 +323,9 @@ namespace NetChamr
                     var xmp = image.HasProfile("xmp") ? image.GetXmpProfile() : null;
 
                     #region touch date
-                    var dc = dtc ?? fi.CreationTime;
-                    var dm = dtm ?? fi.LastWriteTime;
-                    var da = dta ?? fi.LastAccessTime;
+                    var dc = dtc ?? (meta is MetaInfo ? meta.DateCreated : null) ?? fi.CreationTime;
+                    var dm = dtm ?? (meta is MetaInfo ? meta.DateModified : null) ?? fi.LastWriteTime;
+                    var da = dta ?? (meta is MetaInfo ? meta.DateAccesed : null) ?? fi.LastAccessTime;
 
                     if (!force)
                     {
@@ -802,14 +806,14 @@ namespace NetChamr
             }
         }
 
-        public static void TouchDate(string file, string dt = null, bool force = false, DateTime? dtc = null, DateTime? dtm = null, DateTime? dta = null)
+        public static void TouchDate(string file, string dt = null, bool force = false, DateTime? dtc = null, DateTime? dtm = null, DateTime? dta = null, MetaInfo meta = null)
         {
             if (File.Exists(file))
             {
                 var fi = new FileInfo(file);
-                var dc = dtc ?? fi.CreationTime;
-                var dm = dtm ?? fi.LastWriteTime;
-                var da = dta ?? fi.LastAccessTime;
+                var dc = dtc ?? (meta is MetaInfo ? meta.DateCreated : null) ?? fi.CreationTime;
+                var dm = dtm ?? (meta is MetaInfo ? meta.DateModified : null) ?? fi.LastWriteTime;
+                var da = dta ?? (meta is MetaInfo ? meta.DateAccesed : null) ?? fi.LastAccessTime;
 
                 var ov = dm.ToString("yyyy-MM-ddTHH:mm:sszzz");
 
