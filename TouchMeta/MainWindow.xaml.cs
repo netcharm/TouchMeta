@@ -860,9 +860,9 @@ namespace TouchMeta
                             }
                             else
                             {
+                                title = tag.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(tag)) : image.GetAttribute(tag);
                                 if (tag.Equals("exif:WinXP-Title"))
                                 {
-                                    title = BytesToUnicode(image.GetAttribute(tag));
                                     if (exif.GetValue(ExifTag.XPTitle) == null)
                                     {
                                         if (!string.IsNullOrEmpty(title)) exif.SetValue(ExifTag.XPTitle, Encoding.Unicode.GetBytes(title));
@@ -871,7 +871,6 @@ namespace TouchMeta
                                 }
                                 else if (tag.Equals("exif:ImageDescription"))
                                 {
-                                    title = image.GetAttribute(tag);
                                     if (exif.GetValue(ExifTag.ImageDescription) == null)
                                     {
                                         if (!string.IsNullOrEmpty(title)) exif.SetValue(ExifTag.ImageDescription, title);
@@ -911,9 +910,9 @@ namespace TouchMeta
                             }
                             else
                             {
+                                subject = tag.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(tag)) : image.GetAttribute(tag);
                                 if (tag.Equals("exif:WinXP-Subject"))
                                 {
-                                    subject = BytesToUnicode(image.GetAttribute(tag));
                                     if (exif.GetValue(ExifTag.XPSubject) == null)
                                     {
                                         if (!string.IsNullOrEmpty(subject)) exif.SetValue(ExifTag.XPSubject, Encoding.Unicode.GetBytes(subject));
@@ -953,9 +952,9 @@ namespace TouchMeta
                             }
                             else
                             {
+                                author = tag.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(tag)) : image.GetAttribute(tag);
                                 if (tag.Equals("exif:WinXP-Author"))
-                                {
-                                    author = image.GetAttribute(tag);
+                                {                                    
                                     if (exif.GetValue(ExifTag.XPAuthor) == null)
                                     {
                                         if (!string.IsNullOrEmpty(author)) exif.SetValue(ExifTag.XPAuthor, Encoding.Unicode.GetBytes(author));
@@ -964,7 +963,6 @@ namespace TouchMeta
                                 }
                                 else if (tag.Equals("exif:Artist"))
                                 {
-                                    author = image.GetAttribute(tag);
                                     if (exif.GetValue(ExifTag.Artist) == null)
                                     {
                                         if (!string.IsNullOrEmpty(author)) exif.SetValue(ExifTag.Artist, author);
@@ -1043,9 +1041,9 @@ namespace TouchMeta
                             }
                             else
                             {
+                                comment = tag.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(tag)) : image.GetAttribute(tag);
                                 if (tag.Equals("exif:WinXP-Comment"))
                                 {
-                                    comment = image.GetAttribute(tag);
                                     if (exif.GetValue(ExifTag.XPComment) == null)
                                     {
                                         if (!string.IsNullOrEmpty(comment)) exif.SetValue(ExifTag.XPComment, Encoding.Unicode.GetBytes(comment));
@@ -1054,7 +1052,6 @@ namespace TouchMeta
                                 }
                                 else if (tag.Equals("exif:WinXP-Comments"))
                                 {
-                                    comment = image.GetAttribute(tag);
                                     if (exif.GetValue(ExifTag.XPComment) == null)
                                     {
                                         if (!string.IsNullOrEmpty(comment)) exif.SetValue(ExifTag.XPComment, Encoding.Unicode.GetBytes(comment));
@@ -1094,7 +1091,7 @@ namespace TouchMeta
                             {
                                 if (tag.Equals("exif:WinXP-Keywords"))
                                 {
-                                    keywords = image.GetAttribute(tag);
+                                    keywords = tag.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(tag)) : image.GetAttribute(tag);
                                     if (exif.GetValue(ExifTag.XPKeywords) == null)
                                     {
                                         if (!string.IsNullOrEmpty(keywords)) exif.SetValue(ExifTag.XPKeywords, Encoding.Unicode.GetBytes(keywords));
