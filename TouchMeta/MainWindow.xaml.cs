@@ -238,6 +238,7 @@ namespace TouchMeta
             {
                 var contents = string.Join(Environment.NewLine, _log_);
                 var dlg = new Xceed.Wpf.Toolkit.MessageBox();
+                dlg.CaptionIcon = Application.Current.MainWindow.Icon;                
                 dlg.Language = System.Windows.Markup.XmlLanguage.GetLanguage(CultureInfo.CurrentCulture.IetfLanguageTag);
                 dlg.FontFamily = Application.Current.FindResource("MonoSpaceFamily") as FontFamily;
                 dlg.Text = contents;
@@ -245,6 +246,7 @@ namespace TouchMeta
                 dlg.MaxWidth = 640;
                 dlg.MaxHeight = 480;
                 dlg.MouseDoubleClick += (o, e) => { Clipboard.SetText(dlg.Text.Replace("\0", string.Empty).TrimEnd('\0')); };
+                Application.Current.MainWindow.Activate();
                 dlg.ShowDialog();
             }));
         }
