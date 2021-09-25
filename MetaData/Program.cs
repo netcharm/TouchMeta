@@ -1329,7 +1329,12 @@ namespace NetChamr
                         if (image.AttributeNames.Contains(tag))
                         {
                             result.Author = tag.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(tag)) : image.GetAttribute(tag);
-                            if (tag.Equals("exif:WinXP-Author"))
+                            if (tag.Equals("exif:Artist"))
+                            {
+                                var value = exif.GetValue(ExifTag.Artist);
+                                result.Author = value == null ? result.Author : (value.Value ?? result.Author);
+                            }
+                            else if (tag.Equals("exif:WinXP-Author"))
                             {
                                 var value = exif.GetValue(ExifTag.XPAuthor);
                                 result.Author = value == null ? result.Author : (Encoding.Unicode.GetString(value.Value) ?? result.Author);
