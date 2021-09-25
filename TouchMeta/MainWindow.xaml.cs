@@ -169,15 +169,15 @@ namespace TouchMeta
 #endif
                 _log_.Add(text.TrimEnd('\0'));
             }
-            catch (Exception ex) { Xceed.Wpf.Toolkit.MessageBox.Show(Application.Current.MainWindow, ex.Message); }
+            catch (Exception ex) { ShowMessage(ex.Message, "ERROR"); }
         }
 
         private static void ClearLog()
         {
             //Application.Current.Dispatcher.BeginInvoke(new Action(() =>
             //{
-                try { _log_.Clear(); }
-                catch (Exception ex) { ShowMessage(ex.Message, "ERROR"); }
+            try { _log_.Clear(); }
+            catch (Exception ex) { ShowMessage(ex.Message, "ERROR"); }
             //}));
         }
 
@@ -296,7 +296,6 @@ namespace TouchMeta
             var vs = trimzero && !u_str.Equals("B") ? v_str.Trim('0').TrimEnd('.') : v_str;
             return ((unit ? $"{vs} {u_str}" : vs).PadLeft(padleft));
         }
-
         #endregion
 
         #region XML Formating Helper
@@ -362,6 +361,220 @@ namespace TouchMeta
         }
         #endregion
 
+        #region Files List Opration Helper
+        private bool LoadFiles(IEnumerable<string> files)
+        {
+            var result = false;
+            try
+            {
+                foreach (var file in files)
+                {
+                    if (Directory.Exists(file))
+                    {
+                        var fs = Directory.EnumerateFiles(file);
+                        foreach (var f in fs) if (FilesList.Items.IndexOf(f) < 0) FilesList.Items.Add(f);
+                    }
+                    else if (FilesList.Items.IndexOf(file) < 0) FilesList.Items.Add(file);
+                }
+                result = true;
+            }
+            catch (Exception ex) { ShowMessage(ex.Message, "ERROR"); }
+            return (result);
+        }
+
+        public bool LoadFiles()
+        {
+            var result = false;
+            try
+            {
+                var dlgOpen = new Microsoft.Win32.OpenFileDialog() { Multiselect = true, CheckFileExists = true, CheckPathExists = true, ValidateNames = true };
+                dlgOpen.Filter = "All Files|*.*";
+                if (dlgOpen.ShowDialog() ?? false)
+                {
+                    var files = dlgOpen.FileNames;
+                    result = new Func<bool>(() => { return (LoadFiles(files)); }).Invoke();
+                }
+            }
+            catch (Exception ex) { ShowMessage(ex.Message, "ERROR"); }
+            return (result);
+        }
+
+        private void UpdateFileTimeInfo(string file = null)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(file))
+                {
+                    if (FilesList.SelectedItem != null)
+                    {
+                        file = FilesList.SelectedItem as string;
+                        UpdateFileTimeInfo(file);
+                    }
+                }
+                else if (File.Exists(file))
+                {
+                    var fi = new FileInfo(file);
+
+                    List<string> info = new List<string>();
+                    info.Add($"Created  Time : {fi.CreationTime.ToString()} => {DateCreated.SelectedDate}");
+                    info.Add($"Modified Time : {fi.LastWriteTime.ToString()} => {DateModified.SelectedDate}");
+                    info.Add($"Accessed Time : {fi.LastAccessTime.ToString()} => {DateAccessed.SelectedDate}");
+                    FileTimeInfo.Text = string.Join(Environment.NewLine, info);
+                }
+            }
+            catch (Exception ex) { ShowMessage(ex.Message, "ERROR"); }
+        }
+
+        private void AddFile(string file)
+        {
+            Dispatcher.Invoke(() =>
+            {
+                var idx = FilesList.Items.IndexOf(file);
+                if (idx >= 0) FilesList.Items.RemoveAt(idx);
+                FilesList.Items.Add(file);
+            });
+        }
+
+        private Func<ListBox, IList<string>> GetFiles = (element)=>
+        {
+            List<string> files = new List<string>();
+            if (element is ListBox && element.Items.Count > 0)
+            {
+                element.Dispatcher.Invoke(() =>
+                {
+                    foreach (var item in element.SelectedItems.Count > 0 ? element.SelectedItems : element.Items) files.Add(item as string);
+                });
+            }
+            return(files);
+        };
+
+        private IList<string> GetSelected()
+        {
+            List<string> files = new List<string>();
+            if (FilesList.Items.Count >= 1)
+            {
+                Dispatcher.Invoke(() =>
+                {
+                    foreach (var item in FilesList.SelectedItems.Count > 0 ? FilesList.SelectedItems : FilesList.Items) files.Add(item as string);
+                });
+            }
+            return (files);
+        }
+        #endregion
+
+        #region Background Worker Helper
+        private void ProgressReset()
+        {
+            Dispatcher.Invoke(() => { Progress.Value = 0; });
+        }
+
+        private void ProgressReport(double percent, string tooltip)
+        {
+            if (ReportProgress is Action<double, string>) ReportProgress.Invoke(percent, tooltip);
+        }
+
+        private void RunBgWorker(Action<string> action, bool showlog = true)
+        {
+            if (action is Action<string> && bgWorker is BackgroundWorker && !bgWorker.IsBusy)
+            {
+                IList<string> files = GetFiles(FilesList);
+                if (files.Count > 0)
+                {
+                    bgWorker.RunWorkerAsync(new Action(() =>
+                    {
+                        ClearLog();
+                        ProgressReset();
+                        double count = 0;
+                        foreach (var file in files)
+                        {
+                            ProgressReport(count / files.Count, file);
+                            Log($"{file}");
+                            Log("-".PadRight(75, '-'));
+                            action.Invoke(file);
+                            Log("=".PadRight(75, '='));
+                            ProgressReport(++count / files.Count, file);
+                        }
+                        if (showlog) ShowLog();
+                    }));
+                }
+            }
+        }
+
+        private void BgWorker_ProgressChanged(object sender, ProgressChangedEventArgs e)
+        {
+            if (ReportProgress is Action<double, string>) ReportProgress.Invoke(e.ProgressPercentage, "");
+        }
+
+        private void BgWorker_RunWorkerCompleted(object sender, RunWorkerCompletedEventArgs e)
+        {
+            //Progress.Value = 100;
+        }
+
+        private void BgWorker_DoWork(object sender, DoWorkEventArgs e)
+        {
+            if (e.Argument is Action)
+            {
+                var action = e.Argument as Action;
+                action.Invoke();
+            }
+        }
+
+        private void InitBgWorker()
+        {
+            if (bgWorker == null)
+            {
+                bgWorker = new BackgroundWorker() { WorkerReportsProgress = true, WorkerSupportsCancellation = true };
+                bgWorker.DoWork += BgWorker_DoWork;
+                bgWorker.RunWorkerCompleted += BgWorker_RunWorkerCompleted;
+                bgWorker.ProgressChanged += BgWorker_ProgressChanged;
+            }
+            if (progress == null)
+            {
+                progress = new Progress<KeyValuePair<double, string>>(kv =>
+                {
+                    try
+                    {
+                        var k = kv.Key;
+                        var v = kv.Value;
+                        Progress.Value = k * 100;
+                        if (k >= 1) Progress.ToolTip = $"100% : {v}";
+                        else if (k <= 0) Progress.ToolTip = $"0% : {v}";
+                        else Progress.ToolTip = $"{k:P1} : {v}";
+                    }
+                    catch { }
+                });
+            }
+            if (ReportProgress == null)
+            {
+                Progress.Minimum = 0;
+                Progress.Maximum = 100;
+                Progress.Value = 0;
+                ReportProgress = new Action<double, string>((percent, tooltip) =>
+                {
+                    Dispatcher.Invoke(async () =>
+                    {
+                        //if (progress is IProgress<KeyValuePair<double, string>>)
+                        //    progress.Report(new KeyValuePair<double, string>(percent, tooltip));
+                        try
+                        {
+                            Progress.Value = percent * 100;
+                            if (percent >= 1) Progress.ToolTip = $"100% : {tooltip}";
+                            else if (percent <= 0) Progress.ToolTip = $"0% : {tooltip}";
+                            else Progress.ToolTip = $"{percent:P1} : {tooltip}";
+                        }
+                        catch { }
+
+                        if (percent >= 1 || percent <= 0) Title = DefaultTitle;
+                        else Title = $"{DefaultTitle} [{percent:P1}]";
+
+                        await Task.Delay(1);
+                        DoEvents();
+                    });
+                });
+            }
+        }
+        #endregion
+
         #region Metadata Helper
         public static void ClearMeta(string file)
         {
@@ -399,6 +612,7 @@ namespace TouchMeta
                 fi.LastWriteTime = dm;
                 fi.LastAccessTime = da;
             }
+            else Log($"File \"{file}\" not exists!");
         }
 
         public static void TouchMeta(string file, bool force = false, DateTime? dtc = null, DateTime? dtm = null, DateTime? dta = null, MetaInfo meta = null)
@@ -939,6 +1153,7 @@ namespace TouchMeta
                     fi.LastAccessTime = da;
                 }
             }
+            else Log($"File \"{file}\" not exists!");
         }
 
         public static void TouchDate(string file, string dt = null, bool force = false, DateTime? dtc = null, DateTime? dtm = null, DateTime? dta = null)
@@ -1010,6 +1225,7 @@ namespace TouchMeta
                     catch (Exception ex) { Log($"{ex.Message}{Environment.NewLine}{ex.StackTrace}"); }
                 }
             }
+            else Log($"File \"{file}\" not exists!");
         }
 
         public static void ShowMeta(string file)
@@ -1159,6 +1375,7 @@ namespace TouchMeta
                     }
                 }
             }
+            else Log($"File \"{file}\" not exists!");
         }
 
         public DateTime? GetMetaTime(MagickImage image)
@@ -1206,6 +1423,7 @@ namespace TouchMeta
                 }
                 result = dm;
             }
+            else Log($"File \"{file}\" not exists!");
             return (result);
         }
 
@@ -1371,6 +1589,7 @@ namespace TouchMeta
                     catch (Exception ex) { ShowMessage(ex.Message, "ERROR"); }
                 }
             }
+            else Log($"File \"{file}\" not exists!");
             return (result);
         }
         #endregion
@@ -1422,6 +1641,7 @@ namespace TouchMeta
                 fi.LastWriteTime = dm;
                 fi.LastAccessTime = da;
             }
+            else Log($"File \"{file}\" not exists!");
             return (result);
         }
 
@@ -1429,34 +1649,11 @@ namespace TouchMeta
         {
             if (files is IEnumerable<string>)
             {
-                ClearLog();
-                Progress.Value = 0;
-                if (bgWorker is BackgroundWorker && !bgWorker.IsBusy)
+                RunBgWorker(new Action<string>((file) =>
                 {
-                    bgWorker.RunWorkerAsync(new Action(() =>
-                    {
-                        double count = 0;
-                        foreach (var file in files)
-                        {
-                            if (ReportProgress is Action<double, string>) ReportProgress.Invoke(count / files.Count(), file);
-                            Log($"{file}");
-                            Log("-".PadRight(75, '-'));
-                            var ret = ConvertImageTo(file, fmt);
-                            if (!string.IsNullOrEmpty(ret) && File.Exists(ret))
-                            {
-                                Dispatcher.Invoke(() =>
-                                {
-                                    var idx = FilesList.Items.IndexOf(ret);
-                                    if (idx >= 0) FilesList.Items.RemoveAt(idx);
-                                    FilesList.Items.Add(ret);
-                                });
-                            }
-                            Log("=".PadRight(75, '='));
-                            if (ReportProgress is Action<double, string>) ReportProgress.Invoke(++count / files.Count(), file);
-                        }
-                        ShowLog();
-                    }));
-                }
+                    var ret = ConvertImageTo(file, fmt);
+                    if (!string.IsNullOrEmpty(ret) && File.Exists(ret)) AddFile(ret);
+                }));
             }
         }
 
@@ -1470,145 +1667,6 @@ namespace TouchMeta
             }
         }
         #endregion
-
-        #region Add File(s) Helper
-        private bool LoadFiles(IEnumerable<string> files)
-        {
-            var result = false;
-            try
-            {
-                foreach (var file in files)
-                {
-                    if (Directory.Exists(file))
-                    {
-                        var fs = Directory.EnumerateFiles(file);
-                        foreach (var f in fs) if (FilesList.Items.IndexOf(f) < 0) FilesList.Items.Add(f);
-                    }
-                    else if (FilesList.Items.IndexOf(file) < 0) FilesList.Items.Add(file);
-                }
-                result = true;
-            }
-            catch (Exception ex) { ShowMessage(ex.Message, "ERROR"); }
-            return (result);
-        }
-
-        public bool LoadFiles()
-        {
-            var result = false;
-            try
-            {
-                var dlgOpen = new Microsoft.Win32.OpenFileDialog() { Multiselect = true, CheckFileExists = true, CheckPathExists = true, ValidateNames = true };
-                dlgOpen.Filter = "All Files|*.*";
-                if (dlgOpen.ShowDialog() ?? false)
-                {
-                    var files = dlgOpen.FileNames;
-                    result = new Func<bool>(() => { return (LoadFiles(files)); }).Invoke();
-                }
-            }
-            catch (Exception ex) { ShowMessage(ex.Message, "ERROR"); }
-            return (result);
-        }
-        #endregion
-
-        private void UpdateFileTimeInfo(string file = null)
-        {
-            try
-            {
-                if (string.IsNullOrEmpty(file))
-                {
-                    if (FilesList.SelectedItem != null)
-                    {
-                        file = FilesList.SelectedItem as string;
-                        UpdateFileTimeInfo(file);
-                    }
-                }
-                else if (File.Exists(file))
-                {
-                    var fi = new FileInfo(file);
-
-                    List<string> info = new List<string>();
-                    info.Add($"Created  Time : {fi.CreationTime.ToString()} => {DateCreated.SelectedDate}");
-                    info.Add($"Modified Time : {fi.LastWriteTime.ToString()} => {DateModified.SelectedDate}");
-                    info.Add($"Accessed Time : {fi.LastAccessTime.ToString()} => {DateAccessed.SelectedDate}");
-                    FileTimeInfo.Text = string.Join(Environment.NewLine, info);
-                }
-            }
-            catch (Exception ex) { ShowMessage(ex.Message, "ERROR"); }
-        }
-
-        private void BgWorker_ProgressChanged(object sender, ProgressChangedEventArgs e)
-        {
-            if (ReportProgress is Action<double, string>) ReportProgress.Invoke(e.ProgressPercentage, "");
-        }
-
-        private void BgWorker_RunWorkerCompleted(object sender, RunWorkerCompletedEventArgs e)
-        {
-            //Progress.Value = 100;
-        }
-
-        private void BgWorker_DoWork(object sender, DoWorkEventArgs e)
-        {
-            if (e.Argument is Action)
-            {
-                var action = e.Argument as Action;
-                action.Invoke();
-            }
-        }
-
-        private void InitBgWorker()
-        {
-            if (bgWorker == null)
-            {
-                bgWorker = new BackgroundWorker() { WorkerReportsProgress = true, WorkerSupportsCancellation = true };
-                bgWorker.DoWork += BgWorker_DoWork;
-                bgWorker.RunWorkerCompleted += BgWorker_RunWorkerCompleted;
-                bgWorker.ProgressChanged += BgWorker_ProgressChanged;
-            }
-            if (progress == null)
-            {
-                progress = new Progress<KeyValuePair<double, string>>(kv =>
-                {
-                    try
-                    {
-                        var k = kv.Key;
-                        var v = kv.Value;
-                        Progress.Value = k * 100;
-                        if (k >= 1) Progress.ToolTip = $"100% : {v}";
-                        else if (k <= 0) Progress.ToolTip = $"0% : {v}";
-                        else Progress.ToolTip = $"{k:P1} : {v}";
-                    }
-                    catch { }
-                });
-            }
-            if (ReportProgress == null)
-            {
-                Progress.Minimum = 0;
-                Progress.Maximum = 100;
-                Progress.Value = 0;
-                ReportProgress = new Action<double, string>((percent, tooltip) =>
-                {
-                    Dispatcher.Invoke(async () =>
-                    {
-                        //if (progress is IProgress<KeyValuePair<double, string>>)
-                        //    progress.Report(new KeyValuePair<double, string>(percent, tooltip));
-                        try
-                        {
-                            Progress.Value = percent * 100;
-                            if (percent >= 1) Progress.ToolTip = $"100% : {tooltip}";
-                            else if (percent <= 0) Progress.ToolTip = $"0% : {tooltip}";
-                            else Progress.ToolTip = $"{percent:P1} : {tooltip}";
-                        }
-                        catch { }
-
-                        if (percent >= 1 || percent <= 0) Title = DefaultTitle;
-                        else Title = $"{DefaultTitle} [{percent:P1}]";
-
-                        await Task.Delay(1);
-                        DoEvents();
-                    });
-                });
-            }
-        }
 
         public static void InitMagicK()
         {
@@ -1885,6 +1943,17 @@ namespace TouchMeta
             {
                 ConvertImagesTo(MagickFormat.Pdf);
             }
+            else if(sender == ViewSelected)
+            {
+                bool openwith = Keyboard.Modifiers == ModifierKeys.Shift ? true : false;
+                RunBgWorker(new Action<string>((file) =>
+                {
+                    if (openwith)
+                        Process.Start("OpenWith.exe", file);
+                    else
+                        Process.Start(file);
+                }), showlog: false);
+            }
             else if (sender == RemoveSelected)
             {
                 #region From Files List Remove Selected Files
@@ -1893,7 +1962,7 @@ namespace TouchMeta
                     foreach (var i in FilesList.SelectedItems.OfType<string>().ToList())
                         FilesList.Items.Remove(i);
                 }
-                catch (Exception ex) { Xceed.Wpf.Toolkit.MessageBox.Show(Application.Current.MainWindow, ex.Message); }
+                catch (Exception ex) { ShowMessage(ex.Message, "ERROR"); }
                 #endregion
             }
             else if (sender == RemoveAll)
@@ -1961,140 +2030,56 @@ namespace TouchMeta
             }
             else if (sender == BtnTouchTime)
             {
-                if (FilesList.Items.Count >= 1)
+                #region Touching File Time
+                var force = Keyboard.Modifiers == ModifierKeys.Control;
+                var dtc = DateCreated.SelectedDate;
+                var dtm = DateModified.SelectedDate;
+                var dta = DateAccessed.SelectedDate;
+
+                RunBgWorker(new Action<string>((file) =>
                 {
-                    #region Touching File Time
-                    ClearLog();
-                    Progress.Value = 0;
-                    if (bgWorker is BackgroundWorker && !bgWorker.IsBusy)
-                    {
-                        List<string> files = new List<string>();
-                        foreach (var item in FilesList.SelectedItems.Count > 0 ? FilesList.SelectedItems : FilesList.Items) files.Add(item as string);
-
-                        var force = Keyboard.Modifiers == ModifierKeys.Control;
-                        var dtc = DateCreated.SelectedDate;
-                        var dtm = DateModified.SelectedDate;
-                        var dta = DateAccessed.SelectedDate;
-
-                        bgWorker.RunWorkerAsync(new Action(() =>
-                        {
-                            double count = 0;
-                            foreach (var file in files)
-                            {
-                                if (ReportProgress is Action<double, string>) ReportProgress.Invoke(count / files.Count, file);
-                                Log($"{file}");
-                                Log("-".PadRight(75, '-'));
-                                TouchDate(file, force: force, dtc: dtc, dtm: dtm, dta: dta);
-                                Log("=".PadRight(75, '='));
-                                if (ReportProgress is Action<double, string>) ReportProgress.Invoke(++count / files.Count, file);
-                            }
-                            ShowLog();
-                        }));
-                    }
-                    #endregion
-                }
+                    TouchDate(file, force: force, dtc: dtc, dtm: dtm, dta: dta);
+                }));
+                #endregion
             }
             else if (sender == BtnTouchMeta)
             {
-                if (FilesList.Items.Count >= 1)
+                #region Touching Metadata
+                var force = Keyboard.Modifiers == ModifierKeys.Control;
+                var dtc = DateCreated.SelectedDate;
+                var dtm = DateModified.SelectedDate;
+                var dta = DateAccessed.SelectedDate;
+                var meta = CurrentMeta ?? new MetaInfo();
+                meta.Title = string.IsNullOrEmpty(MetaInputTitleText.Text) ? null : MetaInputTitleText.Text;
+                meta.Subject = string.IsNullOrEmpty(MetaInputSubjectText.Text) ? null : MetaInputSubjectText.Text;
+                meta.Comment = string.IsNullOrEmpty(MetaInputCommentText.Text) ? null : MetaInputCommentText.Text;
+                meta.Keywords = string.IsNullOrEmpty(MetaInputKeywordsText.Text) ? null : MetaInputKeywordsText.Text;
+                meta.Author = string.IsNullOrEmpty(MetaInputAuthorText.Text) ? null : MetaInputAuthorText.Text;
+                meta.Copyright = string.IsNullOrEmpty(MetaInputCopyrightText.Text) ? null : MetaInputCopyrightText.Text;
+
+                RunBgWorker(new Action<string>((file) =>
                 {
-                    #region Touching Metadata
-                    ClearLog();
-                    Progress.Value = 0;
-                    if (bgWorker is BackgroundWorker && !bgWorker.IsBusy)
-                    {
-                        List<string> files = new List<string>();
-                        foreach (var item in FilesList.SelectedItems.Count > 0 ? FilesList.SelectedItems : FilesList.Items) files.Add(item as string);
-
-                        var force = Keyboard.Modifiers == ModifierKeys.Control;
-                        var dtc = DateCreated.SelectedDate;
-                        var dtm = DateModified.SelectedDate;
-                        var dta = DateAccessed.SelectedDate;
-                        var meta = CurrentMeta ?? new MetaInfo();
-                        meta.Title = string.IsNullOrEmpty(MetaInputTitleText.Text) ? null : MetaInputTitleText.Text;
-                        meta.Subject = string.IsNullOrEmpty(MetaInputSubjectText.Text) ? null : MetaInputSubjectText.Text;
-                        meta.Comment = string.IsNullOrEmpty(MetaInputCommentText.Text) ? null : MetaInputCommentText.Text;
-                        meta.Keywords = string.IsNullOrEmpty(MetaInputKeywordsText.Text) ? null : MetaInputKeywordsText.Text;
-                        meta.Author = string.IsNullOrEmpty(MetaInputAuthorText.Text) ? null : MetaInputAuthorText.Text;
-                        meta.Copyright = string.IsNullOrEmpty(MetaInputCopyrightText.Text) ? null : MetaInputCopyrightText.Text;
-
-                        bgWorker.RunWorkerAsync(new Action(() =>
-                        {
-                            double count = 0;
-                            foreach (var file in files)
-                            {
-                                if (ReportProgress is Action<double, string>) ReportProgress.Invoke(count / files.Count, file);
-                                Log($"{file}");
-                                Log("-".PadRight(75, '-'));
-                                TouchMeta(file, force: force, dtc: dtc, dtm: dtm, dta: dta, meta: meta);
-                                Log("=".PadRight(75, '='));
-                                if (ReportProgress is Action<double, string>) ReportProgress.Invoke(++count / files.Count, file);
-                            }
-                            ShowLog();
-                        }));
-                    }
-                    #endregion
-                }
+                    TouchMeta(file, force: force, dtc: dtc, dtm: dtm, dta: dta, meta: meta);
+                }));
+                #endregion
             }
             else if (sender == BtnClearMeta)
             {
-                if (FilesList.Items.Count >= 1)
+                #region Clear Metadata
+                RunBgWorker(new Action<string>((file) =>
                 {
-                    #region Clear Metadata
-                    ClearLog();
-                    Progress.Value = 0;
-                    if (bgWorker is BackgroundWorker && !bgWorker.IsBusy)
-                    {
-                        List<string> files = new List<string>();
-                        foreach (var item in FilesList.SelectedItems.Count > 0 ? FilesList.SelectedItems : FilesList.Items) files.Add(item as string);
-
-                        bgWorker.RunWorkerAsync(new Action(() =>
-                        {
-                            double count = 0;
-                            foreach (var file in files)
-                            {
-                                if (ReportProgress is Action<double, string>) ReportProgress.Invoke(count / files.Count, file);
-                                Log($"{file}");
-                                Log("-".PadRight(75, '-'));
-                                ClearMeta(file);
-                                Log("=".PadRight(75, '='));
-                                if (ReportProgress is Action<double, string>) ReportProgress.Invoke(++count / files.Count, file);
-                            }
-                            ShowLog();
-                        }));
-                    }
-                    #endregion
-                }
+                    ClearMeta(file);
+                }));
+                #endregion
             }
             else if (sender == BtnShowMeta)
             {
-                if (FilesList.Items.Count >= 1)
+                #region Show Metadata
+                RunBgWorker(new Action<string>((file) =>
                 {
-                    #region Show Metadata
-                    ClearLog();
-                    Progress.Value = 0;
-                    if (bgWorker is BackgroundWorker && !bgWorker.IsBusy)
-                    {
-                        List<string> files = new List<string>();
-                        foreach (var item in FilesList.SelectedItems.Count > 0 ? FilesList.SelectedItems : FilesList.Items) files.Add(item as string);
-
-                        bgWorker.RunWorkerAsync(new Action(() =>
-                        {
-                            double count = 0;
-                            foreach (var file in files)
-                            {
-                                if (ReportProgress is Action<double, string>) ReportProgress.Invoke(count / files.Count, file);
-                                Log($"{file}");
-                                Log("-".PadRight(75, '-'));
-                                ShowMeta(file);
-                                Log("=".PadRight(75, '='));
-                                if (ReportProgress is Action<double, string>) ReportProgress.Invoke(++count / files.Count, file);
-                            }
-                            ShowLog();
-                        }));
-                    }
-                    #endregion
-                }
+                    ShowMeta(file);
+                }));
+                #endregion
             }
             else if (sender == BtnOpenFile)
             {

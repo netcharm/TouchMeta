@@ -75,7 +75,7 @@
             <Button Grid.Column="4" x:Name="BtnOpenFile" x:Uid="OpenFile" Content="Open Files" Width="88" Margin="4" Click="BtnAction_Click"/>
         </Grid>
 
-        <ProgressBar Grid.Row="2" x:Name="Progress" x:Uid="Progress" Height="4" Margin="4" Value="50" HorizontalAlignment="Stretch" VerticalAlignment="Center"/>
+        <ProgressBar Grid.Row="2" x:Name="Progress" x:Uid="Progress" Height="4" Margin="6 4" Value="50" HorizontalAlignment="Stretch" VerticalAlignment="Center"/>
         
         <ListBox Grid.Row="3" x:Name="FilesList" x:Uid="FilesList" Margin="6" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" IsTabStop="True" SelectionMode="Extended" SelectionChanged="FilesList_SelectionChanged">
             <ListBox.ContextMenu>
@@ -91,6 +91,8 @@
                     <MenuItem x:Name="ConvertSelectedToPdf" x:Uid="ConvertSelectedToPdf" Header="Convert Selected Files to PDF" Click="FilesListAction_Click"/>
                     <MenuItem x:Name="ConvertSelectedToAvif" x:Uid="ConvertSelectedToAvif" Header="Convert Selected Files to AVIF" Click="FilesListAction_Click"/>
                     <MenuItem x:Name="ConvertSelectedToWebp" x:Uid="ConvertSelectedToWebp" Header="Convert Selected Files to WEBP" Click="FilesListAction_Click"/>
+                    <Separator/>
+                    <MenuItem x:Name="ViewSelected" x:Uid="OpenSelected" Header="Viiew Selected Files" Click="FilesListAction_Click"/>
                     <Separator/>
                     <MenuItem x:Name="RemoveSelected" x:Uid="RemoveSelected" Header="Remove Selected File" Click="FilesListAction_Click"/>
                     <MenuItem x:Name="RemoveAll" x:Uid="RemoveAll" Header="Remove All File" Click="FilesListAction_Click"/>
