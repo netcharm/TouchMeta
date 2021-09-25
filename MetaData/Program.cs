@@ -167,6 +167,25 @@ namespace NetChamr
             return (DBCS.GetString(UTF8.GetBytes(text)));
         }
 
+        private static double VALUE_GB = 1024 * 1024 * 1024;
+        private static double VALUE_MB = 1024 * 1024;
+        private static double VALUE_KB = 1024;
+
+        private static string SmartFileSize(long v, double factor = 1, bool unit = true, int padleft = 0) { return (SmartFileSize((double)v, factor, unit, padleft: padleft)); }
+
+        private static string SmartFileSize(double v, double factor = 1, bool unit = true, bool trimzero = true, int padleft = 0)
+        {
+            string v_str = string.Empty;
+            string u_str = string.Empty;
+            if (double.IsNaN(v) || double.IsInfinity(v) || double.IsNegativeInfinity(v) || double.IsPositiveInfinity(v)) { v_str = "0"; u_str = "B"; }
+            else if (v >= VALUE_GB) { v_str = $"{v / factor / VALUE_GB:F2}"; u_str = "GB"; }
+            else if (v >= VALUE_MB) { v_str = $"{v / factor / VALUE_MB:F2}"; u_str = "MB"; }
+            else if (v >= VALUE_KB) { v_str = $"{v / factor / VALUE_KB:F2}"; u_str = "KB"; }
+            else { v_str = $"{v / factor:F0}"; u_str = "B"; }
+            var vs = trimzero && !u_str.Equals("B") ? v_str.Trim('0').TrimEnd('.') : v_str;
+            return ((unit ? $"{vs} {u_str}" : vs).PadLeft(padleft));
+        }
+
         private static string FormatXML(string xml)
         {
             var result = xml;
@@ -1002,10 +1021,25 @@ namespace NetChamr
                     {
                         var exif = image.HasProfile("exif") ? image.GetExifProfile() : new ExifProfile();
                         var exif_invalid = exif.InvalidTags;
-                        Log($"{"Dimensions".PadRight(32)}= {image.Width}x{image.Height}x{image.Depth * image.ChannelCount}");
+
+                        var depth = image.Depth * image.ChannelCount;
+                        if (image.ColorType == ColorType.Bilevel) depth = 2;
+                        else if (image.ColorType == ColorType.Grayscale) depth = 8;
+                        else if (image.ColorType == ColorType.GrayscaleAlpha) depth = 8 + 8;
+                        else if (image.ColorType == ColorType.Palette) depth = (int)Math.Ceiling(Math.Log(image.ColormapSize, 2));
+                        else if (image.ColorType == ColorType.PaletteAlpha) depth = (int)Math.Ceiling(Math.Log(image.ColormapSize, 2)) + 8;
+                        else if (image.ColorType == ColorType.TrueColor) depth = 24;
+                        else if (image.ColorType == ColorType.TrueColorAlpha) depth = 32;
+                        else if (image.ColorType == ColorType.ColorSeparation) depth = 24;
+                        else if (image.ColorType == ColorType.ColorSeparationAlpha) depth = 32;
+
+                        Log($"{"FileSize".PadRight(32)}= {SmartFileSize(fi.Length)} [{fi.Length:N0} B]");
+                        Log($"{"Dimensions".PadRight(32)}= {image.Width}x{image.Height}x{depth}");
                         Log($"{"TotalPixels".PadRight(32)}= {image.Width * image.Height / 1000.0 / 1000.0:F2} MegaPixels");
                         Log($"{"ColorSpace".PadRight(32)}= {image.ColorSpace.ToString()}");
                         Log($"{"ColorType".PadRight(32)}= {image.ColorType.ToString()}");
+                        Log($"{"HasAlpha".PadRight(32)}= {image.HasAlpha.ToString()}");
+                        Log($"{"ColormapSize".PadRight(32)}= {image.ColormapSize}");
                         //Log($"{"TotalColors".PadRight(32)}= {image.TotalColors}");
                         Log($"{"FormatInfo".PadRight(32)}= {image.FormatInfo.Format.ToString()}, MIME:{image.FormatInfo.MimeType}");
                         Log($"{"Compression".PadRight(32)}= {image.Compression.ToString()}");
@@ -1136,6 +1170,7 @@ namespace NetChamr
                     }
                 }
             }
+            else Log($"File \"{file}\" not exists!");
         }
 
         public DateTime? GetMetaTime(MagickImage image)

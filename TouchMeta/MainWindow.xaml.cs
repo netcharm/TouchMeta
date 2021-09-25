@@ -1436,13 +1436,26 @@ namespace TouchMeta
                     {
                         var exif = image.HasProfile("exif") ? image.GetExifProfile() : new ExifProfile();
                         var exif_invalid = exif.InvalidTags;
+
+                        var depth = image.Depth * image.ChannelCount;
+                        if (image.ColorType == ColorType.Bilevel) depth = 2;
+                        else if (image.ColorType == ColorType.Grayscale) depth = 8;
+                        else if (image.ColorType == ColorType.GrayscaleAlpha) depth = 8 + 8;
+                        else if (image.ColorType == ColorType.Palette) depth = (int)Math.Ceiling(Math.Log(image.ColormapSize, 2));
+                        else if (image.ColorType == ColorType.PaletteAlpha) depth = (int)Math.Ceiling(Math.Log(image.ColormapSize, 2)) + 8;
+                        else if (image.ColorType == ColorType.TrueColor) depth = 24;
+                        else if (image.ColorType == ColorType.TrueColorAlpha) depth = 32;
+                        else if (image.ColorType == ColorType.ColorSeparation) depth = 24;
+                        else if (image.ColorType == ColorType.ColorSeparationAlpha) depth = 32;
+
                         Log($"{"FileSize".PadRight(32)}= {SmartFileSize(fi.Length)} [{fi.Length:N0} B]");
-                        Log($"{"Dimensions".PadRight(32)}= {image.Width}x{image.Height}x{image.Depth * image.ChannelCount}");
+                        Log($"{"Dimensions".PadRight(32)}= {image.Width}x{image.Height}x{depth}");
                         Log($"{"TotalPixels".PadRight(32)}= {image.Width * image.Height / 1000.0 / 1000.0:F2} MegaPixels");
                         Log($"{"ColorSpace".PadRight(32)}= {image.ColorSpace.ToString()}");
                         Log($"{"ColorType".PadRight(32)}= {image.ColorType.ToString()}");
-                        //Log($"{"TotalColors".PadRight(32)}= {image.TotalColors}");
+                        Log($"{"HasAlpha".PadRight(32)}= {image.HasAlpha.ToString()}");
                         Log($"{"ColormapSize".PadRight(32)}= {image.ColormapSize}");
+                        //Log($"{"TotalColors".PadRight(32)}= {image.TotalColors}");
                         Log($"{"FormatInfo".PadRight(32)}= {image.FormatInfo.Format.ToString()}, MIME:{image.FormatInfo.MimeType}");
                         Log($"{"Compression".PadRight(32)}= {image.Compression.ToString()}");
                         Log($"{"Filter".PadRight(32)}= {(image.FilterType == FilterType.Undefined ? "Adaptive" : image.FilterType.ToString())}");

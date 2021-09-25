@@ -92,7 +92,7 @@
                     <MenuItem x:Name="ConvertSelectedToAvif" x:Uid="ConvertSelectedToAvif" Header="Convert Selected Files to AVIF" Click="FilesListAction_Click"/>
                     <MenuItem x:Name="ConvertSelectedToWebp" x:Uid="ConvertSelectedToWebp" Header="Convert Selected Files to WEBP" Click="FilesListAction_Click"/>
                     <Separator/>
-                    <MenuItem x:Name="ViewSelected" x:Uid="OpenSelected" Header="Viiew Selected Files" Click="FilesListAction_Click"/>
+                    <MenuItem x:Name="ViewSelected" x:Uid="OpenSelected" Header="View Selected Files" Click="FilesListAction_Click"/>
                     <Separator/>
                     <MenuItem x:Name="RemoveSelected" x:Uid="RemoveSelected" Header="Remove Selected File" Click="FilesListAction_Click"/>
                     <MenuItem x:Name="RemoveAll" x:Uid="RemoveAll" Header="Remove All File" Click="FilesListAction_Click"/>
