@@ -1304,6 +1304,18 @@ namespace NetChamr
                                             }
                                             if (child.Name.Equals("dc:title", StringComparison.CurrentCultureIgnoreCase))
                                                 Log($"    {"dc:Title".PadRight(28)}= {child.InnerText}");
+                                            else if (child.Name.Equals("dc:creator") || child.Name.Equals("dc:subject") || child.Name.Equals("MicrosoftPhoto:LastKeywordXMP"))
+                                            {
+                                                var contents = new List<string>();
+                                                foreach (XmlNode subchild in child.ChildNodes)
+                                                {
+                                                    if (subchild.Name.Equals("rdf:Bag") || subchild.Name.Equals("rdf:Bag") || subchild.Name.Equals("rdf:Seq"))
+                                                    {
+                                                        foreach (XmlNode li in subchild.ChildNodes) { contents.Add(li.InnerText.Trim()); }
+                                                    }
+                                                }
+                                                Log($"    {$"{child.Name}".PadRight(28)}= {string.Join("; ", contents)}");
+                                            }
                                             else if (child.Name.Equals("MicrosoftPhoto:DateAcquired", StringComparison.CurrentCultureIgnoreCase))
                                                 Log($"    {"MicrosoftPhoto:DateAcquired".PadRight(28)}= {child.InnerText}");
                                             else if (child.Name.Equals("MicrosoftPhoto:DateTaken", StringComparison.CurrentCultureIgnoreCase))

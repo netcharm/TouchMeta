@@ -1714,6 +1714,18 @@ namespace TouchMeta
                                             }
                                             if (child.Name.Equals("dc:title", StringComparison.CurrentCultureIgnoreCase))
                                                 Log($"    {"dc:Title".PadRight(28)}= {child.InnerText}");
+                                            else if (child.Name.Equals("dc:creator") || child.Name.Equals("dc:subject") || child.Name.Equals("MicrosoftPhoto:LastKeywordXMP"))
+                                            {
+                                                var contents = new List<string>();
+                                                foreach (XmlNode subchild in child.ChildNodes)
+                                                {
+                                                    if (subchild.Name.Equals("rdf:Bag") || subchild.Name.Equals("rdf:Bag") || subchild.Name.Equals("rdf:Seq"))
+                                                    {
+                                                        foreach(XmlNode li in subchild.ChildNodes) { contents.Add(li.InnerText.Trim()); }
+                                                    }
+                                                }
+                                                Log($"    {$"{child.Name}".PadRight(28)}= {string.Join("; ", contents)}");
+                                            }
                                             else if (child.Name.Equals("MicrosoftPhoto:DateAcquired", StringComparison.CurrentCultureIgnoreCase))
                                                 Log($"    {"MicrosoftPhoto:DateAcquired".PadRight(28)}= {child.InnerText}");
                                             else if (child.Name.Equals("MicrosoftPhoto:DateTaken", StringComparison.CurrentCultureIgnoreCase))
@@ -1795,6 +1807,7 @@ namespace TouchMeta
 
             if (image is MagickImage && image.FormatInfo.IsReadable)
             {
+                #region EXIF, XMP Profiles
                 if (image.AttributeNames.Count() > 0)
                 {
                     result.Attributes = new Dictionary<string, string>();
@@ -1805,11 +1818,12 @@ namespace TouchMeta
                     result.Profiles = new Dictionary<string, IImageProfile>();
                     foreach (var profile in image.ProfileNames) { try { result.Profiles.Add(profile, image.GetProfile(profile)); } catch { } }
                 }
-
                 var exif = image.HasProfile("exif") ? image.GetExifProfile() : new ExifProfile();
                 var xmp = image.HasProfile("xmp") ? image.GetXmpProfile() : null;
+                #endregion
 
                 bool is_png = image.FormatInfo.MimeType.Equals("image/png");
+                #region Datetime
                 foreach (var tag in tag_date)
                 {
                     if (image.AttributeNames.Contains(tag))
@@ -1822,6 +1836,8 @@ namespace TouchMeta
                         break;
                     }
                 }
+                #endregion
+                #region Title
                 foreach (var tag in tag_title)
                 {
                     if (image.AttributeNames.Contains(tag))
@@ -1841,6 +1857,8 @@ namespace TouchMeta
                         break;
                     }
                 }
+                #endregion
+                #region Subject
                 foreach (var tag in tag_subject)
                 {
                     if (image.AttributeNames.Contains(tag))
@@ -1859,6 +1877,8 @@ namespace TouchMeta
                         break;
                     }
                 }
+                #endregion
+                #region Comment
                 foreach (var tag in tag_comments)
                 {
                     if (image.AttributeNames.Contains(tag))
@@ -1876,6 +1896,8 @@ namespace TouchMeta
                         }
                     }
                 }
+                #endregion
+                #region Keywords
                 foreach (var tag in tag_keywords)
                 {
                     if (image.AttributeNames.Contains(tag))
@@ -1893,6 +1915,8 @@ namespace TouchMeta
                         }
                     }
                 }
+                #endregion
+                #region Authors
                 foreach (var tag in tag_author)
                 {
                     if (image.AttributeNames.Contains(tag))
@@ -1915,6 +1939,8 @@ namespace TouchMeta
                         }
                     }
                 }
+                #endregion
+                #region Copyright
                 foreach (var tag in tag_copyright)
                 {
                     if (image.AttributeNames.Contains(tag))
@@ -1932,6 +1958,7 @@ namespace TouchMeta
                         }
                     }
                 }
+                #endregion
             }
             return (result);
         }
