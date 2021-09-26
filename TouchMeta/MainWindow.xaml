@@ -89,6 +89,7 @@
                     <MenuItem x:Name="ConvertSelectedToPng" x:Uid="ConvertSelectedToPng" Header="Convert Selected Files to PNG" Click="FilesListAction_Click"/>
                     <MenuItem x:Name="ConvertSelectedToGif" x:Uid="ConvertSelectedToGif" Header="Convert Selected Files to GIF" Click="FilesListAction_Click"/>
                     <MenuItem x:Name="ConvertSelectedToPdf" x:Uid="ConvertSelectedToPdf" Header="Convert Selected Files to PDF" Click="FilesListAction_Click"/>
+                    <MenuItem x:Name="ConvertSelectedToTif" x:Uid="ConvertSelectedToTif" Header="Convert Selected Files to TIFF" Click="FilesListAction_Click"/>
                     <MenuItem x:Name="ConvertSelectedToAvif" x:Uid="ConvertSelectedToAvif" Header="Convert Selected Files to AVIF" Click="FilesListAction_Click"/>
                     <MenuItem x:Name="ConvertSelectedToWebp" x:Uid="ConvertSelectedToWebp" Header="Convert Selected Files to WEBP" Click="FilesListAction_Click"/>
                     <Separator/>

@@ -1880,6 +1880,13 @@ namespace TouchMeta
                             }
                             else image.Density = new Density(72, 72, DensityUnit.PixelsPerInch);
 
+                            if (fmt == MagickFormat.Tif || fmt == MagickFormat.Tiff || fmt == MagickFormat.Tiff64)
+                            {
+                                image.SetAttribute("tiff:alpha", "unassociated");
+                                image.SetAttribute("tiff:photometric", "min-is-black");
+                                image.SetAttribute("tiff:rows-per-strip", "512");
+                            }
+
                             image.Write(name, fmt);
                             var nfi = new FileInfo(name);
                             nfi.CreationTime = dc;
@@ -2151,6 +2158,14 @@ namespace TouchMeta
             {
                 ConvertImagesTo(MagickFormat.Gif);
             }
+            else if (sender == ConvertSelectedToPdf)
+            {
+                ConvertImagesTo(MagickFormat.Pdf);
+            }
+            else if (sender == ConvertSelectedToTif)
+            {
+                ConvertImagesTo(MagickFormat.Tiff);
+            }
             else if (sender == ConvertSelectedToAvif)
             {
                 ConvertImagesTo(MagickFormat.Avif);
@@ -2158,10 +2173,6 @@ namespace TouchMeta
             else if (sender == ConvertSelectedToWebp)
             {
                 ConvertImagesTo(MagickFormat.WebP);
-            }
-            else if (sender == ConvertSelectedToPdf)
-            {
-                ConvertImagesTo(MagickFormat.Pdf);
             }
             else if(sender == ViewSelected)
             {
