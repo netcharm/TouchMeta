@@ -719,6 +719,7 @@ namespace NetChamr
 
                             if (exif != null) image.SetProfile(exif);
                             #region touch xmp profile
+                            #region Init a XMP contents
                             if (xmp == null)
                             {
                                 //var xml = $"<?xpacket begin='?' id='W5M0MpCehiHzreSzNTczkc9d'?>{Environment.NewLine}<x:xmpmeta xmlns:x=\"adobe:ns:meta/\"><rdf:RDF xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\"><rdf:Description rdf:about=\"uuid:faf5bdd5-ba3d-11da-ad31-d33d75182f1b\" xmlns:MicrosoftPhoto=\"http://ns.microsoft.com/photo/1.0/\"><MicrosoftPhoto:DateAcquired>{dm_msxmp}</MicrosoftPhoto:DateAcquired></rdf:Description></rdf:RDF></x:xmpmeta>{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}                            <?xpacket end='w'?>";
@@ -727,10 +728,10 @@ namespace NetChamr
                                 xmp = new XmpProfile(Encoding.UTF8.GetBytes(xml));
                                 image.SetProfile(xmp);
                             }
+                            #endregion
                             if (xmp != null)
                             {
                                 var xml = Encoding.UTF8.GetString(xmp.GetData());
-
                                 try
                                 {
                                     var xml_doc = new XmlDocument();
@@ -777,6 +778,13 @@ namespace NetChamr
                                             var desc = xml_doc.CreateElement("rdf:Description", "rdf");
                                             desc.SetAttribute("xmlns:MicrosoftPhoto", "http://ns.microsoft.com/photo/1.0");
                                             desc.AppendChild(xml_doc.CreateElement("MicrosoftPhoto:LastKeywordXMP", "MicrosoftPhoto"));
+                                            root_node.AppendChild(desc);
+                                        }
+                                        if (xml_doc.GetElementsByTagName("MicrosoftPhoto:LastKeywordIPTC").Count <= 0)
+                                        {
+                                            var desc = xml_doc.CreateElement("rdf:Description", "rdf");
+                                            desc.SetAttribute("xmlns:MicrosoftPhoto", "http://ns.microsoft.com/photo/1.0");
+                                            desc.AppendChild(xml_doc.CreateElement("MicrosoftPhoto:LastKeywordIPTC", "MicrosoftPhoto"));
                                             root_node.AppendChild(desc);
                                         }
                                         #endregion
@@ -928,7 +936,8 @@ namespace NetChamr
                                                     child.AppendChild(node_author);
                                                 }
                                                 else if (child.Name.Equals("dc:subject", StringComparison.CurrentCultureIgnoreCase) ||
-                                                    child.Name.Equals("MicrosoftPhoto:LastKeywordXMP", StringComparison.CurrentCultureIgnoreCase))
+                                                    child.Name.Equals("MicrosoftPhoto:LastKeywordXMP", StringComparison.CurrentCultureIgnoreCase) ||
+                                                    child.Name.Equals("MicrosoftPhoto:LastKeywordIPTC", StringComparison.CurrentCultureIgnoreCase))
                                                 {
                                                     var keyword_list = keywords.Split(new string[] { ";", "#" }, StringSplitOptions.RemoveEmptyEntries).Select(k => k.Trim()).Distinct();
 
@@ -1185,20 +1194,21 @@ namespace NetChamr
                                 else if (image.ColorType == ColorType.ColorSeparationAlpha) depth = 32;
                                 #endregion
 
+                                var cw = 35;
                                 #region General Metadata
-                                Log($"{"FileSize".PadRight(32)}= {SmartFileSize(fi.Length)} [{fi.Length:N0} B]");
-                                Log($"{"Dimensions".PadRight(32)}= {image.Width}x{image.Height}x{depth}");
-                                Log($"{"TotalPixels".PadRight(32)}= {image.Width * image.Height / 1000.0 / 1000.0:F2} MegaPixels");
-                                Log($"{"ColorSpace".PadRight(32)}= {image.ColorSpace.ToString()}");
-                                Log($"{"ColorType".PadRight(32)}= {image.ColorType.ToString()}");
-                                Log($"{"HasAlpha".PadRight(32)}= {image.HasAlpha.ToString()}");
-                                Log($"{"ColormapSize".PadRight(32)}= {image.ColormapSize}");
-                                //Log($"{"TotalColors".PadRight(32)}= {image.TotalColors}");
-                                Log($"{"FormatInfo".PadRight(32)}= {image.FormatInfo.Format.ToString()}, MIME:{image.FormatInfo.MimeType}");
-                                Log($"{"Compression".PadRight(32)}= {image.Compression.ToString()}");
-                                Log($"{"Filter".PadRight(32)}= {(image.FilterType == FilterType.Undefined ? "Adaptive" : image.FilterType.ToString())}");
-                                Log($"{"Interlace".PadRight(32)}= {image.Interlace.ToString()}");
-                                Log($"{"Interpolate".PadRight(32)}= {image.Interpolate.ToString()}");
+                                Log($"{"FileSize".PadRight(cw)}= {SmartFileSize(fi.Length)} [{fi.Length:N0} B]");
+                                Log($"{"Dimensions".PadRight(cw)}= {image.Width}x{image.Height}x{depth}");
+                                Log($"{"TotalPixels".PadRight(cw)}= {image.Width * image.Height / 1000.0 / 1000.0:F2} MegaPixels");
+                                Log($"{"ColorSpace".PadRight(cw)}= {image.ColorSpace.ToString()}");
+                                Log($"{"ColorType".PadRight(cw)}= {image.ColorType.ToString()}");
+                                Log($"{"HasAlpha".PadRight(cw)}= {image.HasAlpha.ToString()}");
+                                Log($"{"ColormapSize".PadRight(cw)}= {image.ColormapSize}");
+                                //Log($"{"TotalColors".PadRight(cw)}= {image.TotalColors}");
+                                Log($"{"FormatInfo".PadRight(cw)}= {image.FormatInfo.Format.ToString()}, MIME:{image.FormatInfo.MimeType}");
+                                Log($"{"Compression".PadRight(cw)}= {image.Compression.ToString()}");
+                                Log($"{"Filter".PadRight(cw)}= {(image.FilterType == FilterType.Undefined ? "Adaptive" : image.FilterType.ToString())}");
+                                Log($"{"Interlace".PadRight(cw)}= {image.Interlace.ToString()}");
+                                Log($"{"Interpolate".PadRight(cw)}= {image.Interpolate.ToString()}");
                                 if (image.Density != null)
                                 {
                                     var is_ppi = image.Density.Units == DensityUnit.PixelsPerInch;
@@ -1206,9 +1216,9 @@ namespace NetChamr
                                     var density = is_ppi ? image.Density : image.Density.ChangeUnits(DensityUnit.PixelsPerInch);
                                     var unit = is_ppi ? "PPI" : (is_ppc ? "PPC" : "UNK");
                                     if (is_ppi)
-                                        Log($"{"Resolution/Density".PadRight(32)}= {density.X:F0} PPI x {density.Y:F0} PPI");
+                                        Log($"{"Resolution/Density".PadRight(cw)}= {density.X:F0} PPI x {density.Y:F0} PPI");
                                     else
-                                        Log($"{"Resolution/Density".PadRight(32)}= {density.X:F0} PPI x {density.Y:F0} PPI [{image.Density.X:F2} {unit} x {image.Density.Y:F2} {unit}]");
+                                        Log($"{"Resolution/Density".PadRight(cw)}= {density.X:F0} PPI x {density.Y:F0} PPI [{image.Density.X:F2} {unit} x {image.Density.Y:F2} {unit}]");
                                 }
                                 #endregion
                                 #region Attribures Metadata
@@ -1258,7 +1268,7 @@ namespace NetChamr
                                         foreach (var v in values)
                                         {
                                             if (v.Length > 64) value = $"{v.Substring(0, 64)} ...";
-                                            var text = v.Equals(values.First()) ? $"{attr.PadRight(32)}= { v }" : $"{" ".PadRight(34)}{ v }";
+                                            var text = v.Equals(values.First()) ? $"{attr.PadRight(cw)}= { v }" : $"{" ".PadRight(cw)}{ v }";
                                             Log(text);
                                         }
                                         //tip.Add(text);
@@ -1267,13 +1277,13 @@ namespace NetChamr
                                 }
                                 #endregion
                                 #region Profiles List Metadata
-                                Log($"{"Profiles".PadRight(32)}= {string.Join(", ", image.ProfileNames)}");
+                                Log($"{"Profiles".PadRight(cw)}= {string.Join(", ", image.ProfileNames)}");
                                 foreach (var profile_name in image.ProfileNames)
                                 {
                                     try
                                     {
                                         var profile = image.GetProfile(profile_name);
-                                        var prefix = $"Profile {profile.Name}".PadRight(32, ' ');
+                                        var prefix = $"Profile {profile.Name}".PadRight(cw);
                                         var bytes = profile.ToByteArray().Select(b => $"{b}");
                                         Log($"{prefix}= {bytes.Count()} bytes");
                                     }
@@ -1293,18 +1303,19 @@ namespace NetChamr
                                         foreach (XmlAttribute attr in node.Attributes)
                                         {
                                             if (string.IsNullOrEmpty(attr.Value)) continue;
-                                            Log($"  {$"{attr.Name}".PadRight(30)}= {attr.Value}");
+                                            Log($"{$"  {attr.Name}".PadRight(cw)}= {attr.Value}");
                                         }
                                         foreach (XmlNode child in node.ChildNodes)
                                         {
                                             foreach (XmlAttribute attr in child.Attributes)
                                             {
                                                 if (string.IsNullOrEmpty(attr.Value)) continue;
-                                                Log($"    {$"{attr.Name}".PadRight(28)}= {attr.Value}");
+                                                Log($"{$"    {attr.Name}".PadRight(cw)}= {attr.Value}");
                                             }
                                             if (child.Name.Equals("dc:title", StringComparison.CurrentCultureIgnoreCase))
-                                                Log($"    {"dc:Title".PadRight(28)}= {child.InnerText}");
-                                            else if (child.Name.Equals("dc:creator") || child.Name.Equals("dc:subject") || child.Name.Equals("MicrosoftPhoto:LastKeywordXMP"))
+                                                Log($"{"    dc:Title".PadRight(cw)}= {child.InnerText}");
+                                            else if (child.Name.Equals("dc:creator") || child.Name.Equals("dc:subject") ||
+                                                child.Name.Equals("MicrosoftPhoto:LastKeywordXMP") || child.Name.Equals("MicrosoftPhoto:LastKeywordIPTC"))
                                             {
                                                 var contents = new List<string>();
                                                 foreach (XmlNode subchild in child.ChildNodes)
@@ -1314,22 +1325,23 @@ namespace NetChamr
                                                         foreach (XmlNode li in subchild.ChildNodes) { contents.Add(li.InnerText.Trim()); }
                                                     }
                                                 }
-                                                Log($"    {$"{child.Name}".PadRight(28)}= {string.Join("; ", contents)}");
+                                                Log($"{$"    {child.Name}".PadRight(cw)}= {string.Join("; ", contents)}");
                                             }
                                             else if (child.Name.Equals("MicrosoftPhoto:DateAcquired", StringComparison.CurrentCultureIgnoreCase))
-                                                Log($"    {"MicrosoftPhoto:DateAcquired".PadRight(28)}= {child.InnerText}");
+                                                Log($"{"    MicrosoftPhoto:DateAcquired".PadRight(cw)}= {child.InnerText}");
                                             else if (child.Name.Equals("MicrosoftPhoto:DateTaken", StringComparison.CurrentCultureIgnoreCase))
-                                                Log($"    {"MicrosoftPhoto:DateTaken".PadRight(28)}= {child.InnerText}");
+                                                Log($"{"    MicrosoftPhoto:DateTaken".PadRight(cw)}= {child.InnerText}");
                                             else if (child.Name.Equals("exif:DateTimeDigitized", StringComparison.CurrentCultureIgnoreCase))
-                                                Log($"    {"exif:DateTimeDigitized".PadRight(28)}= {child.InnerText}");
+                                                Log($"{"    exif:DateTimeDigitized".PadRight(cw)}= {child.InnerText}");
                                             else if (child.Name.Equals("exif:DateTimeOriginal", StringComparison.CurrentCultureIgnoreCase))
-                                                Log($"    {"exif:DateTimeOriginal".PadRight(28)}= {child.InnerText}");
+                                                Log($"{"    exif:DateTimeOriginal".PadRight(cw)}= {child.InnerText}");
                                             else if (child.Name.Equals("tiff:DateTime", StringComparison.CurrentCultureIgnoreCase))
-                                                Log($"    {"tiff:DateTime".PadRight(28)}= {child.InnerText}");
-                                            else Log($"    {$"{child.Name}".PadRight(28)}= {child.InnerText}");
+                                                Log($"{"    tiff:DateTime".PadRight(cw)}= {child.InnerText}");
+                                            else
+                                                Log($"{$"    {child.Name}".PadRight(cw)}= {child.InnerText}");
                                         }
                                     }
-                                    Log($"{"  XML Contents".PadRight(32)}= {FormatXML(xml).Replace("\"", "'")}");
+                                    Log($"{"  XML Contents".PadRight(cw)}= {FormatXML(xml).Replace("\"", "'")}");
                                 }
                                 #endregion
                             }
