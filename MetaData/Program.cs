@@ -667,9 +667,9 @@ namespace NetChamr
                                     var value_old = tag.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(tag)) : image.GetAttribute(tag);
                                     if (tag.Equals("exif:WinXP-Comment") && exif.GetValue(ExifTag.XPComment) != null)
                                         value_old = Encoding.Unicode.GetString(exif.GetValue(ExifTag.XPComment).Value);
-                                    else if (tag.Equals("exif:WinXP-Comments"))
+                                    else if (tag.Equals("exif:WinXP-Comments") && exif.GetValue(ExifTag.XPComment) != null)
                                         value_old = Encoding.Unicode.GetString(exif.GetValue(ExifTag.XPComment).Value);
-                                    else if (tag.Equals("exif:UserComment"))
+                                    else if (tag.Equals("exif:UserComment") && exif.GetValue(ExifTag.UserComment) != null)
                                         value_old = Encoding.Unicode.GetString(exif.GetValue(ExifTag.UserComment).Value);
 
                                     if (force || (!image.AttributeNames.Contains(tag) && !string.IsNullOrEmpty(comment)))
@@ -681,12 +681,14 @@ namespace NetChamr
                                         }
                                         else if (tag.StartsWith("png")) image.SetAttribute(tag, comment);
                                         else if (tag.StartsWith("Microsoft")) image.SetAttribute(tag, comment);
-                                        if (is_jpg)
+                                        //if (is_jpg)
                                         {
-                                            if (tag.StartsWith("exif") && tag.Substring(5).Equals("WinXP-Comment"))
+                                            if (tag.Equals("exif:WinXP-Comment"))
                                                 exif.SetValue(ExifTag.XPComment, Encoding.Unicode.GetBytes(comment));
-                                            else if (tag.StartsWith("exif") && tag.Substring(5).Equals("WinXP-Comments"))
+                                            else if (tag.Equals("exif:WinXP-Comments"))
                                                 exif.SetValue(ExifTag.XPComment, Encoding.Unicode.GetBytes(comment));
+                                            else if (tag.Equals("exif:UserComment"))
+                                                exif.SetValue(ExifTag.UserComment, Encoding.Unicode.GetBytes(comment));
                                         }
 
                                         var value_new = tag.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(tag)) : image.GetAttribute(tag);
