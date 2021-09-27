@@ -1841,7 +1841,7 @@ namespace TouchMeta
                                         foreach (var v in values)
                                         {
                                             if (v.Length > 64) value = $"{v.Substring(0, 64)} ...";
-                                            var text = v.Equals(values.First()) ? $"{attr.PadRight(cw)}= { v }" : $"{" ".PadRight(cw)}{ v }";
+                                            var text = v.Equals(values.First()) ? $"{attr.PadRight(cw)}= { v }" : $"{" ".PadRight(cw+2)}{ v }";
                                             Log(text);
                                         }
                                     }
