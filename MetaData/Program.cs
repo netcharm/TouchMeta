@@ -15,6 +15,7 @@ namespace NetChamr
 {
     public class MetaInfo
     {
+        public bool TouchProfiles { get; set; } = true;
         public DateTime? DateCreated { get; set; } = null;
         public DateTime? DateModified { get; set; } = null;
         public DateTime? DateAccesed { get; set; } = null;
@@ -49,14 +50,14 @@ namespace NetChamr
           "MicrosoftPhoto:DateAcquired",
           "MicrosoftPhoto:DateTaken",
           //"png:tIME",
-          //"tiff:DateTime",
           "xmp:CreateDate",
           //"xmp:DateTimeDigitized",
           //"xmp:DateTimeOriginal",
           "Creation Time",
           "create-date",
           "modify-date",
-          "date:create",
+          //"date:create",
+          "tiff:DateTime",
           "date:modify",
         };
         private static string[] tag_author = new string[] {
@@ -67,15 +68,16 @@ namespace NetChamr
           "exif:Copyright",
         };
         private static string[] tag_title = new string[] {
+          "exif:ImageDescription",
           "exif:WinXP-Title",
         };
         private static string[] tag_subject = new string[] {
           "exif:WinXP-Subject",
         };
         private static string[] tag_comments = new string[] {
-          "exif:ImageDescription",
           //"exif:WinXP-Comment",
           "exif:WinXP-Comments",
+          "exif:UserComment"
         };
         private static string[] tag_keywords = new string[] {
           "exif:WinXP-Keywords",
@@ -84,6 +86,7 @@ namespace NetChamr
           "MicrosoftPhoto:Rating",
         };
         #endregion
+
         private static void Log(string text)
         {
 #if DEBUG
@@ -331,30 +334,33 @@ namespace NetChamr
                             bool is_jpg = image.FormatInfo.MimeType.Equals("image/jpeg", StringComparison.CurrentCultureIgnoreCase);
 
                             #region touch attributes and profiles
-                            if (meta.Attributes != null && meta.Attributes.Count > 0)
+                            if (meta is MetaInfo && meta.TouchProfiles)
                             {
-                                foreach (var kv in meta.Attributes)
+                                if (meta.Attributes != null && meta.Attributes.Count > 0)
                                 {
-                                    try
+                                    foreach (var kv in meta.Attributes)
                                     {
-                                        var attr = kv.Key;
-                                        var value = kv.Value;
-                                        if (force || !image.AttributeNames.Contains(attr)) image.SetAttribute(attr, value);
+                                        try
+                                        {
+                                            var attr = kv.Key;
+                                            var value = kv.Value;
+                                            if (force || !image.AttributeNames.Contains(attr)) image.SetAttribute(attr, value);
+                                        }
+                                        catch { }
                                     }
-                                    catch { }
                                 }
-                            }
-                            if (meta.Profiles != null && meta.Profiles.Count > 0)
-                            {
-                                foreach (var kv in meta.Profiles)
+                                if (meta.Profiles != null && meta.Profiles.Count > 0)
                                 {
-                                    try
+                                    foreach (var kv in meta.Profiles)
                                     {
-                                        var profile_name = kv.Key;
-                                        var profile = kv.Value;
-                                        if (force || !image.HasProfile(profile_name)) image.SetProfile(profile);
+                                        try
+                                        {
+                                            var profile_name = kv.Key;
+                                            var profile = kv.Value;
+                                            if (force || !image.HasProfile(profile_name)) image.SetProfile(profile);
+                                        }
+                                        catch { }
                                     }
-                                    catch { }
                                 }
                             }
                             #endregion
@@ -450,9 +456,14 @@ namespace NetChamr
                             {
                                 try
                                 {
+                                    var value_old = tag.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(tag)) : image.GetAttribute(tag);
+                                    if (tag.Equals("exif:WinXP-Title") && exif.GetValue(ExifTag.XPTitle) != null)
+                                        value_old = Encoding.Unicode.GetString(exif.GetValue(ExifTag.XPTitle).Value);
+                                    else if (tag.Equals("exif:ImageDescription") && exif.GetValue(ExifTag.ImageDescription) != null)
+                                        value_old = exif.GetValue(ExifTag.ImageDescription).Value;
+
                                     if (force || (!image.AttributeNames.Contains(tag) && !string.IsNullOrEmpty(title)))
                                     {
-                                        var value_old = tag.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(tag)) : image.GetAttribute(tag);
                                         if (tag.StartsWith("exif"))
                                         {
                                             if (tag.Contains("WinXP")) image.SetAttribute(tag, UnicodeToBytes(title));
@@ -462,21 +473,26 @@ namespace NetChamr
                                         else if (tag.StartsWith("Microsoft")) image.SetAttribute(tag, title);
                                         if (is_jpg)
                                         {
-                                            if (tag.StartsWith("exif") && tag.Substring(5).Equals("WinXP-Title"))
+                                            if (tag.Equals("exif:WinXP-Title"))
                                                 exif.SetValue(ExifTag.XPTitle, Encoding.Unicode.GetBytes(title));
-                                            else if (tag.StartsWith("exif") && tag.Substring(5).Equals("ImageDescription"))
+                                            else if (tag.Equals("exif:ImageDescription"))
                                                 exif.SetValue(ExifTag.ImageDescription, title);
                                         }
-                                        Log($"{$"{tag}".PadRight(32)}= {(value_old == null ? "NULL" : value_old)} => {(tag.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(tag)) : image.GetAttribute(tag))}");
+
+                                        var value_new = tag.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(tag)) : image.GetAttribute(tag);
+                                        if (tag.Equals("exif:WinXP-Title") && exif.GetValue(ExifTag.XPTitle) != null)
+                                            value_new = Encoding.Unicode.GetString(exif.GetValue(ExifTag.XPTitle).Value);
+                                        else if (tag.Equals("exif:ImageDescription") && exif.GetValue(ExifTag.ImageDescription) != null)
+                                            value_new = exif.GetValue(ExifTag.ImageDescription).Value;
+                                        Log($"{$"{tag}".PadRight(32)}= {(value_old == null ? "NULL" : value_old)} => {value_new}");
                                     }
                                     else
                                     {
-                                        title = tag.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(tag)) : image.GetAttribute(tag);
                                         if (tag.Equals("exif:WinXP-Title"))
                                         {
                                             if (exif.GetValue(ExifTag.XPTitle) == null)
                                             {
-                                                if (!string.IsNullOrEmpty(title)) exif.SetValue(ExifTag.XPTitle, Encoding.Unicode.GetBytes(title));
+                                                if (!string.IsNullOrEmpty(title)) exif.SetValue(ExifTag.XPTitle, Encoding.Unicode.GetBytes(value_old));
                                             }
                                             else title = Encoding.Unicode.GetString(exif.GetValue(ExifTag.XPTitle).Value);
                                         }
@@ -484,7 +500,7 @@ namespace NetChamr
                                         {
                                             if (exif.GetValue(ExifTag.ImageDescription) == null)
                                             {
-                                                if (!string.IsNullOrEmpty(title)) exif.SetValue(ExifTag.ImageDescription, title);
+                                                if (!string.IsNullOrEmpty(title)) exif.SetValue(ExifTag.ImageDescription, value_old);
                                             }
                                             else title = exif.GetValue(ExifTag.ImageDescription).Value;
                                         }
@@ -498,10 +514,12 @@ namespace NetChamr
                             {
                                 try
                                 {
+                                    var value_old = tag.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(tag)) : image.GetAttribute(tag);
+                                    if (tag.Equals("exif:WinXP-Subject") && exif.GetValue(ExifTag.XPSubject) != null)
+                                        value_old = Encoding.Unicode.GetString(exif.GetValue(ExifTag.XPSubject).Value);
+
                                     if (force || (!image.AttributeNames.Contains(tag) && !string.IsNullOrEmpty(subject)))
                                     {
-                                        var value_old = tag.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(tag)) : image.GetAttribute(tag);
-                                        var value_new = string.Empty;
                                         if (tag.StartsWith("exif"))
                                         {
                                             if (tag.Contains("WinXP")) image.SetAttribute(tag, UnicodeToBytes(subject));
@@ -511,22 +529,26 @@ namespace NetChamr
                                         else if (tag.StartsWith("Microsoft")) image.SetAttribute(tag, subject);
                                         if (is_jpg)
                                         {
-                                            if (tag.StartsWith("exif") && tag.Substring(5).Equals("WinXP-Subject"))
+                                            if (tag.Equals("exif:WinXP-Subject"))
                                             {
                                                 //value_new = 
                                                 exif.SetValue(ExifTag.XPSubject, Encoding.Unicode.GetBytes(subject));
                                             }
                                         }
-                                        Log($"{$"{tag}".PadRight(32)}= {(value_old == null ? "NULL" : value_old)} => {(tag.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(tag)) : image.GetAttribute(tag))}");
+
+                                        var value_new = tag.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(tag)) : image.GetAttribute(tag);
+                                        if (tag.Equals("exif:WinXP-Subject") && exif.GetValue(ExifTag.XPSubject) != null)
+                                            value_new = Encoding.Unicode.GetString(exif.GetValue(ExifTag.XPSubject).Value);
+
+                                        Log($"{$"{tag}".PadRight(32)}= {(value_old == null ? "NULL" : value_old)} => {value_new}");
                                     }
                                     else
                                     {
-                                        subject = tag.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(tag)) : image.GetAttribute(tag);
                                         if (tag.Equals("exif:WinXP-Subject"))
                                         {
                                             if (exif.GetValue(ExifTag.XPSubject) == null)
                                             {
-                                                if (!string.IsNullOrEmpty(subject)) exif.SetValue(ExifTag.XPSubject, Encoding.Unicode.GetBytes(subject));
+                                                if (!string.IsNullOrEmpty(subject)) exif.SetValue(ExifTag.XPSubject, Encoding.Unicode.GetBytes(value_old));
                                             }
                                             else subject = Encoding.Unicode.GetString(exif.GetValue(ExifTag.XPSubject).Value);
                                         }
@@ -540,35 +562,43 @@ namespace NetChamr
                             {
                                 try
                                 {
+                                    var value_old = tag.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(tag)) : image.GetAttribute(tag);
+                                    if (tag.Equals("exif:WinXP-Author") && exif.GetValue(ExifTag.XPAuthor) != null)
+                                        value_old = Encoding.Unicode.GetString(exif.GetValue(ExifTag.XPAuthor).Value);
+                                    else if (tag.Equals("exif:Artist") && exif.GetValue(ExifTag.Artist) != null)
+                                        value_old = exif.GetValue(ExifTag.Artist).Value;
+
                                     if (force || (!image.AttributeNames.Contains(tag) && !string.IsNullOrEmpty(authors)))
                                     {
-                                        var value_old = tag.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(tag)) : image.GetAttribute(tag);
-                                        var value_new = string.Empty;
                                         if (tag.StartsWith("exif"))
                                         {
                                             if (tag.Contains("WinXP")) image.SetAttribute(tag, UnicodeToBytes(authors));
+                                            else if (tag.Equals("exif:Artist")) exif.SetValue(ExifTag.Artist, authors);
                                             else image.SetAttribute(tag, authors);
-                                            if (tag.Equals("exif:Artist")) exif.SetValue(ExifTag.Artist, authors);
                                         }
                                         else if (tag.StartsWith("png")) image.SetAttribute(tag, authors);
                                         else if (tag.StartsWith("Microsoft")) image.SetAttribute(tag, authors);
                                         if (is_jpg)
                                         {
-                                            if (tag.StartsWith("exif") && tag.Substring(5).Equals("WinXP-Author"))
-                                            {
+                                            if (tag.Equals("exif:WinXP-Author"))
                                                 exif.SetValue(ExifTag.XPAuthor, Encoding.Unicode.GetBytes(authors));
-                                            }
+                                            else if (tag.Equals("exif:Artist")) exif.SetValue(ExifTag.Artist, authors);
                                         }
-                                        Log($"{$"{tag}".PadRight(32)}= {(value_old == null ? "NULL" : value_old)} => {(tag.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(tag)) : image.GetAttribute(tag))}");
+
+                                        var value_new = tag.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(tag)) : image.GetAttribute(tag);
+                                        if (tag.Equals("exif:WinXP-Author") && exif.GetValue(ExifTag.XPAuthor) != null)
+                                            value_new = Encoding.Unicode.GetString(exif.GetValue(ExifTag.XPAuthor).Value);
+                                        else if (tag.Equals("exif:Artist") && exif.GetValue(ExifTag.Artist) != null)
+                                            value_new = exif.GetValue(ExifTag.Artist).Value;
+                                        Log($"{$"{tag}".PadRight(32)}= {(value_old == null ? "NULL" : value_old)} => {value_new}");
                                     }
                                     else
                                     {
-                                        authors = tag.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(tag)) : image.GetAttribute(tag);
                                         if (tag.Equals("exif:WinXP-Author"))
                                         {
                                             if (exif.GetValue(ExifTag.XPAuthor) == null)
                                             {
-                                                if (!string.IsNullOrEmpty(authors)) exif.SetValue(ExifTag.XPAuthor, Encoding.Unicode.GetBytes(authors));
+                                                if (!string.IsNullOrEmpty(authors)) exif.SetValue(ExifTag.XPAuthor, Encoding.Unicode.GetBytes(value_old));
                                             }
                                             else authors = Encoding.Unicode.GetString(exif.GetValue(ExifTag.XPAuthor).Value);
                                         }
@@ -576,7 +606,7 @@ namespace NetChamr
                                         {
                                             if (exif.GetValue(ExifTag.Artist) == null)
                                             {
-                                                if (!string.IsNullOrEmpty(authors)) exif.SetValue(ExifTag.Artist, authors);
+                                                if (!string.IsNullOrEmpty(authors)) exif.SetValue(ExifTag.Artist, value_old);
                                             }
                                             else authors = exif.GetValue(ExifTag.Artist).Value;
                                         }
@@ -590,34 +620,37 @@ namespace NetChamr
                             {
                                 try
                                 {
+                                    var value_old = tag.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(tag)) : image.GetAttribute(tag);
+                                    if (tag.Equals("exif:Copyright") && exif.GetValue(ExifTag.Copyright) != null)
+                                        value_old = exif.GetValue(ExifTag.Copyright).Value;
+
                                     if (force || (!image.AttributeNames.Contains(tag) && !string.IsNullOrEmpty(copyright)))
                                     {
-                                        var value_old = tag.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(tag)) : image.GetAttribute(tag);
-                                        var value_new = string.Empty;
                                         if (tag.StartsWith("exif"))
                                         {
                                             if (tag.Contains("WinXP")) image.SetAttribute(tag, UnicodeToBytes(copyright));
+                                            else if (tag.Equals("exif:Copyright")) exif.SetValue(ExifTag.Copyright, copyright);
                                             else image.SetAttribute(tag, copyright);
                                         }
                                         else if (tag.StartsWith("png")) image.SetAttribute(tag, copyright);
                                         else if (tag.StartsWith("Microsoft")) image.SetAttribute(tag, copyright);
                                         if (is_jpg)
                                         {
-                                            if (tag.StartsWith("exif") && tag.Substring(5).Equals("Copyright"))
-                                            {
-                                                exif.SetValue(ExifTag.Copyright, copyright);
-                                            }
+                                            if (tag.Equals("exif:Copyright")) exif.SetValue(ExifTag.Copyright, copyright);
                                         }
-                                        Log($"{$"{tag}".PadRight(32)}= {(value_old == null ? "NULL" : value_old)} => {(tag.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(tag)) : image.GetAttribute(tag))}");
+
+                                        var value_new = tag.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(tag)) : image.GetAttribute(tag);
+                                        if (tag.Equals("exif:Copyright") && exif.GetValue(ExifTag.Copyright) != null)
+                                            value_new = exif.GetValue(ExifTag.Copyright).Value;
+                                        Log($"{$"{tag}".PadRight(32)}= {(value_old == null ? "NULL" : value_old)} => {value_new}");
                                     }
                                     else
                                     {
                                         if (tag.Equals("exif:Copyright"))
                                         {
-                                            copyright = image.GetAttribute(tag);
                                             if (exif.GetValue(ExifTag.Copyright) == null)
                                             {
-                                                if (!string.IsNullOrEmpty(copyright)) exif.SetValue(ExifTag.Copyright, copyright);
+                                                if (!string.IsNullOrEmpty(copyright)) exif.SetValue(ExifTag.Copyright, value_old);
                                             }
                                             else copyright = exif.GetValue(ExifTag.Copyright).Value;
                                         }
@@ -631,9 +664,16 @@ namespace NetChamr
                             {
                                 try
                                 {
+                                    var value_old = tag.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(tag)) : image.GetAttribute(tag);
+                                    if (tag.Equals("exif:WinXP-Comment") && exif.GetValue(ExifTag.XPComment) != null)
+                                        value_old = Encoding.Unicode.GetString(exif.GetValue(ExifTag.XPComment).Value);
+                                    else if (tag.Equals("exif:WinXP-Comments"))
+                                        value_old = Encoding.Unicode.GetString(exif.GetValue(ExifTag.XPComment).Value);
+                                    else if (tag.Equals("exif:UserComment"))
+                                        value_old = Encoding.Unicode.GetString(exif.GetValue(ExifTag.UserComment).Value);
+
                                     if (force || (!image.AttributeNames.Contains(tag) && !string.IsNullOrEmpty(comment)))
                                     {
-                                        var value_old = tag.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(tag)) : image.GetAttribute(tag);
                                         if (tag.StartsWith("exif"))
                                         {
                                             if (tag.Contains("WinXP")) image.SetAttribute(tag, UnicodeToBytes(comment));
@@ -648,16 +688,23 @@ namespace NetChamr
                                             else if (tag.StartsWith("exif") && tag.Substring(5).Equals("WinXP-Comments"))
                                                 exif.SetValue(ExifTag.XPComment, Encoding.Unicode.GetBytes(comment));
                                         }
-                                        Log($"{$"{tag}".PadRight(32)}= {(value_old == null ? "NULL" : value_old)} => {(tag.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(tag)) : image.GetAttribute(tag))}");
+
+                                        var value_new = tag.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(tag)) : image.GetAttribute(tag);
+                                        if (tag.Equals("exif:WinXP-Comment") && exif.GetValue(ExifTag.XPComment) != null)
+                                            value_new = Encoding.Unicode.GetString(exif.GetValue(ExifTag.XPComment).Value);
+                                        else if (tag.Equals("exif:WinXP-Comments"))
+                                            value_new = Encoding.Unicode.GetString(exif.GetValue(ExifTag.XPComment).Value);
+                                        else if (tag.Equals("exif:UserComment"))
+                                            value_new = Encoding.Unicode.GetString(exif.GetValue(ExifTag.UserComment).Value);
+                                        Log($"{$"{tag}".PadRight(32)}= {(value_old == null ? "NULL" : value_old)} => {value_new}");
                                     }
                                     else
                                     {
-                                        comment = tag.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(tag)) : image.GetAttribute(tag);
                                         if (tag.Equals("exif:WinXP-Comment"))
                                         {
                                             if (exif.GetValue(ExifTag.XPComment) == null)
                                             {
-                                                if (!string.IsNullOrEmpty(comment)) exif.SetValue(ExifTag.XPComment, Encoding.Unicode.GetBytes(comment));
+                                                if (!string.IsNullOrEmpty(comment)) exif.SetValue(ExifTag.XPComment, Encoding.Unicode.GetBytes(value_old));
                                             }
                                             else comment = Encoding.Unicode.GetString(exif.GetValue(ExifTag.XPComment).Value);
                                         }
@@ -665,7 +712,7 @@ namespace NetChamr
                                         {
                                             if (exif.GetValue(ExifTag.XPComment) == null)
                                             {
-                                                if (!string.IsNullOrEmpty(comment)) exif.SetValue(ExifTag.XPComment, Encoding.Unicode.GetBytes(comment));
+                                                if (!string.IsNullOrEmpty(comment)) exif.SetValue(ExifTag.XPComment, Encoding.Unicode.GetBytes(value_old));
                                             }
                                             else comment = Encoding.Unicode.GetString(exif.GetValue(ExifTag.XPComment).Value);
                                         }
@@ -679,15 +726,18 @@ namespace NetChamr
                             {
                                 try
                                 {
+                                    var value_old = tag.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(tag)) : image.GetAttribute(tag);
+                                    if (tag.Equals("exif:WinXP-Keywords") && exif.GetValue(ExifTag.XPKeywords) != null)
+                                        value_old = Encoding.Unicode.GetString(exif.GetValue(ExifTag.XPKeywords).Value);
+
                                     if (force || (!image.AttributeNames.Contains(tag) && !string.IsNullOrEmpty(keywords)))
                                     {
-                                        var value_old = tag.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(tag)) : image.GetAttribute(tag);
                                         if (tag.StartsWith("exif"))
                                         {
                                             if (tag.Contains("WinXP")) image.SetAttribute(tag, UnicodeToBytes(keywords));
                                             else image.SetAttribute(tag, keywords);
-                                            if (tag.Substring(5).Equals("WinXP-Comment"))
-                                                exif.SetValue(ExifTag.XPComment, Encoding.Unicode.GetBytes(keywords));
+                                            if (tag.Equals("exif:WinXP-Keywords"))
+                                                exif.SetValue(ExifTag.XPKeywords, Encoding.Unicode.GetBytes(keywords));
                                         }
                                         else if (tag.StartsWith("png")) image.SetAttribute(tag, keywords);
                                         else if (tag.StartsWith("Microsoft")) image.SetAttribute(tag, keywords);
@@ -696,16 +746,19 @@ namespace NetChamr
                                             if (tag.StartsWith("exif") && tag.Substring(5).Equals("WinXP-Keywords"))
                                                 exif.SetValue(ExifTag.XPKeywords, Encoding.Unicode.GetBytes(keywords));
                                         }
-                                        Log($"{$"{tag}".PadRight(32)}= {value_old} => {(tag.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(tag)) : image.GetAttribute(tag))}");
+
+                                        var value_new = tag.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(tag)) : image.GetAttribute(tag);
+                                        if (tag.Equals("exif:WinXP-Keywords") && exif.GetValue(ExifTag.XPKeywords) != null)
+                                            value_new = Encoding.Unicode.GetString(exif.GetValue(ExifTag.XPKeywords).Value);
+                                        Log($"{$"{tag}".PadRight(32)}= {(value_old == null ? "NULL" : value_old)} => {value_new}");
                                     }
                                     else
                                     {
                                         if (tag.Equals("exif:WinXP-Keywords"))
                                         {
-                                            keywords = tag.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(tag)) : image.GetAttribute(tag);
                                             if (exif.GetValue(ExifTag.XPKeywords) == null)
                                             {
-                                                if (!string.IsNullOrEmpty(keywords)) exif.SetValue(ExifTag.XPKeywords, Encoding.Unicode.GetBytes(keywords));
+                                                if (!string.IsNullOrEmpty(keywords)) exif.SetValue(ExifTag.XPKeywords, Encoding.Unicode.GetBytes(value_old));
                                             }
                                             else keywords = Encoding.Unicode.GetString(exif.GetValue(ExifTag.XPKeywords).Value);
                                         }
@@ -723,7 +776,7 @@ namespace NetChamr
                             if (xmp == null)
                             {
                                 //var xml = $"<?xpacket begin='?' id='W5M0MpCehiHzreSzNTczkc9d'?>{Environment.NewLine}<x:xmpmeta xmlns:x=\"adobe:ns:meta/\"><rdf:RDF xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\"><rdf:Description rdf:about=\"uuid:faf5bdd5-ba3d-11da-ad31-d33d75182f1b\" xmlns:MicrosoftPhoto=\"http://ns.microsoft.com/photo/1.0/\"><MicrosoftPhoto:DateAcquired>{dm_msxmp}</MicrosoftPhoto:DateAcquired></rdf:Description></rdf:RDF></x:xmpmeta>{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}                            <?xpacket end='w'?>";
-                                var xml = $"<?xpacket begin='?' id='W5M0MpCehiHzreSzNTczkc9d'?><x:xmpmeta xmlns:x=\"adobe:ns:meta/\"><rdf:RDF xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\"><rdf:Description rdf:about=\"uuid:faf5bdd5-ba3d-11da-ad31-d33d75182f1b\" xmlns:MicrosoftPhoto=\"http://ns.microsoft.com/photo/1.0/\"><MicrosoftPhoto:DateAcquired>{dm_msxmp}</MicrosoftPhoto:DateAcquired><MicrosoftPhoto:DateTaken>{dm_msxmp}</MicrosoftPhoto:DateTaken></rdf:Description><rdf:Description about='' xmlns:exif='http://ns.adobe.com/exif/1.0/'><exif:DateTimeDigitized>{dm_ms}</exif:DateTimeDigitized><exif:DateTimeOriginal></exif:DateTimeOriginal></rdf:Description>{dm_ms}</rdf:RDF></x:xmpmeta><?xpacket end='w'?>";
+                                var xml = $"<?xpacket begin='?' id='W5M0MpCehiHzreSzNTczkc9d'?><x:xmpmeta xmlns:x=\"adobe:ns:meta/\"><rdf:RDF xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\"><rdf:Description rdf:about=\"uuid:faf5bdd5-ba3d-11da-ad31-d33d75182f1b\" xmlns:MicrosoftPhoto=\"http://ns.microsoft.com/photo/1.0/\"><MicrosoftPhoto:DateAcquired>{dm_msxmp}</MicrosoftPhoto:DateAcquired><MicrosoftPhoto:DateTaken>{dm_msxmp}</MicrosoftPhoto:DateTaken></rdf:Description><rdf:Description about='' xmlns:exif='http://ns.adobe.com/exif/1.0/'><exif:DateTimeDigitized>{dm_ms}</exif:DateTimeDigitized><exif:DateTimeOriginal>{dm_ms}</exif:DateTimeOriginal></rdf:Description></rdf:RDF></x:xmpmeta><?xpacket end='w'?>";
 
                                 xmp = new XmpProfile(Encoding.UTF8.GetBytes(xml));
                                 image.SetProfile(xmp);

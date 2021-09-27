@@ -124,7 +124,10 @@
                 </Grid.RowDefinitions>
                 <Border x:Name="MetaInputPopupBorder" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" />
                 <StackPanel Orientation="Vertical" Margin="4" VerticalAlignment="Stretch" HorizontalAlignment="Stretch">
-                    <TextBlock x:Name="MetaInputTitleLabel" x:Uid="MetaInputTitleLabel" Text="Title:" Margin="2" />
+                    <Grid>
+                        <TextBlock x:Name="MetaInputTitleLabel" x:Uid="MetaInputTitleLabel" Text="Title:" Margin="2" />
+                        <CheckBox x:Name="MetaInputTouchProfile" x:Uid="MetaInputTouchProfile" Content="Touch Profiles" IsChecked="True" Margin="2,3,2,2" HorizontalAlignment="Right" VerticalAlignment="Top"/>
+                    </Grid>
                     <TextBox x:Name="MetaInputTitleText" x:Uid="MetaInputTitleText" Margin="2" MaxHeight="64" TextWrapping="Wrap" VerticalAlignment="Stretch" ScrollViewer.VerticalScrollBarVisibility="Auto"/>
                     <TextBlock x:Name="MetaInputSubjectLabel" x:Uid="MetaInputSubjectLabel" Text="Subject:" Margin="2" />
                     <TextBox x:Name="MetaInputSubjectText" x:Uid="MetaInputSubjectText" Margin="2" MaxHeight="64" TextWrapping="Wrap" VerticalAlignment="Stretch" ScrollViewer.VerticalScrollBarVisibility="Auto"/>
