@@ -921,8 +921,13 @@ namespace TouchMeta
                                         try
                                         {
                                             var attr = kv.Key;
-                                            var value = kv.Value;
-                                            if (force || !image.AttributeNames.Contains(attr)) image.SetAttribute(attr, value);
+                                            if (force || !image.AttributeNames.Contains(attr))
+                                            {
+                                                var old_value = image.AttributeNames.Contains(attr) ?  GetAttribute(image, attr) : "NULL";
+                                                var value = kv.Value;
+                                                image.SetAttribute(attr, value);
+                                                Log($"{$"{attr}".PadRight(32)}= {old_value} => {value}");
+                                            }
                                         }
                                         catch { }
                                     }
@@ -935,7 +940,12 @@ namespace TouchMeta
                                         {
                                             var profile_name = kv.Key;
                                             var profile = kv.Value;
-                                            if (force || !image.HasProfile(profile_name)) image.SetProfile(profile);
+                                            if (force || !image.HasProfile(profile_name))
+                                            {
+                                                var old_size = image.HasProfile(profile_name) ? image.GetProfile(profile_name).GetData().Length : 0;
+                                                image.SetProfile(profile);
+                                                Log($"{$"Profile {profile_name}".PadRight(32)}= {(old_size == 0 ? "NULL" : $"{old_size}")} => {profile.GetData().Length} Bytes");
+                                            }
                                         }
                                         catch { }
                                     }
@@ -1301,7 +1311,7 @@ namespace TouchMeta
                             }
                             #endregion
 
-                            Log($"{"  Profiles".PadRight(32)}= {string.Join(", ", image.ProfileNames)}");
+                            Log($"{"Profiles".PadRight(32)}= {string.Join(", ", image.ProfileNames)}");
 
                             if (exif != null) image.SetProfile(exif);
                             #region touch xmp profile
@@ -1649,7 +1659,7 @@ namespace TouchMeta
                                 }
                                 xmp = new XmpProfile(Encoding.UTF8.GetBytes(xml));
                                 image.SetProfile(xmp);
-                                Log($"{"  XMP Profiles".PadRight(32)}= {xml}");
+                                Log($"{"XMP Profiles".PadRight(32)}= {xml}");
                             }
                             #endregion
 
@@ -1978,7 +1988,7 @@ namespace TouchMeta
                 if (image.AttributeNames.Count() > 0)
                 {
                     result.Attributes = new Dictionary<string, string>();
-                    foreach (var attr in image.AttributeNames) { try { result.Attributes.Add(attr, image.GetAttribute(attr)); } catch { } }
+                    foreach (var attr in image.AttributeNames) { try { result.Attributes.Add(attr, GetAttribute(image, attr)); } catch { } }
                 }
                 if (image.ProfileNames.Count() > 0)
                 {
