@@ -304,8 +304,8 @@ namespace NetChamr
           "create-date",
           "modify-date",
           "tiff:DateTime",
-          "date:modify",
-          "date:create",
+          //"date:modify",
+          //"date:create",
         };
         private static string[] tag_author = new string[] {
           "exif:Artist",
@@ -397,7 +397,7 @@ namespace NetChamr
         {
             try
             {
-                if (image is MagickImage && image.FormatInfo.IsReadable)
+                if (image is MagickImage && image.FormatInfo.IsReadable && value != null)
                 {
                     var exif = image.HasProfile("exif") ? image.GetExifProfile() : new ExifProfile();
                     var iptc = image.HasProfile("iptc") ? image.GetIptcProfile() : new IptcProfile();
@@ -412,8 +412,30 @@ namespace NetChamr
                         if (tag_property != null)
                         {
                             var tag_type = (tag_property as PropertyInfo).GetMethod.ReturnType.GenericTypeArguments.First();
-                            if (tag_type == typeof(byte[]) && value is string)
+                            if (tag_type == typeof(byte))
+                            {
+                                byte v;
+                                if (byte.TryParse(value, out v)) exif.SetValue(tag_property.GetValue(exif), v);
+                            }
+                            else if (tag_type == typeof(byte[]) && value is string)
                                 exif.SetValue(tag_property.GetValue(exif), Encoding.Unicode.GetBytes(value));
+                            else if (tag_type == typeof(ushort) || tag_type == typeof(ushort))
+                            {
+                                ushort v;
+                                if (ushort.TryParse(value, out v)) exif.SetValue(tag_property.GetValue(exif), v);
+                            }
+                            else if (tag_type == typeof(ushort[]) && value is string && !string.IsNullOrEmpty(value))
+                            {
+                                ushort[] v;
+                                var vl = (value as string).Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
+                                v = vl.Select(u => ushort.Parse(u)).ToArray();
+                                exif.SetValue(tag_property.GetValue(exif), v);
+                            }
+                            else if (tag_type == typeof(Number))
+                            {
+                                uint v;
+                                if (uint.TryParse(value, out v)) exif.SetValue(tag_property.GetValue(exif), new Number(v));
+                            }
                             else
                                 exif.SetValue(tag_property.GetValue(exif), value);
                         }
@@ -544,6 +566,7 @@ namespace NetChamr
                                         try
                                         {
                                             var attr = kv.Key;
+                                            if (attr.StartsWith("date:")) continue;
                                             if (force || !image.AttributeNames.Contains(attr))
                                             {
                                                 var old_value = image.AttributeNames.Contains(attr) ?  GetAttribute(image, attr) : "NULL";
@@ -1030,13 +1053,17 @@ namespace NetChamr
                                         #endregion
 
                                         #region xml nodes updating
-                                        Action<XmlElement, string> add_rdf_li = new Action<XmlElement, string>((element, text)=>{
-                                            var items = text.Split(new string[] { ";", "#" }, StringSplitOptions.RemoveEmptyEntries).Select(k => k.Trim()).Where(k => !string.IsNullOrEmpty(k)).Distinct();
-                                            foreach (var item in items)
+                                        Action<XmlElement, string> add_rdf_li = new Action<XmlElement, string>((element, text)=>
+                                        {
+                                            if(!string.IsNullOrEmpty(text))
                                             {
-                                                var node_author_li = xml_doc.CreateElement("rdf:li", "rdf");
-                                                node_author_li.InnerText = item;
-                                                element.AppendChild(node_author_li);
+                                                var items = text.Split(new string[] { ";", "#" }, StringSplitOptions.RemoveEmptyEntries).Select(k => k.Trim()).Where(k => !string.IsNullOrEmpty(k)).Distinct();
+                                                foreach (var item in items)
+                                                {
+                                                    var node_author_li = xml_doc.CreateElement("rdf:li", "rdf");
+                                                    node_author_li.InnerText = item;
+                                                    element.AppendChild(node_author_li);
+                                                }
                                             }
                                         });
                                         foreach (XmlNode node in xml_doc.GetElementsByTagName("rdf:Description"))
@@ -1096,8 +1123,15 @@ namespace NetChamr
                                         #endregion
                                     }
                                 }
+#if DEBUG
+                                catch (Exception ex)
+                                {
+                                    Log($"{ex.Message}{ex.StackTrace}");
+#else
                                 catch
                                 {
+
+#endif
                                     #region Title
                                     var pattern_title = @"(<dc:title>.*?<rdf:li.*?xml:lang='.*?')(>).*?(</rdf:li></rdf:Alt></dc:title>)";
                                     if (Regex.IsMatch(xml, pattern_title, RegexOptions.IgnoreCase | RegexOptions.Multiline))
@@ -1345,6 +1379,7 @@ namespace NetChamr
                                     {
                                         var value = GetAttribute(image, attr);
                                         if (string.IsNullOrEmpty(value)) continue;
+                                        else if (attr.StartsWith("date:")) continue;
                                         else if (attr.Equals("png:bKGD")) value = image.BackgroundColor.ToString();
                                         else if (attr.Equals("png:cHRM"))
                                         {
@@ -1521,18 +1556,8 @@ namespace NetChamr
 
                 bool is_png = image.FormatInfo.MimeType.Equals("image/png");
                 #region Datetime
-                foreach (var tag in tag_date)
-                {
-                    if (image.AttributeNames.Contains(tag))
-                    {
-                        var v = image.GetAttribute(tag);
-                        var nv = Regex.Replace(v, @"^(\d{4}):(\d{2}):(\d{2})[ |T](.*?)Z?$", "$1-$2-$3T$4");
-                        //Log($"{tag.PadRight(32)}= {v} > {nv}");
-                        result.DateAcquired = DateTime.Parse(tag.Contains("png") ? nv.Substring(0, tag.Length - 1) : nv);
-                        result.DateTaken = result.DateAcquired;
-                        break;
-                    }
-                }
+                result.DateAcquired = GetMetaTime(image);
+                result.DateTaken = result.DateAcquired;
                 #endregion
                 #region Title
                 foreach (var tag in tag_title)

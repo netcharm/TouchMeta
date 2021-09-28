@@ -146,7 +146,7 @@ namespace TouchMeta
             {
                 var contents = string.Join(Environment.NewLine, _log_);
                 var dlg = new Xceed.Wpf.Toolkit.MessageBox();
-                dlg.CaptionIcon = Application.Current.MainWindow.Icon;                
+                dlg.CaptionIcon = Application.Current.MainWindow.Icon;
                 dlg.Language = System.Windows.Markup.XmlLanguage.GetLanguage(CultureInfo.CurrentCulture.IetfLanguageTag);
                 dlg.FontFamily = Application.Current.FindResource("MonoSpaceFamily") as FontFamily;
                 dlg.Text = contents;
@@ -663,8 +663,8 @@ namespace TouchMeta
           "create-date",
           "modify-date",
           "tiff:DateTime",
-          "date:modify",
-          "date:create",
+          //"date:modify",
+          //"date:create",
         };
         private static string[] tag_author = new string[] {
           "exif:Artist",
@@ -789,7 +789,7 @@ namespace TouchMeta
                         }
                     }
 
-                    if(attr.StartsWith("date:"))
+                    if (attr.StartsWith("date:"))
                     {
                         DateTime dt;
                         if (DateTime.TryParse(result, out dt)) result = dt.ToString("yyyy-MM-ddTHH:mm:sszzz");
@@ -806,7 +806,7 @@ namespace TouchMeta
         {
             try
             {
-                if (image is MagickImage && image.FormatInfo.IsReadable)
+                if (image is MagickImage && image.FormatInfo.IsReadable && value != null)
                 {
                     var exif = image.HasProfile("exif") ? image.GetExifProfile() : new ExifProfile();
                     var iptc = image.HasProfile("iptc") ? image.GetIptcProfile() : new IptcProfile();
@@ -821,8 +821,30 @@ namespace TouchMeta
                         if (tag_property != null)
                         {
                             var tag_type = (tag_property as PropertyInfo).GetMethod.ReturnType.GenericTypeArguments.First();
-                            if (tag_type == typeof(byte[]) && value is string)
+                            if (tag_type == typeof(byte))
+                            {
+                                byte v;
+                                if (byte.TryParse(value, out v)) exif.SetValue(tag_property.GetValue(exif), v);
+                            }
+                            else if (tag_type == typeof(byte[]) && value is string)
                                 exif.SetValue(tag_property.GetValue(exif), Encoding.Unicode.GetBytes(value));
+                            else if (tag_type == typeof(ushort) || tag_type == typeof(ushort))
+                            {
+                                ushort v;
+                                if (ushort.TryParse(value, out v)) exif.SetValue(tag_property.GetValue(exif), v);
+                            }
+                            else if (tag_type == typeof(ushort[]) && value is string && !string.IsNullOrEmpty(value))
+                            {
+                                ushort[] v;
+                                var vl = (value as string).Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
+                                v = vl.Select(u => ushort.Parse(u)).ToArray();
+                                exif.SetValue(tag_property.GetValue(exif), v);
+                            }
+                            else if (tag_type == typeof(Number))
+                            {
+                                uint v;
+                                if (uint.TryParse(value, out v)) exif.SetValue(tag_property.GetValue(exif), new Number(v));
+                            }
                             else
                                 exif.SetValue(tag_property.GetValue(exif), value);
                         }
@@ -953,6 +975,7 @@ namespace TouchMeta
                                         try
                                         {
                                             var attr = kv.Key;
+                                            if (attr.StartsWith("date:")) continue;
                                             if (force || !image.AttributeNames.Contains(attr))
                                             {
                                                 var old_value = image.AttributeNames.Contains(attr) ?  GetAttribute(image, attr) : "NULL";
@@ -1439,13 +1462,17 @@ namespace TouchMeta
                                         #endregion
 
                                         #region xml nodes updating
-                                        Action<XmlElement, string> add_rdf_li = new Action<XmlElement, string>((element, text)=>{
-                                            var items = text.Split(new string[] { ";", "#" }, StringSplitOptions.RemoveEmptyEntries).Select(k => k.Trim()).Where(k => !string.IsNullOrEmpty(k)).Distinct();
-                                            foreach (var item in items)
+                                        Action<XmlElement, string> add_rdf_li = new Action<XmlElement, string>((element, text)=>
+                                        {
+                                            if(!string.IsNullOrEmpty(text))
                                             {
-                                                var node_author_li = xml_doc.CreateElement("rdf:li", "rdf");
-                                                node_author_li.InnerText = item;
-                                                element.AppendChild(node_author_li);
+                                                var items = text.Split(new string[] { ";", "#" }, StringSplitOptions.RemoveEmptyEntries).Select(k => k.Trim()).Where(k => !string.IsNullOrEmpty(k)).Distinct();
+                                                foreach (var item in items)
+                                                {
+                                                    var node_author_li = xml_doc.CreateElement("rdf:li", "rdf");
+                                                    node_author_li.InnerText = item;
+                                                    element.AppendChild(node_author_li);
+                                                }
                                             }
                                         });
                                         foreach (XmlNode node in xml_doc.GetElementsByTagName("rdf:Description"))
@@ -1471,10 +1498,10 @@ namespace TouchMeta
                                                     add_rdf_li.Invoke(node_author, authors);
                                                     child.AppendChild(node_author);
                                                 }
-                                                else if (child.Name.Equals("dc:subject", StringComparison.CurrentCultureIgnoreCase)||
+                                                else if (child.Name.Equals("dc:subject", StringComparison.CurrentCultureIgnoreCase) ||
                                                     child.Name.Equals("MicrosoftPhoto:LastKeywordXMP", StringComparison.CurrentCultureIgnoreCase) ||
                                                     child.Name.Equals("MicrosoftPhoto:LastKeywordIPTC", StringComparison.CurrentCultureIgnoreCase))
-                                                {                                              
+                                                {
                                                     child.RemoveAll();
                                                     var node_subject = xml_doc.CreateElement("rdf:Bag", "rdf");
                                                     node_subject.SetAttribute("xmlns:rdf", "http://www.w3.org/1999/02/22-rdf-syntax-ns#");
@@ -1505,8 +1532,15 @@ namespace TouchMeta
                                         #endregion
                                     }
                                 }
+#if DEBUG
+                                catch (Exception ex)
+                                {
+                                    Log($"{ex.Message}{ex.StackTrace}");
+#else
                                 catch
                                 {
+
+#endif
                                     #region Title
                                     var pattern_title = @"(<dc:title>.*?<rdf:li.*?xml:lang='.*?')(>).*?(</rdf:li></rdf:Alt></dc:title>)";
                                     if (Regex.IsMatch(xml, pattern_title, RegexOptions.IgnoreCase | RegexOptions.Multiline))
@@ -1654,7 +1688,7 @@ namespace TouchMeta
                                 }
                             }
                         }
-                        catch(Exception ex) { Log(ex.Message); }
+                        catch (Exception ex) { Log(ex.Message); }
                     }
                     try
                     {
@@ -1754,6 +1788,7 @@ namespace TouchMeta
                                     {
                                         var value = GetAttribute(image, attr);
                                         if (string.IsNullOrEmpty(value)) continue;
+                                        else if (attr.StartsWith("date:")) continue;
                                         else if (attr.Equals("png:bKGD")) value = image.BackgroundColor.ToString();
                                         else if (attr.Equals("png:cHRM"))
                                         {
@@ -1815,7 +1850,7 @@ namespace TouchMeta
                                             }
                                             if (child.Name.Equals("dc:title", StringComparison.CurrentCultureIgnoreCase))
                                                 Log($"{"    dc:Title".PadRight(cw)}= {child.InnerText}");
-                                            else if (child.Name.Equals("dc:creator") || child.Name.Equals("dc:subject") || 
+                                            else if (child.Name.Equals("dc:creator") || child.Name.Equals("dc:subject") ||
                                                 child.Name.Equals("MicrosoftPhoto:LastKeywordXMP") || child.Name.Equals("MicrosoftPhoto:LastKeywordIPTC"))
                                             {
                                                 var contents = new List<string>();
@@ -1823,7 +1858,7 @@ namespace TouchMeta
                                                 {
                                                     if (subchild.Name.Equals("rdf:Bag") || subchild.Name.Equals("rdf:Bag") || subchild.Name.Equals("rdf:Seq"))
                                                     {
-                                                        foreach(XmlNode li in subchild.ChildNodes) { contents.Add(li.InnerText.Trim()); }
+                                                        foreach (XmlNode li in subchild.ChildNodes) { contents.Add(li.InnerText.Trim()); }
                                                     }
                                                 }
                                                 Log($"{$"    {child.Name}".PadRight(cw)}= {string.Join("; ", contents)}");
@@ -1852,7 +1887,7 @@ namespace TouchMeta
                             else Log($"File \"{file}\" is not a read supported format!");
                         }
                     }
-                    catch(Exception ex) { Log(ex.Message); }
+                    catch (Exception ex) { Log(ex.Message); }
                 }
             }
             else Log($"File \"{file}\" not exists!");
@@ -1930,18 +1965,8 @@ namespace TouchMeta
 
                 bool is_png = image.FormatInfo.MimeType.Equals("image/png");
                 #region Datetime
-                foreach (var tag in tag_date)
-                {
-                    if (image.AttributeNames.Contains(tag))
-                    {
-                        var v = image.GetAttribute(tag);
-                        var nv = Regex.Replace(v, @"^(\d{4}):(\d{2}):(\d{2})[ |T](.*?)Z?$", "$1-$2-$3T$4");
-                        //Log($"{tag.PadRight(32)}= {v} > {nv}");
-                        result.DateAcquired = DateTime.Parse(tag.Contains("png") ? nv.Substring(0, tag.Length - 1) : nv);
-                        result.DateTaken = result.DateAcquired;
-                        break;
-                    }
-                }
+                result.DateAcquired = GetMetaTime(image);
+                result.DateTaken = result.DateAcquired;
                 #endregion
                 #region Title
                 foreach (var tag in tag_title)
@@ -2029,7 +2054,7 @@ namespace TouchMeta
             }
             else Log($"File \"{file}\" not exists!");
             return (result);
-        }        
+        }
         #endregion
 
         #region Converting Image Format Helper
@@ -2355,7 +2380,7 @@ namespace TouchMeta
             {
                 ConvertImagesTo(MagickFormat.WebP);
             }
-            else if(sender == ViewSelected)
+            else if (sender == ViewSelected)
             {
                 bool openwith = Keyboard.Modifiers == ModifierKeys.Shift ? true : false;
                 RunBgWorker(new Action<string>((file) =>
@@ -2466,7 +2491,7 @@ namespace TouchMeta
             {
                 LoadFiles();
             }
-            else if(sender == ShowHelp)
+            else if (sender == ShowHelp)
             {
                 var lines = new List<string>();
                 lines.Add("Usage");
