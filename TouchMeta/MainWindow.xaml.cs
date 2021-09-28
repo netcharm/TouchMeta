@@ -1488,9 +1488,9 @@ namespace TouchMeta
                                                 else if (child.Name.Equals("xmp:CreateDate", StringComparison.CurrentCultureIgnoreCase))
                                                     child.InnerText = dm_xmp;
                                                 else if (child.Name.Equals("MicrosoftPhoto:DateAcquired", StringComparison.CurrentCultureIgnoreCase))
-                                                    child.InnerText = dm_xmp;
+                                                    child.InnerText = dc_msxmp;
                                                 else if (child.Name.Equals("MicrosoftPhoto:DateTaken", StringComparison.CurrentCultureIgnoreCase))
-                                                    child.InnerText = dm_xmp;
+                                                    child.InnerText = dc_msxmp;
                                                 else if (child.Name.Equals("exif:DateTimeDigitized", StringComparison.CurrentCultureIgnoreCase))
                                                     child.InnerText = dm_ms;
                                                 else if (child.Name.Equals("exif:DateTimeOriginal", StringComparison.CurrentCultureIgnoreCase))
