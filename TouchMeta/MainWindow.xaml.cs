@@ -2592,6 +2592,8 @@ namespace TouchMeta
                             var fn_new = FileRenameInputNameText.Text.Trim();
                             if (!Path.IsPathRooted(fn_new)) fn_new = Path.GetFullPath(Path.Combine(fi.DirectoryName, fn_new));
                             fi.MoveTo(fn_new);
+                            var idx = FilesList.Items.IndexOf(file);
+                            if (idx >= 0) FilesList.Items[idx] = fn_new;
                         }
                     }
                     catch (Exception ex) { ShowMessage(ex.Message); }
