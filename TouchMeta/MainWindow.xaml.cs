@@ -144,14 +144,17 @@ namespace TouchMeta
         {
             Application.Current.Dispatcher.BeginInvoke(new Action(() =>
             {
+                var contents_style = (Style)Application.Current.FindResource("MessageDialogWidth");
                 var contents = string.Join(Environment.NewLine, _log_);
-                var dlg = new Xceed.Wpf.Toolkit.MessageBox();
+                var dlg = new Xceed.Wpf.Toolkit.MessageBox() { };
+                dlg.Resources.Add(typeof(TextBlock), contents_style);
                 dlg.CaptionIcon = Application.Current.MainWindow.Icon;
                 dlg.Language = System.Windows.Markup.XmlLanguage.GetLanguage(CultureInfo.CurrentCulture.IetfLanguageTag);
                 dlg.FontFamily = Application.Current.FindResource("MonoSpaceFamily") as FontFamily;
                 dlg.Text = contents;
                 dlg.Caption = "Metadata Info";
-                dlg.MaxWidth = 640;
+                dlg.Width = 720;
+                dlg.MaxWidth = 800;
                 dlg.MaxHeight = 480;
                 dlg.HorizontalContentAlignment = HorizontalAlignment.Stretch;
                 dlg.MouseDoubleClick += (o, e) => { Clipboard.SetText(dlg.Text.Replace("\0", string.Empty).TrimEnd('\0')); };
@@ -171,13 +174,33 @@ namespace TouchMeta
             style.Setters.Add(new Setter(FontFamilyProperty, Application.Current.FindResource("MonoSpaceFamily") as FontFamily));
             Xceed.Wpf.Toolkit.MessageBox.Show(Application.Current.MainWindow, text, title, messageBoxStyle: style);
         }
+
+        private static string ShowInput(string input)
+        {
+            var result = input;
+            Application.Current.Dispatcher.BeginInvoke(new Action(() =>
+            {
+                var dlg = new Xceed.Wpf.Toolkit.MessageBox();
+                dlg.CaptionIcon = Application.Current.MainWindow.Icon;
+                dlg.Language = System.Windows.Markup.XmlLanguage.GetLanguage(CultureInfo.CurrentCulture.IetfLanguageTag);
+                dlg.FontFamily = Application.Current.FindResource("MonoSpaceFamily") as FontFamily;
+                dlg.Caption = "Metadata Info";
+                dlg.MaxWidth = 720;
+                dlg.MaxHeight = 480;
+                dlg.HorizontalContentAlignment = HorizontalAlignment.Stretch;
+                dlg.MouseDoubleClick += (o, e) => { Clipboard.SetText(dlg.Text.Replace("\0", string.Empty).TrimEnd('\0')); };
+                Application.Current.MainWindow.Activate();
+            }));
+            return (result);
+        }
         #endregion
 
         #region Background Worker Helper
         private IProgress<KeyValuePair<double, string>> progress = null;
         private Action<double, string> ReportProgress = null;
         private BackgroundWorker bgWorker = null;
-
+        private int ExtendedMessageWidth = 106;
+        private int NormallyMessageWidth = 75;
         private void ProgressReset()
         {
             Dispatcher.Invoke(() => { Progress.Value = 0; });
@@ -204,9 +227,9 @@ namespace TouchMeta
                         {
                             ProgressReport(count / files.Count, file);
                             Log($"{file}");
-                            Log("-".PadRight(75, '-'));
+                            Log("-".PadRight(ExtendedMessageWidth, '-'));
                             action.Invoke(file);
-                            Log("=".PadRight(75, '='));
+                            Log("=".PadRight(ExtendedMessageWidth, '='));
                             ProgressReport(++count / files.Count, file);
                         }
                         if (showlog) ShowLog();
@@ -869,6 +892,270 @@ namespace TouchMeta
             catch (Exception ex) { Log(ex.Message); }
         }
 
+        public static void TouchProfile(string file, Dictionary<string, IImageProfile> profiles, bool force = false)
+        {
+            if (force && File.Exists(file) && profiles is Dictionary<string, IImageProfile>)
+            {
+                try
+                {
+                    var fi = new FileInfo(file);
+                    using (MagickImage image = new MagickImage(fi.FullName))
+                    {
+                        TouchProfile(image, profiles, force);
+                    }
+                }
+                catch (Exception ex) { Log(ex.Message); }
+            }
+        }
+
+        public static void TouchProfile(MagickImage image, Dictionary<string, IImageProfile> profiles, bool force = false)
+        {
+            if (force && image is MagickImage && image.FormatInfo.IsWritable && profiles is Dictionary<string, IImageProfile>)
+            {
+                foreach (var kv in profiles)
+                {
+                    try
+                    {
+                        var profile_name = kv.Key;
+                        var profile = kv.Value;
+                        if (force || !image.HasProfile(profile_name))
+                        {
+                            var old_size = image.HasProfile(profile_name) ? image.GetProfile(profile_name).GetData().Length : 0;
+                            image.SetProfile(profile);
+                            Log($"{$"Profile {profile_name}".PadRight(32)}= {(old_size == 0 ? "NULL" : $"{old_size}")} => {profile.GetData().Length} Bytes");
+                        }
+                        else
+                        {
+                            if (profile is ExifProfile)
+                            {
+                                var exif_old = image.GetExifProfile();
+                                var tags_old = exif_old.Values.Select(v => v.Tag);
+                                var exif_new = profile as ExifProfile;
+                                exif_new.Parts = ExifParts.ExifTags | ExifParts.IfdTags;
+                                foreach (IExifValue value in exif_new.Values)
+                                {
+                                    if (!tags_old.Contains(value.Tag) && value.GetValue() != null) value.SetValue(value.GetValue());
+                                }
+                            }
+                            else if (profile is IptcProfile)
+                            {
+                                var iptc_old = image.GetIptcProfile();
+                                var tags_old = iptc_old.Values.Select(v => v.Tag);
+                                var iptc_new = profile as IptcProfile;
+                                foreach (IIptcValue value in iptc_new.Values)
+                                {
+                                    if (!tags_old.Contains(value.Tag) && value.Value != null) iptc_old.SetValue(value.Tag, value.Value);
+                                }
+                            }
+                        }
+                    }
+                    catch (Exception ex) { Log(ex.Message); }
+                }
+            }
+        }
+
+        public static void TouchAttribute(string file, Dictionary<string, string> attrs, bool force = false)
+        {
+            if (force && File.Exists(file) && attrs is Dictionary<string, string>)
+            {
+                try
+                {
+                    var fi = new FileInfo(file);
+                    using (MagickImage image = new MagickImage(fi.FullName))
+                    {
+                        TouchAttribute(image, attrs, force);
+                    }
+                }
+                catch (Exception ex) { Log(ex.Message); }
+            }
+        }
+
+        public static void TouchAttribute(MagickImage image, Dictionary<string, string> attrs, bool force = false)
+        {
+            if (force && image is MagickImage && image.FormatInfo.IsWritable && attrs is Dictionary<string, string>)
+            {
+                foreach (var kv in attrs)
+                {
+                    try
+                    {
+                        var attr = kv.Key;
+                        if (attr.StartsWith("date:")) continue;
+                        if (force || !image.AttributeNames.Contains(attr))
+                        {
+                            var old_value = image.AttributeNames.Contains(attr) ?  GetAttribute(image, attr) : "NULL";
+                            var value = kv.Value;
+                            SetAttribute(image, attr, value);
+                            Log($"{$"{attr}".PadRight(32)}= {old_value} => {value}");
+                        }
+                    }
+                    catch (Exception ex) { Log(ex.Message); }
+                }
+            }
+        }
+
+        public static DateTime? GetMetaTime(MagickImage image)
+        {
+            DateTime? result = null;
+            if (image is MagickImage && image.FormatInfo.IsReadable)
+            {
+                foreach (var tag in tag_date)
+                {
+                    if (image.AttributeNames.Contains(tag))
+                    {
+                        var v = image.GetAttribute(tag);
+                        var nv = Regex.Replace(v, @"^(\d{4}):(\d{2}):(\d{2})[ |T](.*?)Z?$", "$1-$2-$3T$4");
+                        //Log($"{tag.PadRight(32)}= {v} > {nv}");
+                        result = DateTime.Parse(tag.Contains("png") ? nv.Substring(0, tag.Length - 1) : nv);
+                        break;
+                    }
+                }
+            }
+            return (result);
+        }
+
+        public static DateTime? GetMetaTime(string file)
+        {
+            DateTime? result = null;
+            if (File.Exists(file))
+            {
+                var fi = new FileInfo(file);
+                var dc = fi.CreationTime;
+                var dm = fi.LastWriteTime;
+                var da = fi.LastAccessTime;
+
+                var ov = dm.ToString("yyyy-MM-ddTHH:mm:sszzz");
+
+                using (var ms = new FileStream(fi.FullName, FileMode.Open, FileAccess.Read, FileShare.Read))
+                {
+                    try
+                    {
+                        using (MagickImage image = new MagickImage(ms))
+                        {
+                            dm = GetMetaTime(image) ?? dm;
+                        }
+                    }
+                    catch (Exception ex) { ShowMessage(ex.Message, "ERROR"); }
+                }
+                result = dm;
+            }
+            else Log($"File \"{file}\" not exists!");
+            return (result);
+        }
+
+        public static MetaInfo GetMetaInfo(MagickImage image)
+        {
+            MetaInfo result = new MetaInfo();
+
+            if (image is MagickImage && image.FormatInfo.IsReadable)
+            {
+                #region EXIF, XMP Profiles
+                if (image.AttributeNames.Count() > 0)
+                {
+                    result.Attributes = new Dictionary<string, string>();
+                    foreach (var attr in image.AttributeNames) { try { result.Attributes.Add(attr, GetAttribute(image, attr)); } catch { } }
+                }
+                if (image.ProfileNames.Count() > 0)
+                {
+                    result.Profiles = new Dictionary<string, IImageProfile>();
+                    foreach (var profile in image.ProfileNames) { try { result.Profiles.Add(profile, image.GetProfile(profile)); } catch { } }
+                }
+                var exif = image.HasProfile("exif") ? image.GetExifProfile() : new ExifProfile();
+                var xmp = image.HasProfile("xmp") ? image.GetXmpProfile() : null;
+                #endregion
+
+                bool is_png = image.FormatInfo.MimeType.Equals("image/png");
+                #region Datetime
+                result.DateAcquired = GetMetaTime(image);
+                result.DateTaken = result.DateAcquired;
+                #endregion
+                #region Title
+                foreach (var tag in tag_title)
+                {
+                    if (image.AttributeNames.Contains(tag))
+                    {
+                        result.Title = GetAttribute(image, tag);
+                        if (!string.IsNullOrEmpty(result.Title)) break;
+                    }
+                }
+                #endregion
+                #region Subject
+                foreach (var tag in tag_subject)
+                {
+                    if (image.AttributeNames.Contains(tag))
+                    {
+                        result.Subject = GetAttribute(image, tag);
+                        if (!string.IsNullOrEmpty(result.Subject)) break;
+                    }
+                }
+                #endregion
+                #region Comment
+                foreach (var tag in tag_comments)
+                {
+                    if (image.AttributeNames.Contains(tag))
+                    {
+                        result.Comment = GetAttribute(image, tag);
+                        if (!string.IsNullOrEmpty(result.Comment)) break;
+                    }
+                }
+                #endregion
+                #region Keywords
+                foreach (var tag in tag_keywords)
+                {
+                    if (image.AttributeNames.Contains(tag))
+                    {
+                        result.Keywords = GetAttribute(image, tag);
+                        if (!string.IsNullOrEmpty(result.Keywords)) break;
+                    }
+                }
+                #endregion
+                #region Authors
+                foreach (var tag in tag_author)
+                {
+                    if (image.AttributeNames.Contains(tag))
+                    {
+                        result.Author = GetAttribute(image, tag);
+                        if (!string.IsNullOrEmpty(result.Author)) break;
+                    }
+                }
+                #endregion
+                #region Copyright
+                foreach (var tag in tag_copyright)
+                {
+                    if (image.AttributeNames.Contains(tag))
+                    {
+                        result.Copyright = GetAttribute(image, tag);
+                        if (!string.IsNullOrEmpty(result.Copyright)) break;
+                    }
+                }
+                #endregion
+            }
+            return (result);
+        }
+
+        public static MetaInfo GetMetaInfo(string file)
+        {
+            MetaInfo result = new MetaInfo();
+            if (File.Exists(file))
+            {
+                var fi = new FileInfo(file);
+                result.DateAcquired = fi.CreationTime;
+                result.DateTaken = fi.LastWriteTime;
+                using (var ms = new FileStream(fi.FullName, FileMode.Open, FileAccess.Read, FileShare.Read))
+                {
+                    try
+                    {
+                        using (MagickImage image = new MagickImage(ms))
+                        {
+                            result = GetMetaInfo(image);
+                        }
+                    }
+                    catch (Exception ex) { ShowMessage(ex.Message, "ERROR"); }
+                }
+            }
+            else Log($"File \"{file}\" not exists!");
+            return (result);
+        }
+
         public static void ClearMeta(string file)
         {
             if (File.Exists(file))
@@ -950,43 +1237,8 @@ namespace TouchMeta
                             #region touch attributes and profiles
                             if (meta is MetaInfo && meta.TouchProfiles)
                             {
-                                if (meta.Profiles != null && meta.Profiles.Count > 0)
-                                {
-                                    foreach (var kv in meta.Profiles)
-                                    {
-                                        try
-                                        {
-                                            var profile_name = kv.Key;
-                                            var profile = kv.Value;
-                                            if (force || !image.HasProfile(profile_name))
-                                            {
-                                                var old_size = image.HasProfile(profile_name) ? image.GetProfile(profile_name).GetData().Length : 0;
-                                                image.SetProfile(profile);
-                                                Log($"{$"Profile {profile_name}".PadRight(32)}= {(old_size == 0 ? "NULL" : $"{old_size}")} => {profile.GetData().Length} Bytes");
-                                            }
-                                        }
-                                        catch { }
-                                    }
-                                }
-                                if (meta.Attributes != null && meta.Attributes.Count > 0)
-                                {
-                                    foreach (var kv in meta.Attributes)
-                                    {
-                                        try
-                                        {
-                                            var attr = kv.Key;
-                                            if (attr.StartsWith("date:")) continue;
-                                            if (force || !image.AttributeNames.Contains(attr))
-                                            {
-                                                var old_value = image.AttributeNames.Contains(attr) ?  GetAttribute(image, attr) : "NULL";
-                                                var value = kv.Value;
-                                                SetAttribute(image, attr, value);
-                                                Log($"{$"{attr}".PadRight(32)}= {old_value} => {value}");
-                                            }
-                                        }
-                                        catch { }
-                                    }
-                                }
+                                if (meta.Profiles != null && meta.Profiles.Count > 0) TouchProfile(image, meta.Profiles, force);
+                                if (meta.Attributes != null && meta.Attributes.Count > 0) TouchAttribute(image, meta.Attributes, force);
                             }
                             #endregion
 
@@ -1666,32 +1918,9 @@ namespace TouchMeta
                 }
                 else if (string.IsNullOrEmpty(dt))
                 {
-                    using (var ms = new FileStream(fi.FullName, FileMode.Open, FileAccess.Read, FileShare.Read))
-                    {
-                        try
-                        {
-                            using (MagickImage image = new MagickImage(ms))
-                            {
-                                if (image.FormatInfo.IsReadable)
-                                {
-                                    bool is_png = image.FormatInfo.MimeType.Equals("image/png");
-                                    foreach (var tag in tag_date)
-                                    {
-                                        if (image.AttributeNames.Contains(tag) && !tag.Equals("date:modify") && !tag.Equals("date:create"))
-                                        {
-                                            var v = image.GetAttribute(tag);
-                                            var nv = Regex.Replace(v, @"^(\d{4}):(\d{2}):(\d{2})[ |T](.*?)Z?$", "$1-$2-$3T$4");
-                                            //Log($"{tag.PadRight(32)}= {v} > {nv}");
-                                            if (DateTime.TryParse(tag.Contains("png") ? nv.Substring(0, tag.Length - 1) : nv, out dm)) break;
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                        catch (Exception ex) { Log(ex.Message); }
-                    }
                     try
                     {
+                        dm = GetMetaTime(file) ?? dm;
                         fi.CreationTime = dm;
                         fi.LastWriteTime = dm;
                         fi.LastAccessTime = dm;
@@ -1892,169 +2121,6 @@ namespace TouchMeta
             }
             else Log($"File \"{file}\" not exists!");
         }
-
-        public DateTime? GetMetaTime(MagickImage image)
-        {
-            DateTime? result = null;
-            if (image is MagickImage && image.FormatInfo.IsReadable)
-            {
-                foreach (var tag in tag_date)
-                {
-                    if (image.AttributeNames.Contains(tag))
-                    {
-                        var v = image.GetAttribute(tag);
-                        var nv = Regex.Replace(v, @"^(\d{4}):(\d{2}):(\d{2})[ |T](.*?)Z?$", "$1-$2-$3T$4");
-                        //Log($"{tag.PadRight(32)}= {v} > {nv}");
-                        result = DateTime.Parse(tag.Contains("png") ? nv.Substring(0, tag.Length - 1) : nv);
-                        break;
-                    }
-                }
-            }
-            return (result);
-        }
-
-        public DateTime? GetMetaTime(string file)
-        {
-            DateTime? result = null;
-            if (File.Exists(file))
-            {
-                var fi = new FileInfo(file);
-                var dc = fi.CreationTime;
-                var dm = fi.LastWriteTime;
-                var da = fi.LastAccessTime;
-
-                var ov = dm.ToString("yyyy-MM-ddTHH:mm:sszzz");
-
-                using (var ms = new FileStream(fi.FullName, FileMode.Open, FileAccess.Read, FileShare.Read))
-                {
-                    try
-                    {
-                        using (MagickImage image = new MagickImage(ms))
-                        {
-                            dm = GetMetaTime(image) ?? dm;
-                        }
-                    }
-                    catch (Exception ex) { ShowMessage(ex.Message, "ERROR"); }
-                }
-                result = dm;
-            }
-            else Log($"File \"{file}\" not exists!");
-            return (result);
-        }
-
-        public MetaInfo GetMetaInfo(MagickImage image)
-        {
-            MetaInfo result = new MetaInfo();
-
-            if (image is MagickImage && image.FormatInfo.IsReadable)
-            {
-                #region EXIF, XMP Profiles
-                if (image.AttributeNames.Count() > 0)
-                {
-                    result.Attributes = new Dictionary<string, string>();
-                    foreach (var attr in image.AttributeNames) { try { result.Attributes.Add(attr, GetAttribute(image, attr)); } catch { } }
-                }
-                if (image.ProfileNames.Count() > 0)
-                {
-                    result.Profiles = new Dictionary<string, IImageProfile>();
-                    foreach (var profile in image.ProfileNames) { try { result.Profiles.Add(profile, image.GetProfile(profile)); } catch { } }
-                }
-                var exif = image.HasProfile("exif") ? image.GetExifProfile() : new ExifProfile();
-                var xmp = image.HasProfile("xmp") ? image.GetXmpProfile() : null;
-                #endregion
-
-                bool is_png = image.FormatInfo.MimeType.Equals("image/png");
-                #region Datetime
-                result.DateAcquired = GetMetaTime(image);
-                result.DateTaken = result.DateAcquired;
-                #endregion
-                #region Title
-                foreach (var tag in tag_title)
-                {
-                    if (image.AttributeNames.Contains(tag))
-                    {
-                        result.Title = GetAttribute(image, tag);
-                        if (!string.IsNullOrEmpty(result.Title)) break;
-                    }
-                }
-                #endregion
-                #region Subject
-                foreach (var tag in tag_subject)
-                {
-                    if (image.AttributeNames.Contains(tag))
-                    {
-                        result.Subject = GetAttribute(image, tag);
-                        if (!string.IsNullOrEmpty(result.Subject)) break;
-                    }
-                }
-                #endregion
-                #region Comment
-                foreach (var tag in tag_comments)
-                {
-                    if (image.AttributeNames.Contains(tag))
-                    {
-                        result.Comment = GetAttribute(image, tag);
-                        if (!string.IsNullOrEmpty(result.Comment)) break;
-                    }
-                }
-                #endregion
-                #region Keywords
-                foreach (var tag in tag_keywords)
-                {
-                    if (image.AttributeNames.Contains(tag))
-                    {
-                        result.Keywords = GetAttribute(image, tag);
-                        if (!string.IsNullOrEmpty(result.Keywords)) break;
-                    }
-                }
-                #endregion
-                #region Authors
-                foreach (var tag in tag_author)
-                {
-                    if (image.AttributeNames.Contains(tag))
-                    {
-                        result.Author = GetAttribute(image, tag);
-                        if (!string.IsNullOrEmpty(result.Author)) break;
-                    }
-                }
-                #endregion
-                #region Copyright
-                foreach (var tag in tag_copyright)
-                {
-                    if (image.AttributeNames.Contains(tag))
-                    {
-                        result.Copyright = GetAttribute(image, tag);
-                        if (!string.IsNullOrEmpty(result.Copyright)) break;
-                    }
-                }
-                #endregion
-            }
-            return (result);
-        }
-
-        public MetaInfo GetMetaInfo(string file)
-        {
-            MetaInfo result = new MetaInfo();
-            if (File.Exists(file))
-            {
-                var fi = new FileInfo(file);
-                result.DateAcquired = fi.CreationTime;
-                result.DateTaken = fi.LastWriteTime;
-                using (var ms = new FileStream(fi.FullName, FileMode.Open, FileAccess.Read, FileShare.Read))
-                {
-                    try
-                    {
-                        using (MagickImage image = new MagickImage(ms))
-                        {
-                            result = GetMetaInfo(image);
-                        }
-                    }
-                    catch (Exception ex) { ShowMessage(ex.Message, "ERROR"); }
-                }
-            }
-            else Log($"File \"{file}\" not exists!");
-            return (result);
-        }
         #endregion
 
         #region Converting Image Format Helper
@@ -2100,7 +2166,7 @@ namespace TouchMeta
                             nfi.LastAccessTime = da;
 
                             Log($"Convert {file} => {name}");
-                            Log("~".PadRight(75, '~'));
+                            Log("~".PadRight(ExtendedMessageWidth, '~'));
                             TouchMeta(name, dtc: dc, dtm: dm, dta: da, meta: meta);
                             result = name;
                         }
@@ -2197,6 +2263,10 @@ namespace TouchMeta
             SetCreatedTimeToAllEnabled.IsChecked = true;
             SetModifiedTimeToAllEnabled.IsChecked = true;
             SetAccessedTimeToAllEnabled.IsChecked = true;
+
+            FileRenameInputPopupCanvas.Background = Background;
+            FileRenameInputPopupBorder.BorderBrush = FilesList.BorderBrush;
+            FileRenameInputPopupBorder.BorderThickness = FilesList.BorderThickness;
 
             MetaInputPopupCanvas.Background = Background;
             MetaInputPopupBorder.BorderBrush = FilesList.BorderBrush;
@@ -2391,6 +2461,17 @@ namespace TouchMeta
                         Process.Start(file);
                 }), showlog: false);
             }
+            else if (sender == RenameSelected)
+            {
+                if (FilesList.SelectedItem != null)
+                {
+                    var file = FilesList.SelectedItem as string;
+                    FileRenameInputNameText.Tag = file;
+                    FileRenameInputNameText.Text = Path.GetFileName(file);
+                    FileRenameInputPopup.StaysOpen = true;
+                    FileRenameInputPopup.IsOpen = true;
+                }
+            }
             else if (sender == RemoveSelected)
             {
                 #region From Files List Remove Selected Files
@@ -2438,11 +2519,11 @@ namespace TouchMeta
                 MetaInputPopup.StaysOpen = Keyboard.Modifiers == ModifierKeys.Control;
                 #endregion
             }
-            else if (sender == FileTimeImport)
+            else if (sender == FileTimeParsing)
             {
                 #region Parsing DateTime
                 var dt = DateTime.Now;
-                if (DateTime.TryParse(FileTimeImportText.Text, out dt)) SetCustomDateTime(dt);
+                if (DateTime.TryParse(FileTimeFormatedText.Text.Replace("·", "").Trim(), out dt)) SetCustomDateTime(dt);
                 #endregion
             }
             else if (sender == BtnTouchTime)
@@ -2491,19 +2572,45 @@ namespace TouchMeta
             {
                 LoadFiles();
             }
+            else if (sender == FileRenameInputClose)
+            {
+                FileRenameInputPopup.IsOpen = false;
+                FileRenameInputNameText.Tag = null;
+                FileRenameInputNameText.Text = string.Empty;
+            }
+            else if (sender == FileRenameApply)
+            {
+                if (FileRenameInputNameText.Tag is string)
+                {
+                    try
+                    {
+                        var file = FileRenameInputNameText.Tag as string;
+                        if (File.Exists(file))
+                        {
+                            var folder = Path.GetDirectoryName(file);
+                            var fi = new FileInfo(file);
+                            var fn_new = FileRenameInputNameText.Text.Trim();
+                            if (!Path.IsPathRooted(fn_new)) fn_new = Path.GetFullPath(Path.Combine(fi.DirectoryName, fn_new));
+                            fi.MoveTo(fn_new);
+                        }
+                    }
+                    catch (Exception ex) { ShowMessage(ex.Message); }
+                }
+                FileRenameInputPopup.IsOpen = false;
+            }
             else if (sender == ShowHelp)
             {
                 var lines = new List<string>();
                 lines.Add("Usage");
-                lines.Add("-".PadRight(72, '-'));
+                lines.Add("-".PadRight(NormallyMessageWidth, '-'));
 
                 lines.Add("Ctrl+Click Touch Time Button : Force Touching DateTime");
                 lines.Add("Ctrl+Click Touch Meta Button : Force Touching Metadata");
 
-                lines.Add("~".PadRight(72, '~'));
+                lines.Add("~".PadRight(NormallyMessageWidth, '~'));
                 lines.Add("Note:");
                 lines.Add("Convert To AVIIF Format is very slowly and Huge CPU/Memory Usage, so NOT RECOMMENDED!");
-                lines.Add("=".PadRight(72, '='));
+                lines.Add("=".PadRight(NormallyMessageWidth, '='));
                 ShowMessage(string.Join(Environment.NewLine, lines), "Usage");
             }
         }

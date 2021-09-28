@@ -11,7 +11,7 @@
         SnapsToDevicePixels="True" ResizeMode="CanMinimize" Topmost="True" 
         WindowStartupLocation="CenterScreen" AllowDrop="True"
         Loaded="Window_Loaded" DragOver="Window_DragOver" Drop="Window_Drop">
-    <Grid>
+    <Grid x:Name="WindowContainer">
         <Grid.RowDefinitions>
             <RowDefinition Height="auto"/>
             <RowDefinition Height="auto"/>
@@ -94,6 +94,7 @@
                     <MenuItem x:Name="ConvertSelectedToWebp" x:Uid="ConvertSelectedToWebp" Header="Convert Selected Files to WEBP" Click="FilesListAction_Click"/>
                     <Separator/>
                     <MenuItem x:Name="ViewSelected" x:Uid="OpenSelected" Header="View Selected Files" Click="FilesListAction_Click"/>
+                    <MenuItem x:Name="RenameSelected" x:Uid="RenameSelected" Header="Rename Selected File" Click="FilesListAction_Click"/>
                     <Separator/>
                     <MenuItem x:Name="RemoveSelected" x:Uid="RemoveSelected" Header="Remove Selected File" Click="FilesListAction_Click"/>
                     <MenuItem x:Name="RemoveAll" x:Uid="RemoveAll" Header="Remove All File" Click="FilesListAction_Click"/>
@@ -114,9 +115,27 @@
             <Button Grid.Column="0" x:Name="ShowMetaInputPopup" x:Uid="ShowMetaInputPopup" Content="Meta" Width="56" MinHeight="22" Margin="4" HorizontalAlignment="Left" VerticalAlignment="Center" Click="BtnAction_Click"/>
             <Button Grid.Column="1" x:Name="ShowHelp" x:Uid="ShowHelp" Content="?" Width="22" MinHeight="22" Margin="4" HorizontalAlignment="Left" VerticalAlignment="Center" Click="BtnAction_Click"/>
             <TextBlock Grid.Column="2" x:Name="FileTimeImportLabel" x:Uid="FileTimeImportLabel" Text="Date Time :" MinHeight="22" Margin="4" HorizontalAlignment="Left" VerticalAlignment="Center"/>
-            <TextBox Grid.Column="3" x:Name="FileTimeImportText" x:Uid="FileTimeImportText" MinHeight="22" Margin="4" HorizontalAlignment="Stretch" VerticalAlignment="Center" TextAlignment="Center"/>
-            <Button Grid.Column="4" x:Name="FileTimeImport" x:Uid="FileTimeImport" Content="Parse" Width="56" MinHeight="22" Margin="4" HorizontalAlignment="Right" VerticalAlignment="Center" Click="BtnAction_Click"/>
+            <TextBox Grid.Column="3" x:Name="FileTimeFormatedText" x:Uid="FileTimeImportText" MinHeight="22" Margin="4" HorizontalAlignment="Stretch" VerticalAlignment="Center" TextAlignment="Center"/>
+            <Button Grid.Column="4" x:Name="FileTimeParsing" x:Uid="FileTimeImport" Content="Parse" Width="56" MinHeight="22" Margin="4" HorizontalAlignment="Right" VerticalAlignment="Center" Click="BtnAction_Click"/>
         </Grid>
+
+        <Popup x:Name="FileRenameInputPopup" AllowsTransparency="True" PlacementTarget="{Binding ElementName=WindowContainer}" Placement="Center"
+               UseLayoutRounding="True" StaysOpen="False">
+            <Grid x:Name="FileRenameInputPopupCanvas" Opacity="0.90">
+                <Grid.RowDefinitions>
+
+                </Grid.RowDefinitions>
+                <Border x:Name="FileRenameInputPopupBorder" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" />
+                <StackPanel Orientation="Vertical" Margin="4" VerticalAlignment="Stretch" HorizontalAlignment="Stretch" MinWidth="320">
+                    <Grid>
+                        <TextBlock x:Name="FileRenameInputNameLabel" x:Uid="FileRenameInputNameLabel" Text="File Name:" Margin="2" />
+                        <Button x:Name="FileRenameInputClose" x:Uid="FileRenameInputClose" Content="X" Width="22" Margin="2" HorizontalAlignment="Right" VerticalAlignment="Top" Click="BtnAction_Click"/>
+                    </Grid>
+                    <TextBox x:Name="FileRenameInputNameText" x:Uid="FileRenameInputNameText" Margin="2" MaxHeight="64" TextWrapping="Wrap" VerticalAlignment="Stretch" ScrollViewer.VerticalScrollBarVisibility="Auto"/>
+                    <Button x:Name="FileRenameApply" x:Uid="FileRenameApply" Content="Rename" Width="64" Margin="4,4,16,4" HorizontalAlignment="Center" VerticalAlignment="Center" Click="BtnAction_Click"/>
+                </StackPanel>
+            </Grid>
+        </Popup>
 
         <Popup x:Name="MetaInputPopup" AllowsTransparency="True" PlacementTarget="{Binding ElementName=ShowMetaInputPopup}" 
                UseLayoutRounding="True" StaysOpen="False" >
@@ -128,7 +147,7 @@
                 <StackPanel Orientation="Vertical" Margin="4" VerticalAlignment="Stretch" HorizontalAlignment="Stretch">
                     <Grid>
                         <TextBlock x:Name="MetaInputTitleLabel" x:Uid="MetaInputTitleLabel" Text="Title:" Margin="2" />
-                        <CheckBox x:Name="MetaInputTouchProfile" x:Uid="MetaInputTouchProfile" Content="Touch Profiles" IsChecked="True" Margin="2,3,2,2" HorizontalAlignment="Right" VerticalAlignment="Top"/>
+                        <CheckBox x:Name="MetaInputTouchProfile" x:Uid="MetaInputTouchProfile" Content="Touch Profiles" IsChecked="False" Margin="2,3,2,2" HorizontalAlignment="Right" VerticalAlignment="Top"/>
                     </Grid>
                     <TextBox x:Name="MetaInputTitleText" x:Uid="MetaInputTitleText" Margin="2" MaxHeight="64" TextWrapping="Wrap" VerticalAlignment="Stretch" ScrollViewer.VerticalScrollBarVisibility="Auto"/>
                     <TextBlock x:Name="MetaInputSubjectLabel" x:Uid="MetaInputSubjectLabel" Text="Subject:" Margin="2" />
