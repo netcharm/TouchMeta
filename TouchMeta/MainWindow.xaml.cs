@@ -167,7 +167,9 @@ namespace TouchMeta
 
         private static void ShowMessage(string text, string title)
         {
-            Xceed.Wpf.Toolkit.MessageBox.Show(Application.Current.MainWindow, text, title);
+            var style = new Style(typeof(Xceed.Wpf.Toolkit.MessageBox));
+            style.Setters.Add(new Setter(FontFamilyProperty, Application.Current.FindResource("MonoSpaceFamily") as FontFamily));
+            Xceed.Wpf.Toolkit.MessageBox.Show(Application.Current.MainWindow, text, title, messageBoxStyle: style);
         }
         #endregion
 
@@ -660,9 +662,9 @@ namespace TouchMeta
           "Creation Time",
           "create-date",
           "modify-date",
-          //"date:create",
           "tiff:DateTime",
           "date:modify",
+          "date:create",
         };
         private static string[] tag_author = new string[] {
           "exif:Artist",
@@ -765,7 +767,7 @@ namespace TouchMeta
                             {
                                 if (tag_value.DataType == ExifDataType.String)
                                     result = tag_value.GetValue() as string;
-                                else if (tag_value.DataType == ExifDataType.Byte && tag_value.IsArray)
+                                else if ((tag_value.DataType == ExifDataType.Byte || tag_value.DataType == ExifDataType.Undefined || tag_value.DataType == ExifDataType.Unknown) && tag_value.IsArray)
                                     result = Encoding.Unicode.GetString(tag_value.GetValue() as byte[]);
                             }
                         }
@@ -786,6 +788,13 @@ namespace TouchMeta
                             result = string.Join("; ", values);
                         }
                     }
+
+                    if(attr.StartsWith("date:"))
+                    {
+                        DateTime dt;
+                        if (DateTime.TryParse(result, out dt)) result = dt.ToString("yyyy-MM-ddTHH:mm:sszzz");
+                    }
+
                     if (!string.IsNullOrEmpty(result)) result = result.Replace("\0", string.Empty).TrimEnd('\0');
                 }
             }
@@ -828,6 +837,11 @@ namespace TouchMeta
                             iptc.SetValue(tag_property, value);
                         }
                     }
+
+                    //if (!image.HasProfile("exif")) 
+                    image.SetProfile(exif);
+                    //if (!image.HasProfile("iptc")) 
+                    image.SetProfile(iptc);
                 }
             }
             catch (Exception ex) { Log(ex.Message); }
@@ -914,24 +928,6 @@ namespace TouchMeta
                             #region touch attributes and profiles
                             if (meta is MetaInfo && meta.TouchProfiles)
                             {
-                                if (meta.Attributes != null && meta.Attributes.Count > 0)
-                                {
-                                    foreach (var kv in meta.Attributes)
-                                    {
-                                        try
-                                        {
-                                            var attr = kv.Key;
-                                            if (force || !image.AttributeNames.Contains(attr))
-                                            {
-                                                var old_value = image.AttributeNames.Contains(attr) ?  GetAttribute(image, attr) : "NULL";
-                                                var value = kv.Value;
-                                                image.SetAttribute(attr, value);
-                                                Log($"{$"{attr}".PadRight(32)}= {old_value} => {value}");
-                                            }
-                                        }
-                                        catch { }
-                                    }
-                                }
                                 if (meta.Profiles != null && meta.Profiles.Count > 0)
                                 {
                                     foreach (var kv in meta.Profiles)
@@ -945,6 +941,24 @@ namespace TouchMeta
                                                 var old_size = image.HasProfile(profile_name) ? image.GetProfile(profile_name).GetData().Length : 0;
                                                 image.SetProfile(profile);
                                                 Log($"{$"Profile {profile_name}".PadRight(32)}= {(old_size == 0 ? "NULL" : $"{old_size}")} => {profile.GetData().Length} Bytes");
+                                            }
+                                        }
+                                        catch { }
+                                    }
+                                }
+                                if (meta.Attributes != null && meta.Attributes.Count > 0)
+                                {
+                                    foreach (var kv in meta.Attributes)
+                                    {
+                                        try
+                                        {
+                                            var attr = kv.Key;
+                                            if (force || !image.AttributeNames.Contains(attr))
+                                            {
+                                                var old_value = image.AttributeNames.Contains(attr) ?  GetAttribute(image, attr) : "NULL";
+                                                var value = kv.Value;
+                                                SetAttribute(image, attr, value);
+                                                Log($"{$"{attr}".PadRight(32)}= {old_value} => {value}");
                                             }
                                         }
                                         catch { }
@@ -1012,28 +1026,20 @@ namespace TouchMeta
                             {
                                 try
                                 {
-                                    //Log(tag);
                                     if (force || !image.AttributeNames.Contains(tag))
                                     {
                                         var value_old = image.GetAttribute(tag);
-                                        if (tag.StartsWith("date")) image.SetAttribute(tag, dm_date);
-                                        else if (tag.StartsWith("exif")) image.SetAttribute(tag, dm_exif);
-                                        else if (tag.StartsWith("png")) { image.RemoveAttribute(tag); image.SetAttribute(tag, dm_png); }
-                                        else if (tag.StartsWith("tiff")) { image.RemoveAttribute(tag); image.SetAttribute(tag, dm_date); }
-                                        else if (tag.StartsWith("Microsoft")) { image.RemoveAttribute(tag); image.SetAttribute(tag, dm_ms); }
-                                        else if (tag.StartsWith("xmp")) image.SetAttribute(tag, dm_date);
-                                        else image.SetAttribute(tag, dm_misc);
 
-                                        if (is_jpg)
-                                        {
-                                            if (tag.StartsWith("exif") && tag.Substring(5).Equals("DateTime"))
-                                                exif.SetValue(ExifTag.DateTime, dm_exif);
-                                            else if (tag.StartsWith("exif") && tag.Substring(5).Equals("DateTimeDigitized"))
-                                                exif.SetValue(ExifTag.DateTimeDigitized, dm_exif);
-                                            else if (tag.StartsWith("exif") && tag.Substring(5).Equals("DateTimeOriginal"))
-                                                exif.SetValue(ExifTag.DateTimeOriginal, dm_exif);
-                                        }
-                                        Log($"{$"{tag}".PadRight(32)}= {(value_old == null ? "NULL" : value_old)} => {image.GetAttribute(tag)}");
+                                        if (tag.StartsWith("date")) SetAttribute(image, tag, dm_date);
+                                        else if (tag.StartsWith("exif")) SetAttribute(image, tag, dm_exif);
+                                        else if (tag.StartsWith("png")) { image.RemoveAttribute(tag); SetAttribute(image, tag, dm_png); }
+                                        else if (tag.StartsWith("tiff")) { image.RemoveAttribute(tag); SetAttribute(image, tag, dm_date); }
+                                        else if (tag.StartsWith("Microsoft")) { image.RemoveAttribute(tag); SetAttribute(image, tag, dm_ms); }
+                                        else if (tag.StartsWith("xmp")) SetAttribute(image, tag, dm_date);
+                                        else SetAttribute(image, tag, dm_misc);
+
+                                        var value_new = GetAttribute(image, tag);
+                                        Log($"{$"{tag}".PadRight(32)}= {(value_old == null ? "NULL" : value_old)} => {value_new}");
                                     }
                                 }
                                 catch (Exception ex) { Log(ex.Message); }
@@ -1047,20 +1053,6 @@ namespace TouchMeta
                                     var value_old = GetAttribute(image, tag);
                                     if (force || (!image.AttributeNames.Contains(tag) && !string.IsNullOrEmpty(title)))
                                     {
-                                        //if (tag.StartsWith("exif"))
-                                        //{
-                                        //    if (tag.Contains("WinXP")) image.SetAttribute(tag, UnicodeToBytes(title));
-                                        //    else image.SetAttribute(tag, title);
-                                        //}
-                                        //else if (tag.StartsWith("png")) image.SetAttribute(tag, title);
-                                        //else if (tag.StartsWith("Microsoft")) image.SetAttribute(tag, title);
-                                        //if (is_jpg)
-                                        //{
-                                        //    if (tag.Equals("exif:WinXP-Title"))
-                                        //        exif.SetValue(ExifTag.XPTitle, Encoding.Unicode.GetBytes(title));
-                                        //    else if (tag.Equals("exif:ImageDescription"))
-                                        //        exif.SetValue(ExifTag.ImageDescription, title);
-                                        //}
                                         SetAttribute(image, tag, title);
                                         var value_new = GetAttribute(image, tag);
                                         Log($"{$"{tag}".PadRight(32)}= {(value_old == null ? "NULL" : value_old)} => {value_new}");
@@ -1071,17 +1063,17 @@ namespace TouchMeta
                                         {
                                             if (exif.GetValue(ExifTag.XPTitle) == null)
                                             {
-                                                if (!string.IsNullOrEmpty(title)) exif.SetValue(ExifTag.XPTitle, Encoding.Unicode.GetBytes(value_old));
+                                                if (!string.IsNullOrEmpty(title)) SetAttribute(image, tag, value_old);
                                             }
-                                            else title = Encoding.Unicode.GetString(exif.GetValue(ExifTag.XPTitle).Value);
+                                            else title = GetAttribute(image, tag);
                                         }
                                         else if (tag.Equals("exif:ImageDescription"))
                                         {
                                             if (exif.GetValue(ExifTag.ImageDescription) == null)
                                             {
-                                                if (!string.IsNullOrEmpty(title)) exif.SetValue(ExifTag.ImageDescription, value_old);
+                                                if (!string.IsNullOrEmpty(title)) SetAttribute(image, tag, value_old);
                                             }
-                                            else title = exif.GetValue(ExifTag.ImageDescription).Value;
+                                            else title = GetAttribute(image, tag);
                                         }
                                     }
                                 }
@@ -1096,21 +1088,6 @@ namespace TouchMeta
                                     var value_old = GetAttribute(image, tag);
                                     if (force || (!image.AttributeNames.Contains(tag) && !string.IsNullOrEmpty(subject)))
                                     {
-                                        //if (tag.StartsWith("exif"))
-                                        //{
-                                        //    if (tag.Contains("WinXP")) image.SetAttribute(tag, UnicodeToBytes(subject));
-                                        //    else image.SetAttribute(tag, subject);
-                                        //}
-                                        //else if (tag.StartsWith("png")) image.SetAttribute(tag, subject);
-                                        //else if (tag.StartsWith("Microsoft")) image.SetAttribute(tag, subject);
-                                        //if (is_jpg)
-                                        //{
-                                        //    if (tag.Equals("exif:WinXP-Subject"))
-                                        //    {
-                                        //        //value_new = 
-                                        //        exif.SetValue(ExifTag.XPSubject, Encoding.Unicode.GetBytes(subject));
-                                        //    }
-                                        //}
                                         SetAttribute(image, tag, subject);
                                         var value_new = GetAttribute(image, tag);
                                         Log($"{$"{tag}".PadRight(32)}= {(value_old == null ? "NULL" : value_old)} => {value_new}");
@@ -1138,20 +1115,6 @@ namespace TouchMeta
                                     var value_old = GetAttribute(image, tag);
                                     if (force || (!image.AttributeNames.Contains(tag) && !string.IsNullOrEmpty(authors)))
                                     {
-                                        //if (tag.StartsWith("exif"))
-                                        //{
-                                        //    if (tag.Contains("WinXP")) image.SetAttribute(tag, UnicodeToBytes(authors));
-                                        //    else if (tag.Equals("exif:Artist")) exif.SetValue(ExifTag.Artist, authors);
-                                        //    else image.SetAttribute(tag, authors);
-                                        //}
-                                        //else if (tag.StartsWith("png")) image.SetAttribute(tag, authors);
-                                        //else if (tag.StartsWith("Microsoft")) image.SetAttribute(tag, authors);
-                                        //if (is_jpg)
-                                        //{
-                                        //    if (tag.Equals("exif:WinXP-Author"))
-                                        //        exif.SetValue(ExifTag.XPAuthor, Encoding.Unicode.GetBytes(authors));
-                                        //    else if (tag.Equals("exif:Artist")) exif.SetValue(ExifTag.Artist, authors);
-                                        //}
                                         SetAttribute(image, tag, authors);
                                         var value_new = GetAttribute(image, tag);
                                         Log($"{$"{tag}".PadRight(32)}= {(value_old == null ? "NULL" : value_old)} => {value_new}");
@@ -1162,17 +1125,17 @@ namespace TouchMeta
                                         {
                                             if (exif.GetValue(ExifTag.XPAuthor) == null)
                                             {
-                                                if (!string.IsNullOrEmpty(authors)) exif.SetValue(ExifTag.XPAuthor, Encoding.Unicode.GetBytes(value_old));
+                                                if (!string.IsNullOrEmpty(authors)) SetAttribute(image, tag, value_old);
                                             }
-                                            else authors = Encoding.Unicode.GetString(exif.GetValue(ExifTag.XPAuthor).Value);
+                                            else authors = GetAttribute(image, tag);
                                         }
                                         else if (tag.Equals("exif:Artist"))
                                         {
                                             if (exif.GetValue(ExifTag.Artist) == null)
                                             {
-                                                if (!string.IsNullOrEmpty(authors)) exif.SetValue(ExifTag.Artist, value_old);
+                                                if (!string.IsNullOrEmpty(authors)) SetAttribute(image, tag, value_old);
                                             }
-                                            else authors = exif.GetValue(ExifTag.Artist).Value;
+                                            else authors = GetAttribute(image, tag);
                                         }
                                     }
                                 }
@@ -1187,18 +1150,6 @@ namespace TouchMeta
                                     var value_old = GetAttribute(image, tag);
                                     if (force || (!image.AttributeNames.Contains(tag) && !string.IsNullOrEmpty(copyright)))
                                     {
-                                        //if (tag.StartsWith("exif"))
-                                        //{
-                                        //    if (tag.Contains("WinXP")) image.SetAttribute(tag, UnicodeToBytes(copyright));
-                                        //    else  if (tag.Equals("exif:Copyright")) exif.SetValue(ExifTag.Copyright, copyright);
-                                        //    else image.SetAttribute(tag, copyright);
-                                        //}
-                                        //else if (tag.StartsWith("png")) image.SetAttribute(tag, copyright);
-                                        //else if (tag.StartsWith("Microsoft")) image.SetAttribute(tag, copyright);
-                                        //if (is_jpg)
-                                        //{
-                                        //    if (tag.Equals("exif:Copyright")) exif.SetValue(ExifTag.Copyright, copyright);
-                                        //}
                                         SetAttribute(image, tag, copyright);
                                         var value_new = GetAttribute(image, tag);
                                         Log($"{$"{tag}".PadRight(32)}= {(value_old == null ? "NULL" : value_old)} => {value_new}");
@@ -1209,9 +1160,9 @@ namespace TouchMeta
                                         {
                                             if (exif.GetValue(ExifTag.Copyright) == null)
                                             {
-                                                if (!string.IsNullOrEmpty(copyright)) exif.SetValue(ExifTag.Copyright, value_old);
+                                                if (!string.IsNullOrEmpty(copyright)) SetAttribute(image, tag, value_old);
                                             }
-                                            else copyright = exif.GetValue(ExifTag.Copyright).Value;
+                                            else copyright = GetAttribute(image, tag);
                                         }
                                     }
                                 }
@@ -1226,22 +1177,6 @@ namespace TouchMeta
                                     var value_old = GetAttribute(image, tag);
                                     if (force || (!image.AttributeNames.Contains(tag) && !string.IsNullOrEmpty(comment)))
                                     {
-                                        //if (tag.StartsWith("exif"))
-                                        //{
-                                        //    if (tag.Contains("WinXP")) image.SetAttribute(tag, UnicodeToBytes(comment));
-                                        //    else image.SetAttribute(tag, comment);
-                                        //}
-                                        //else if (tag.StartsWith("png")) image.SetAttribute(tag, comment);
-                                        //else if (tag.StartsWith("Microsoft")) image.SetAttribute(tag, comment);
-                                        ////if (is_jpg)
-                                        //{
-                                        //    if (tag.Equals("exif:WinXP-Comment"))
-                                        //        exif.SetValue(ExifTag.XPComment, Encoding.Unicode.GetBytes(comment));
-                                        //    else if (tag.Equals("exif:WinXP-Comments"))
-                                        //        exif.SetValue(ExifTag.XPComment, Encoding.Unicode.GetBytes(comment));
-                                        //    else if (tag.Equals("exif:UserComment"))
-                                        //        exif.SetValue(ExifTag.UserComment, Encoding.Unicode.GetBytes(comment));
-                                        //}
                                         SetAttribute(image, tag, comment);
                                         var value_new = GetAttribute(image, tag);
                                         Log($"{$"{tag}".PadRight(32)}= {(value_old == null ? "NULL" : value_old)} => {value_new}");
@@ -1252,17 +1187,25 @@ namespace TouchMeta
                                         {
                                             if (exif.GetValue(ExifTag.XPComment) == null)
                                             {
-                                                if (!string.IsNullOrEmpty(comment)) exif.SetValue(ExifTag.XPComment, Encoding.Unicode.GetBytes(value_old));
+                                                if (!string.IsNullOrEmpty(comment)) SetAttribute(image, tag, value_old);
                                             }
-                                            else comment = Encoding.Unicode.GetString(exif.GetValue(ExifTag.XPComment).Value);
+                                            else comment = GetAttribute(image, tag);
                                         }
                                         else if (tag.Equals("exif:WinXP-Comments"))
                                         {
                                             if (exif.GetValue(ExifTag.XPComment) == null)
                                             {
-                                                if (!string.IsNullOrEmpty(comment)) exif.SetValue(ExifTag.XPComment, Encoding.Unicode.GetBytes(value_old));
+                                                if (!string.IsNullOrEmpty(comment)) SetAttribute(image, tag, value_old);
                                             }
-                                            else comment = Encoding.Unicode.GetString(exif.GetValue(ExifTag.XPComment).Value);
+                                            else comment = GetAttribute(image, tag);
+                                        }
+                                        else if (tag.Equals("exif:UserComment"))
+                                        {
+                                            if (exif.GetValue(ExifTag.UserComment) == null)
+                                            {
+                                                if (!string.IsNullOrEmpty(comment)) SetAttribute(image, tag, value_old);
+                                            }
+                                            else comment = GetAttribute(image, tag);
                                         }
                                     }
                                 }
@@ -1277,20 +1220,6 @@ namespace TouchMeta
                                     var value_old = GetAttribute(image, tag);
                                     if (force || (!image.AttributeNames.Contains(tag) && !string.IsNullOrEmpty(keywords)))
                                     {
-                                        //if (tag.StartsWith("exif"))
-                                        //{
-                                        //    if (tag.Contains("WinXP")) image.SetAttribute(tag, UnicodeToBytes(keywords));
-                                        //    else image.SetAttribute(tag, keywords);
-                                        //    if (tag.Equals("exif:WinXP-Keywords"))
-                                        //        exif.SetValue(ExifTag.XPKeywords, Encoding.Unicode.GetBytes(keywords));
-                                        //}
-                                        //else if (tag.StartsWith("png")) image.SetAttribute(tag, keywords);
-                                        //else if (tag.StartsWith("Microsoft")) image.SetAttribute(tag, keywords);
-                                        //if (is_jpg)
-                                        //{
-                                        //    if (tag.StartsWith("exif") && tag.Substring(5).Equals("WinXP-Keywords"))
-                                        //        exif.SetValue(ExifTag.XPKeywords, Encoding.Unicode.GetBytes(keywords));
-                                        //}
                                         SetAttribute(image, tag, keywords);
                                         var value_new = GetAttribute(image, tag);
                                         Log($"{$"{tag}".PadRight(32)}= {(value_old == null ? "NULL" : value_old)} => {value_new}");
@@ -1301,9 +1230,9 @@ namespace TouchMeta
                                         {
                                             if (exif.GetValue(ExifTag.XPKeywords) == null)
                                             {
-                                                if (!string.IsNullOrEmpty(keywords)) exif.SetValue(ExifTag.XPKeywords, Encoding.Unicode.GetBytes(value_old));
+                                                if (!string.IsNullOrEmpty(keywords)) SetAttribute(image, tag, value_old);
                                             }
-                                            else keywords = Encoding.Unicode.GetString(exif.GetValue(ExifTag.XPKeywords).Value);
+                                            else keywords = GetAttribute(image, tag);
                                         }
                                     }
                                 }
@@ -1313,7 +1242,7 @@ namespace TouchMeta
 
                             Log($"{"Profiles".PadRight(32)}= {string.Join(", ", image.ProfileNames)}");
 
-                            if (exif != null) image.SetProfile(exif);
+                            //if (exif != null) image.SetProfile(exif);
                             #region touch xmp profile
                             #region Init a XMP contents
                             if (xmp == null)
@@ -2536,6 +2465,21 @@ namespace TouchMeta
             else if (sender == BtnAddFile)
             {
                 LoadFiles();
+            }
+            else if(sender == ShowHelp)
+            {
+                var lines = new List<string>();
+                lines.Add("Usage");
+                lines.Add("-".PadRight(72, '-'));
+
+                lines.Add("Ctrl+Click Touch Time Button : Force Touching DateTime");
+                lines.Add("Ctrl+Click Touch Meta Button : Force Touching Metadata");
+
+                lines.Add("~".PadRight(72, '~'));
+                lines.Add("Note:");
+                lines.Add("Convert To AVIIF Format is very slowly and Huge CPU/Memory Usage, so NOT RECOMMENDED!");
+                lines.Add("=".PadRight(72, '='));
+                ShowMessage(string.Join(Environment.NewLine, lines), "Usage");
             }
         }
     }

@@ -6,7 +6,7 @@
         xmlns:xctk="http://schemas.xceed.com/wpf/xaml/toolkit"
         xmlns:local="clr-namespace:TouchMeta"
         mc:Ignorable="d"
-        Title="Touch File Time And Metadata" 
+        Title="Touch File Time And Metadata"
         Height="512" Width="512" MinHeight="512" MinWidth="512" MaxHeight="512" MaxWidth="512" 
         SnapsToDevicePixels="True" ResizeMode="CanMinimize" Topmost="True" 
         WindowStartupLocation="CenterScreen" AllowDrop="True"
@@ -39,7 +39,7 @@
             <Button Grid.Row="1" Grid.Column="0" x:Name="SetModifiedDateTimeToAll" x:Uid="SetModifiedDateTimeToAll" Content="=" Margin="4" Width="32" HorizontalAlignment="Center" VerticalAlignment="Center" Click="BtnAction_Click"/>
             <Button Grid.Row="2" Grid.Column="0" x:Name="SetAccessedDateTimeToAll" x:Uid="SetAccessedDateTimeToAll" Content="=" Margin="4" Width="32" HorizontalAlignment="Center" VerticalAlignment="Center" Click="BtnAction_Click"/>
 
-            <TextBlock Grid.Row="0" Grid.Column="1" x:Name="CreatedTimeLabel" x:Uid="CreatedTimeLabel" Text="Created Time" Margin="4" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+            <TextBlock Grid.Row="0" Grid.Column="1" x:Name="CreatedTimeLabel" x:Uid="CreatedTimeLabel" Text="Created  Time" Margin="4" HorizontalAlignment="Right" VerticalAlignment="Center"/>
             <TextBlock Grid.Row="1" Grid.Column="1" x:Name="ModifiedTimeLabel" x:Uid="ModifiedTimeLabel" Text="Modified Time" Margin="4" HorizontalAlignment="Right" VerticalAlignment="Center"/>
             <TextBlock Grid.Row="2" Grid.Column="1" x:Name="AccessedTimeLabel" x:Uid="AccessedTimeLabel" Text="Accessed Time" Margin="4" HorizontalAlignment="Right" VerticalAlignment="Center"/>
 
@@ -68,11 +68,11 @@
                 <ColumnDefinition Width=".2*"/>
                 <ColumnDefinition Width=".2*"/>
             </Grid.ColumnDefinitions>
-            <Button Grid.Column="0" x:Name="BtnTouchTime" x:Uid="TouchTime" Content="Touch Time" Width="88" Margin="4" Click="BtnAction_Click"/>
-            <Button Grid.Column="1" x:Name="BtnTouchMeta" x:Uid="TouchMeta" Content="Touch Meta" Width="88" Margin="4" Click="BtnAction_Click"/>
-            <Button Grid.Column="2" x:Name="BtnClearMeta" x:Uid="ClearMeta" Content="Clear Meta" Width="88" Margin="4" Click="BtnAction_Click"/>
-            <Button Grid.Column="3" x:Name="BtnShowMeta" x:Uid="ShowMeta" Content="Show Meta" Width="88" Margin="4" Click="BtnAction_Click"/>
-            <Button Grid.Column="4" x:Name="BtnAddFile" x:Uid="OpenFile" Content="Add Files" Width="88" Margin="4" Click="BtnAction_Click"/>
+            <Button Grid.Column="0" x:Name="BtnTouchTime" x:Uid="TouchTime" Content="Touch Time" Width="88" MinHeight="22" Margin="4" Click="BtnAction_Click"/>
+            <Button Grid.Column="1" x:Name="BtnTouchMeta" x:Uid="TouchMeta" Content="Touch Meta" Width="88" MinHeight="22" Margin="4" Click="BtnAction_Click"/>
+            <Button Grid.Column="2" x:Name="BtnClearMeta" x:Uid="ClearMeta" Content="Clear Meta" Width="88" MinHeight="22" Margin="4" Click="BtnAction_Click"/>
+            <Button Grid.Column="3" x:Name="BtnShowMeta" x:Uid="ShowMeta" Content="Show Meta" Width="88" MinHeight="22" Margin="4" Click="BtnAction_Click"/>
+            <Button Grid.Column="4" x:Name="BtnAddFile" x:Uid="OpenFile" Content="Add Files" Width="88" MinHeight="22" Margin="4" Click="BtnAction_Click"/>
         </Grid>
 
         <ProgressBar Grid.Row="2" x:Name="Progress" x:Uid="Progress" Height="4" Margin="6 4" Value="50" HorizontalAlignment="Stretch" VerticalAlignment="Center"/>
@@ -107,13 +107,15 @@
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="auto"/>
                 <ColumnDefinition Width="auto"/>
+                <ColumnDefinition Width="auto"/>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="auto"/>
             </Grid.ColumnDefinitions>
-            <Button Grid.Column="0" x:Name="ShowMetaInputPopup" x:Uid="ShowMetaInputPopup" Content="Meta" Width="56" Margin="4" HorizontalAlignment="Left" VerticalAlignment="Center" Click="BtnAction_Click"/>
-            <TextBlock Grid.Column="1" x:Name="FileTimeImportLabel" x:Uid="FileTimeImportLabel" Text="Date Time :" Margin="4" HorizontalAlignment="Left" VerticalAlignment="Center"/>
-            <TextBox Grid.Column="2" x:Name="FileTimeImportText" x:Uid="FileTimeImportText" Margin="4" HorizontalAlignment="Stretch" VerticalAlignment="Center" TextAlignment="Center"/>
-            <Button Grid.Column="3" x:Name="FileTimeImport" x:Uid="FileTimeImport" Content="Import" Width="56" Margin="4" HorizontalAlignment="Right" VerticalAlignment="Center" Click="BtnAction_Click"/>
+            <Button Grid.Column="0" x:Name="ShowMetaInputPopup" x:Uid="ShowMetaInputPopup" Content="Meta" Width="56" MinHeight="22" Margin="4" HorizontalAlignment="Left" VerticalAlignment="Center" Click="BtnAction_Click"/>
+            <Button Grid.Column="1" x:Name="ShowHelp" x:Uid="ShowHelp" Content="?" Width="22" MinHeight="22" Margin="4" HorizontalAlignment="Left" VerticalAlignment="Center" Click="BtnAction_Click"/>
+            <TextBlock Grid.Column="2" x:Name="FileTimeImportLabel" x:Uid="FileTimeImportLabel" Text="Date Time :" MinHeight="22" Margin="4" HorizontalAlignment="Left" VerticalAlignment="Center"/>
+            <TextBox Grid.Column="3" x:Name="FileTimeImportText" x:Uid="FileTimeImportText" MinHeight="22" Margin="4" HorizontalAlignment="Stretch" VerticalAlignment="Center" TextAlignment="Center"/>
+            <Button Grid.Column="4" x:Name="FileTimeImport" x:Uid="FileTimeImport" Content="Parse" Width="56" MinHeight="22" Margin="4" HorizontalAlignment="Right" VerticalAlignment="Center" Click="BtnAction_Click"/>
         </Grid>
 
         <Popup x:Name="MetaInputPopup" AllowsTransparency="True" PlacementTarget="{Binding ElementName=ShowMetaInputPopup}" 
