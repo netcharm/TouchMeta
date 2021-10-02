@@ -9,6 +9,9 @@
         <FontFamily x:Uid="MonoSpaceFamily" x:Key="MonoSpaceFamily">
             "Sarasa Mono J, 等距更纱黑体 SC, FontAwesome, Iosevka, Consolas, Segoe UI Emoji, Segoe MDL2 Assets, 更纱黑体 SC, Segoe UI, Monospace"
         </FontFamily>
+        <FontFamily x:Uid="MDL2Family" x:Key="MDL2Family">
+            "Segoe MDL2 Assets"
+        </FontFamily>
         <sys:Double x:Uid="MonoSpaceSize" x:Key="MonoSpaceSize">14</sys:Double>
         <Style x:Uid="ToolTipStyle" x:Key="{x:Type ToolTip}" TargetType="{x:Type ToolTip}">
             <Setter x:Uid="ToolTipStyleFontFamily" Property="FontFamily" Value="{StaticResource MonoSpaceFamily}"/>

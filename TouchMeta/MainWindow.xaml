@@ -131,7 +131,7 @@
                         <TextBlock x:Name="FileRenameInputNameLabel" x:Uid="FileRenameInputNameLabel" Text="File Name:" Margin="2" />
                         <Button x:Name="FileRenameInputClose" x:Uid="FileRenameInputClose" Content="X" Width="22" Margin="2" HorizontalAlignment="Right" VerticalAlignment="Top" Click="BtnAction_Click"/>
                     </Grid>
-                    <TextBox x:Name="FileRenameInputNameText" x:Uid="FileRenameInputNameText" Margin="2" MaxHeight="64" TextWrapping="Wrap" VerticalAlignment="Stretch" ScrollViewer.VerticalScrollBarVisibility="Auto"/>
+                    <TextBox x:Name="FileRenameInputNameText" x:Uid="FileRenameInputNameText" Margin="2" MaxHeight="72" MaxWidth="640" TextWrapping="Wrap" VerticalAlignment="Stretch" ScrollViewer.VerticalScrollBarVisibility="Auto"/>
                     <Button x:Name="FileRenameApply" x:Uid="FileRenameApply" Content="Rename" Width="64" Margin="4,4,16,4" HorizontalAlignment="Center" VerticalAlignment="Center" Click="BtnAction_Click"/>
                 </StackPanel>
             </Grid>
@@ -146,8 +146,71 @@
                 <Border x:Name="MetaInputPopupBorder" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" />
                 <StackPanel Orientation="Vertical" Margin="4" VerticalAlignment="Stretch" HorizontalAlignment="Stretch">
                     <Grid>
-                        <TextBlock x:Name="MetaInputTitleLabel" x:Uid="MetaInputTitleLabel" Text="Title:" Margin="2" />
-                        <CheckBox x:Name="MetaInputTouchProfile" x:Uid="MetaInputTouchProfile" Content="Touch Profiles" IsChecked="False" Margin="2,3,2,2" HorizontalAlignment="Right" VerticalAlignment="Top"/>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="auto"/>
+                            <ColumnDefinition Width="auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" x:Name="MetaInputTitleLabel" x:Uid="MetaInputTitleLabel" Text="Title:" Margin="2" HorizontalAlignment="Left" VerticalAlignment="Center" />
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="0,-3,2,0" HorizontalAlignment="Right" VerticalAlignment="Center" Height="18">
+                            <Button x:Name="MetaInputRanking0" x:Uid="MetaInputRanking0" Click="BtnAction_Click"
+                                    Background="Transparent" BorderBrush="Transparent" BorderThickness="0"
+                                    Width="18"  Height="18" Margin="0,0,2,0" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                <Button.Content>
+                                    <TextBlock x:Name="MetaInputRanking0Text" x:Uid="MetaInputRanking0Text"
+                                       Text="" FontSize="14" FontFamily="Segoe MDL2 Assets" 
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Button.Content>
+                            </Button>
+                            <Button x:Name="MetaInputRanking1" x:Uid="MetaInputRanking1" Click="BtnAction_Click"
+                                    Background="Transparent" BorderBrush="Transparent" BorderThickness="0"
+                                    Width="18"  Height="18" Margin="0,0,2,0" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                <Button.Content>
+                                    <TextBlock x:Name="MetaInputRanking1Text" x:Uid="MetaInputRanking1Text"
+                                       Text="" FontSize="14" FontFamily="Segoe MDL2 Assets" 
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Button.Content>
+                            </Button>
+                            <Button x:Name="MetaInputRanking2" x:Uid="MetaInputRanking2" Click="BtnAction_Click"
+                                    Background="Transparent" BorderBrush="Transparent" BorderThickness="0"
+                                    Width="18"  Height="18" Margin="0,0,2,0" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                <Button.Content>
+                                    <TextBlock x:Name="MetaInputRanking2Text" x:Uid="MetaInputRanking2" 
+                                       Text="" FontSize="14" FontFamily="Segoe MDL2 Assets" 
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Button.Content>
+                            </Button>
+                            <Button x:Name="MetaInputRanking3" x:Uid="MetaInputRanking3" Click="BtnAction_Click"
+                                    Background="Transparent" BorderBrush="Transparent" BorderThickness="0"
+                                    Width="18"  Height="18" Margin="0,0,2,0" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                <Button.Content>
+                                    <TextBlock x:Name="MetaInputRanking3Text" x:Uid="MetaInputRanking3" 
+                                       Text="" FontSize="14" FontFamily="Segoe MDL2 Assets" 
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Button.Content>
+                            </Button>
+                            <Button x:Name="MetaInputRanking4" x:Uid="MetaInputRanking4" Click="BtnAction_Click"
+                                    Background="Transparent" BorderBrush="Transparent" BorderThickness="0"
+                                    Width="18"  Height="18" Margin="0,0,2,0" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                <Button.Content>
+                                    <TextBlock x:Name="MetaInputRanking4Text" x:Uid="MetaInputRanking4" 
+                                       Text="" FontSize="14" FontFamily="Segoe MDL2 Assets" 
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Button.Content>
+                            </Button>
+                            <Button x:Name="MetaInputRanking5" x:Uid="MetaInputRanking5" Click="BtnAction_Click"
+                                    Background="Transparent" BorderBrush="Transparent" BorderThickness="0"
+                                    Width="18"  Height="18" Margin="0,0,2,0" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                <Button.Content>
+                                    <TextBlock x:Name="MetaInputRanking5Text" x:Uid="MetaInputRanking5"
+                                       Text="" FontSize="14" FontFamily="Segoe MDL2 Assets"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Button.Content>
+                            </Button>
+                        </StackPanel>
+                        <CheckBox Grid.Column="2" x:Name="MetaInputTouchProfile" x:Uid="MetaInputTouchProfile" 
+                            Content="Touch Profiles" IsChecked="False" 
+                            Margin="6,0,2,0" HorizontalAlignment="Right" VerticalAlignment="Center"/>
                     </Grid>
                     <TextBox x:Name="MetaInputTitleText" x:Uid="MetaInputTitleText" Margin="2" MaxHeight="64" TextWrapping="Wrap" VerticalAlignment="Stretch" ScrollViewer.VerticalScrollBarVisibility="Auto"/>
                     <TextBlock x:Name="MetaInputSubjectLabel" x:Uid="MetaInputSubjectLabel" Text="Subject:" Margin="2" />

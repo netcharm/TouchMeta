@@ -12,7 +12,7 @@ using System.Xml;
 
 using ImageMagick;
 
-namespace NetChamr
+namespace NetCharm
 {
     public class MetaInfo
     {
@@ -29,6 +29,7 @@ namespace NetChamr
         public string Comment { get; set; } = null;
         public string Author { get; set; } = null;
         public string Copyright { get; set; } = null;
+        public int? Rating { get; set; } = null;
         public Dictionary<string, string> Attributes { get; set; } = null;
         public Dictionary<string, IImageProfile> Profiles { get; set; } = null;
     }
@@ -164,7 +165,7 @@ namespace NetChamr
             //{"iptc", "http://ns.adobe.com/iptc/1.0/" },
             {"exif", "http://ns.adobe.com/exif/1.0/" },
             {"tiff", "http://ns.adobe.com/tiff/1.0/" },
-            {"MicrosoftPhoto", "http://ns.microsoft.com/photo/1.0" },
+            {"MicrosoftPhoto", "http://ns.microsoft.com/photo/1.0/" },
         };
 
         private static string FormatXML(string xml)
@@ -403,7 +404,7 @@ namespace NetChamr
                     var iptc = image.HasProfile("iptc") ? image.GetIptcProfile() : new IptcProfile();
 
                     var value_old = GetAttribute(image, attr);
-                    image.SetAttribute(attr, (attr.Contains("WinXP") ? UnicodeToBytes(value) : value));
+                    image.SetAttribute(attr, value is bool ? value : (attr.Contains("WinXP") ? UnicodeToBytes(value) : value.ToString()));
                     if (attr.StartsWith("exif:"))
                     {
                         Type exiftag_type = typeof(ExifTag);
@@ -788,6 +789,7 @@ namespace NetChamr
                     var copyright = meta is MetaInfo ? meta.Copyright : authors;
                     var keywords = meta is MetaInfo ? meta.Keywords : string.Empty;
                     var comment = meta is MetaInfo ? meta.Comment : string.Empty;
+                    var rating = meta is MetaInfo ? meta.Rating : null;
                     if (!string.IsNullOrEmpty(title)) title.Replace("\0", string.Empty).TrimEnd('\0');
                     if (!string.IsNullOrEmpty(subject)) subject.Replace("\0", string.Empty).TrimEnd('\0');
                     if (!string.IsNullOrEmpty(authors)) authors.Replace("\0", string.Empty).TrimEnd('\0');
@@ -1082,6 +1084,33 @@ namespace NetChamr
                                 catch (Exception ex) { Log(ex.Message); }
                             }
                             #endregion
+                            #region touch rating
+                            foreach (var tag in tag_rating)
+                            {
+                                try
+                                {
+                                    var value_old = GetAttribute(image, tag);
+                                    if (force || (!image.AttributeNames.Contains(tag) && rating.HasValue))
+                                    {
+                                        SetAttribute(image, tag, rating);
+                                        var value_new = GetAttribute(image, tag);
+                                        Log($"{$"{tag}".PadRight(32)}= {(value_old == null ? "NULL" : value_old)} => {value_new}");
+                                    }
+                                    else
+                                    {
+                                        if (tag.Equals("MicrosoftPhoto:Rating"))
+                                        {
+                                            if (exif.GetValue(ExifTag.RatingPercent) == null)
+                                            {
+                                                if (!string.IsNullOrEmpty(keywords)) SetAttribute(image, tag, value_old);
+                                            }
+                                            else rating = Convert.ToInt32(GetAttribute(image, tag));
+                                        }
+                                    }
+                                }
+                                catch (Exception ex) { Log(ex.Message); }
+                            }
+                            #endregion
 
                             Log($"{"Profiles".PadRight(32)}= {string.Join(", ", image.ProfileNames)}");
 
@@ -1114,14 +1143,14 @@ namespace NetChamr
                                         if (xml_doc.GetElementsByTagName("dc:title").Count <= 0)
                                         {
                                             var desc = xml_doc.CreateElement("rdf:Description", "rdf");
-                                            desc.SetAttribute("xmlns:dc", "http://purl.org/dc/elements/1.1/");
+                                            desc.SetAttribute("xmlns:dc", xmp_ns_lookup["dc"]);
                                             desc.AppendChild(xml_doc.CreateElement("dc:title", "dc"));
                                             root_node.AppendChild(desc);
                                         }
                                         if (xml_doc.GetElementsByTagName("dc:description").Count <= 0)
                                         {
                                             var desc = xml_doc.CreateElement("rdf:Description", "rdf");
-                                            desc.SetAttribute("xmlns:dc", "http://purl.org/dc/elements/1.1/");
+                                            desc.SetAttribute("xmlns:dc", xmp_ns_lookup["dc"]);
                                             desc.AppendChild(xml_doc.CreateElement("dc:description", "dc"));
                                             root_node.AppendChild(desc);
                                         }
@@ -1130,14 +1159,14 @@ namespace NetChamr
                                         if (xml_doc.GetElementsByTagName("dc:creator").Count <= 0)
                                         {
                                             var desc = xml_doc.CreateElement("rdf:Description", "rdf");
-                                            desc.SetAttribute("xmlns:dc", "http://purl.org/dc/elements/1.1/");
+                                            desc.SetAttribute("xmlns:dc", xmp_ns_lookup["dc"]);
                                             desc.AppendChild(xml_doc.CreateElement("dc:creator", "dc"));
                                             root_node.AppendChild(desc);
                                         }
                                         if (xml_doc.GetElementsByTagName("xmp:creator").Count <= 0)
                                         {
                                             var desc = xml_doc.CreateElement("rdf:Description", "rdf");
-                                            desc.SetAttribute("xmlns:xmp", "http://ns.adobe.com/xap/1.0/");
+                                            desc.SetAttribute("xmlns:xmp", xmp_ns_lookup["xmp"]);
                                             desc.AppendChild(xml_doc.CreateElement("xmp:creator", "xmp"));
                                             root_node.AppendChild(desc);
                                         }
@@ -1146,21 +1175,21 @@ namespace NetChamr
                                         if (xml_doc.GetElementsByTagName("dc:subject").Count <= 0)
                                         {
                                             var desc = xml_doc.CreateElement("rdf:Description", "rdf");
-                                            desc.SetAttribute("xmlns:dc", "http://purl.org/dc/elements/1.1/");
+                                            desc.SetAttribute("xmlns:dc", xmp_ns_lookup["dc"]);
                                             desc.AppendChild(xml_doc.CreateElement("dc:subject", "dc"));
                                             root_node.AppendChild(desc);
                                         }
                                         if (xml_doc.GetElementsByTagName("MicrosoftPhoto:LastKeywordXMP").Count <= 0)
                                         {
                                             var desc = xml_doc.CreateElement("rdf:Description", "rdf");
-                                            desc.SetAttribute("xmlns:MicrosoftPhoto", "http://ns.microsoft.com/photo/1.0");
+                                            desc.SetAttribute("xmlns:MicrosoftPhoto", xmp_ns_lookup["MicrosoftPhoto"]);
                                             desc.AppendChild(xml_doc.CreateElement("MicrosoftPhoto:LastKeywordXMP", "MicrosoftPhoto"));
                                             root_node.AppendChild(desc);
                                         }
                                         if (xml_doc.GetElementsByTagName("MicrosoftPhoto:LastKeywordIPTC").Count <= 0)
                                         {
                                             var desc = xml_doc.CreateElement("rdf:Description", "rdf");
-                                            desc.SetAttribute("xmlns:MicrosoftPhoto", "http://ns.microsoft.com/photo/1.0");
+                                            desc.SetAttribute("xmlns:MicrosoftPhoto", xmp_ns_lookup["MicrosoftPhoto"]);
                                             desc.AppendChild(xml_doc.CreateElement("MicrosoftPhoto:LastKeywordIPTC", "MicrosoftPhoto"));
                                             root_node.AppendChild(desc);
                                         }
@@ -1169,7 +1198,7 @@ namespace NetChamr
                                         if (xml_doc.GetElementsByTagName("dc:rights").Count <= 0)
                                         {
                                             var desc = xml_doc.CreateElement("rdf:Description", "rdf");
-                                            desc.SetAttribute("xmlns:dc", "http://purl.org/dc/elements/1.1/");
+                                            desc.SetAttribute("xmlns:dc", xmp_ns_lookup["dc"]);
                                             desc.AppendChild(xml_doc.CreateElement("dc:rights", "dc"));
                                             root_node.AppendChild(desc);
                                         }
@@ -1179,25 +1208,25 @@ namespace NetChamr
                                         {
                                             var desc = xml_doc.CreateElement("rdf:Description", "rdf");
                                             desc.SetAttribute("rdf:about", "uuid:faf5bdd5-ba3d-11da-ad31-d33d75182f1b");
-                                            desc.SetAttribute("xmlns:xmp", "http://ns.adobe.com/xap/1.0/");
+                                            desc.SetAttribute("xmlns:xmp", xmp_ns_lookup["xmp"]);
                                             desc.AppendChild(xml_doc.CreateElement("xmp:CreateDate", "xmp"));
                                             root_node.AppendChild(desc);
                                         }
                                         #endregion
                                         #region Ranking/Rating node
-                                        if (xml_doc.GetElementsByTagName("xmp:Rating").Count <= 0)
+                                        if (xml_doc.GetElementsByTagName("xmp:Rating").Count <= 0 && rating > 0)
                                         {
                                             var desc = xml_doc.CreateElement("rdf:Description", "rdf");
                                             desc.SetAttribute("rdf:about", "uuid:faf5bdd5-ba3d-11da-ad31-d33d75182f1b");
-                                            desc.SetAttribute("xmlns:xmp", "http://ns.adobe.com/xap/1.0/");
+                                            desc.SetAttribute("xmlns:xmp", xmp_ns_lookup["xmp"]);
                                             desc.AppendChild(xml_doc.CreateElement("xmp:Rating", "xmp"));
                                             root_node.AppendChild(desc);
                                         }
-                                        if (xml_doc.GetElementsByTagName("MicrosoftPhoto:Rating").Count <= 0)
+                                        if (xml_doc.GetElementsByTagName("MicrosoftPhoto:Rating").Count <= 0 && rating > 0)
                                         {
                                             var desc = xml_doc.CreateElement("rdf:Description", "rdf");
                                             desc.SetAttribute("rdf:about", "uuid:faf5bdd5-ba3d-11da-ad31-d33d75182f1b");
-                                            desc.SetAttribute("xmlns:MicrosoftPhoto", "http://ns.microsoft.com/photo/1.0");
+                                            desc.SetAttribute("xmlns:MicrosoftPhoto", xmp_ns_lookup["MicrosoftPhoto"]);
                                             desc.AppendChild(xml_doc.CreateElement("MicrosoftPhoto:Rating", "MicrosoftPhoto"));
                                             root_node.AppendChild(desc);
                                         }
@@ -1214,7 +1243,7 @@ namespace NetChamr
                                             {
                                                 var desc = xml_doc.CreateElement("rdf:Description", "rdf");
                                                 desc.SetAttribute("rdf:about", "");
-                                                desc.SetAttribute("xmlns:exif", "http://ns.adobe.com/exif/1.0/");
+                                                desc.SetAttribute("xmlns:exif", xmp_ns_lookup["exif"]);
                                                 desc.AppendChild(xml_doc.CreateElement("exif:DateTimeDigitized", "exif"));
                                                 root_node.AppendChild(desc);
                                             }
@@ -1230,7 +1259,7 @@ namespace NetChamr
                                             {
                                                 var desc = xml_doc.CreateElement("rdf:Description", "rdf");
                                                 desc.SetAttribute("rdf:about", "");
-                                                desc.SetAttribute("xmlns:exif", "http://ns.adobe.com/exif/1.0/");
+                                                desc.SetAttribute("xmlns:exif", xmp_ns_lookup["exif"]);
                                                 desc.AppendChild(xml_doc.CreateElement("exif:DateTimeOriginal", "exif"));
                                                 root_node.AppendChild(desc);
                                             }
@@ -1241,7 +1270,7 @@ namespace NetChamr
                                         {
                                             var desc = xml_doc.CreateElement("rdf:Description", "rdf");
                                             desc.SetAttribute("rdf:about", "");
-                                            desc.SetAttribute("xmlns:tiff", "http://ns.adobe.com/tiff/1.0/");
+                                            desc.SetAttribute("xmlns:tiff", xmp_ns_lookup["tiff"]);
                                             desc.AppendChild(xml_doc.CreateElement("tiff:DateTime", "tiff"));
                                             root_node.AppendChild(desc);
                                         }
@@ -1258,7 +1287,7 @@ namespace NetChamr
                                             {
                                                 var desc = xml_doc.CreateElement("rdf:Description", "rdf");
                                                 desc.SetAttribute("rdf:about", "uuid:faf5bdd5-ba3d-11da-ad31-d33d75182f1b");
-                                                desc.SetAttribute("xmlns:MicrosoftPhoto", "http://ns.microsoft.com/photo/1.0");
+                                                desc.SetAttribute("xmlns:MicrosoftPhoto", xmp_ns_lookup["MicrosoftPhoto"]);
                                                 desc.AppendChild(xml_doc.CreateElement("MicrosoftPhoto:DateAcquired", "MicrosoftPhoto"));
                                                 root_node.AppendChild(desc);
                                             }
@@ -1274,7 +1303,7 @@ namespace NetChamr
                                             {
                                                 var desc = xml_doc.CreateElement("rdf:Description", "rdf");
                                                 desc.SetAttribute("rdf:about", "uuid:faf5bdd5-ba3d-11da-ad31-d33d75182f1b");
-                                                desc.SetAttribute("xmlns:MicrosoftPhoto", "http://ns.microsoft.com/photo/1.0");
+                                                desc.SetAttribute("xmlns:MicrosoftPhoto", xmp_ns_lookup["MicrosoftPhoto"]);
                                                 desc.AppendChild(xml_doc.CreateElement("MicrosoftPhoto:DateTaken", "MicrosoftPhoto"));
                                                 root_node.AppendChild(desc);
                                             }
@@ -1328,10 +1357,24 @@ namespace NetChamr
                                                     add_rdf_li.Invoke(node_subject, keywords);
                                                     child.AppendChild(node_subject);
                                                 }
-                                                //else if (child.Name.Equals("MicrosoftPhoto:Rating", StringComparison.CurrentCultureIgnoreCase))
-                                                //    child.InnerText = "";
-                                                //else if (child.Name.Equals("xmp:Rating", StringComparison.CurrentCultureIgnoreCase))
-                                                //    child.InnerText = "";
+                                                else if (child.Name.Equals("MicrosoftPhoto:Rating", StringComparison.CurrentCultureIgnoreCase))
+                                                {
+                                                    child.InnerText = $"{rating}";
+                                                    //if (rating > 0) child.InnerText = $"{rating}";
+                                                    //else child.ParentNode.RemoveChild(child);
+                                                }
+                                                else if (child.Name.Equals("xmp:Rating", StringComparison.CurrentCultureIgnoreCase))
+                                                {
+                                                    var rating_level = 0;
+                                                    if (rating >= 99) rating_level = 5;
+                                                    else if (rating >= 75) rating_level = 4;
+                                                    else if (rating >= 50) rating_level = 3;
+                                                    else if (rating >= 25) rating_level = 2;
+                                                    else if (rating >= 01) rating_level = 1;
+                                                    child.InnerText = $"{rating_level}";
+                                                    //if (rating_level > 0) child.InnerText = $"{rating_level}";
+                                                    //else child.ParentNode.RemoveChild(child);
+                                                }
                                                 else if (child.Name.Equals("xmp:CreateDate", StringComparison.CurrentCultureIgnoreCase))
                                                     child.InnerText = dm_xmp;
                                                 else if (child.Name.Equals("MicrosoftPhoto:DateAcquired", StringComparison.CurrentCultureIgnoreCase))
@@ -1475,7 +1518,7 @@ namespace NetChamr
                 var dm = dtm ?? (meta is MetaInfo ? meta.DateModified : null) ?? fi.LastWriteTime;
                 var da = dta ?? (meta is MetaInfo ? meta.DateAccesed : null) ?? fi.LastAccessTime;
 
-                var ov = dm.ToString("yyyy-MM-ddTHH:mm:sszzz");
+                var ov = fi.LastWriteTime.ToString("yyyy-MM-ddTHH:mm:sszzz");
 
                 if (force)
                 {
