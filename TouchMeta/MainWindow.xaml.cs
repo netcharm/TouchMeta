@@ -2304,7 +2304,11 @@ namespace TouchMeta
 
         private void Window_Loaded(object sender, RoutedEventArgs e)
         {
-            Icon = new BitmapImage(new Uri("pack://application:,,,/TouchMeta;component/Resources/exif.ico"));
+            try
+            {
+                Icon = new BitmapImage(new Uri("pack://application:,,,/TouchMeta;component/Resources/time.ico"));
+            }
+            catch (Exception ex) { ShowMessage(ex.Message); }
 #if DEBUG
             WindowStartupLocation = WindowStartupLocation.Manual;
             Topmost = false;

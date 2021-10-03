@@ -13,6 +13,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Assets", "Assets", "{F853E3
 		Assets\exif-white.ico = Assets\exif-white.ico
 		MIT-LICENSE.txt = MIT-LICENSE.txt
 		readme.md = readme.md
+		..\..\..\..\..\..\Downloads\_firefox\Time.ico = ..\..\..\..\..\..\Downloads\_firefox\Time.ico
 	EndProjectSection
 EndProject
 Global
