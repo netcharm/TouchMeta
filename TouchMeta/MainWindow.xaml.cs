@@ -565,7 +565,7 @@ namespace TouchMeta
             //{"iptc", "http://ns.adobe.com/iptc/1.0/" },
             {"exif", "http://ns.adobe.com/exif/1.0/" },
             {"tiff", "http://ns.adobe.com/tiff/1.0/" },
-            {"MicrosoftPhoto", "http://ns.microsoft.com/photo/1.0/" },
+            {"MicrosoftPhoto", "http://ns.microsoft.com/photo/1.0" },
         };
 
         private static string FormatXML(string xml)
@@ -711,9 +711,11 @@ namespace TouchMeta
         private static string[] tag_author = new string[] {
           "exif:Artist",
           "exif:WinXP-Author",
+          "tiff:artist",
         };
         private static string[] tag_copyright = new string[] {
           "exif:Copyright",
+          "tiff:copyright",
         };
         private static string[] tag_title = new string[] {
           "exif:ImageDescription",
@@ -1282,26 +1284,16 @@ namespace TouchMeta
                             var xmp = image.HasProfile("xmp") ? image.GetXmpProfile() : null;
 
                             #region touch date
-                            var dc = dtc ?? (meta is MetaInfo ? meta.DateCreated : null) ?? fi.CreationTime;
-                            var dm = dtm ?? (meta is MetaInfo ? meta.DateModified : null) ?? fi.LastWriteTime;
-                            var da = dta ?? (meta is MetaInfo ? meta.DateAccesed : null) ?? fi.LastAccessTime;
+                            var dc = dtc ?? (meta is MetaInfo ? meta.DateCreated ?? meta.DateAcquired ?? meta.DateTaken : null) ?? fi.CreationTime;
+                            var dm = dtm ?? (meta is MetaInfo ? meta.DateModified ?? meta.DateAcquired ?? meta.DateTaken : null) ?? fi.LastWriteTime;
+                            var da = dta ?? (meta is MetaInfo ? meta.DateAccesed ?? meta.DateAcquired ?? meta.DateTaken : null) ?? fi.LastAccessTime;
 
                             if (!force)
                             {
-                                foreach (var tag in tag_date)
-                                {
-                                    if (image.AttributeNames.Contains(tag))
-                                    {
-                                        DateTime dv;
-                                        if (DateTime.TryParse(image.GetAttribute(tag), out dv))
-                                        {
-                                            dc = dv;
-                                            dm = dv;
-                                            da = dv;
-                                            break;
-                                        }
-                                    }
-                                }
+                                var dt = GetMetaTime(image);
+                                dc = dt ?? dc;
+                                dm = dt ?? dm;
+                                da = dt ?? da;
                             }
 
                             // 2021:09:13 11:00:16
@@ -1659,6 +1651,13 @@ namespace TouchMeta
                                             desc.AppendChild(xml_doc.CreateElement("MicrosoftPhoto:LastKeywordIPTC", "MicrosoftPhoto"));
                                             root_node.AppendChild(desc);
                                         }
+                                        if (xml_doc.GetElementsByTagName("MicrosoftPhoto:LastKeywordIPTC_TIFF_IRB").Count <= 0)
+                                        {
+                                            var desc = xml_doc.CreateElement("rdf:Description", "rdf");
+                                            desc.SetAttribute("xmlns:MicrosoftPhoto", xmp_ns_lookup["MicrosoftPhoto"]);
+                                            desc.AppendChild(xml_doc.CreateElement("MicrosoftPhoto:LastKeywordIPTC_TIFF_IRB", "MicrosoftPhoto"));
+                                            root_node.AppendChild(desc);
+                                        }
                                         #endregion
                                         #region Copyright node
                                         if (xml_doc.GetElementsByTagName("dc:rights").Count <= 0)
@@ -1814,8 +1813,7 @@ namespace TouchMeta
                                                     child.AppendChild(node_author);
                                                 }
                                                 else if (child.Name.Equals("dc:subject", StringComparison.CurrentCultureIgnoreCase) ||
-                                                    child.Name.Equals("MicrosoftPhoto:LastKeywordXMP", StringComparison.CurrentCultureIgnoreCase) ||
-                                                    child.Name.Equals("MicrosoftPhoto:LastKeywordIPTC", StringComparison.CurrentCultureIgnoreCase))
+                                                    child.Name.StartsWith("MicrosoftPhoto:LastKeyword", StringComparison.CurrentCultureIgnoreCase))
                                                 {
                                                     child.RemoveAll();
                                                     var node_subject = xml_doc.CreateElement("rdf:Bag", "rdf");
@@ -1844,9 +1842,9 @@ namespace TouchMeta
                                                 else if (child.Name.Equals("xmp:CreateDate", StringComparison.CurrentCultureIgnoreCase))
                                                     child.InnerText = dm_xmp;
                                                 else if (child.Name.Equals("MicrosoftPhoto:DateAcquired", StringComparison.CurrentCultureIgnoreCase))
-                                                    child.InnerText = dc_msxmp;
+                                                    child.InnerText = dm_msxmp;
                                                 else if (child.Name.Equals("MicrosoftPhoto:DateTaken", StringComparison.CurrentCultureIgnoreCase))
-                                                    child.InnerText = dc_msxmp;
+                                                    child.InnerText = dm_msxmp;
                                                 else if (child.Name.Equals("exif:DateTimeDigitized", StringComparison.CurrentCultureIgnoreCase))
                                                     child.InnerText = dm_ms;
                                                 else if (child.Name.Equals("exif:DateTimeOriginal", StringComparison.CurrentCultureIgnoreCase))
@@ -2157,12 +2155,12 @@ namespace TouchMeta
                                             if (child.Name.Equals("dc:title", StringComparison.CurrentCultureIgnoreCase))
                                                 Log($"{"    dc:Title".PadRight(cw)}= {child.InnerText}");
                                             else if (child.Name.Equals("dc:creator") || child.Name.Equals("dc:subject") ||
-                                                child.Name.Equals("MicrosoftPhoto:LastKeywordXMP") || child.Name.Equals("MicrosoftPhoto:LastKeywordIPTC"))
+                                                child.Name.StartsWith("MicrosoftPhoto:LastKeyword"))
                                             {
                                                 var contents = new List<string>();
                                                 foreach (XmlNode subchild in child.ChildNodes)
                                                 {
-                                                    if (subchild.Name.Equals("rdf:Bag") || subchild.Name.Equals("rdf:Bag") || subchild.Name.Equals("rdf:Seq"))
+                                                    if (subchild.Name.Equals("rdf:Bag") || subchild.Name.Equals("rdf:Seq"))
                                                     {
                                                         foreach (XmlNode li in subchild.ChildNodes) { contents.Add(li.InnerText.Trim()); }
                                                     }
@@ -2229,12 +2227,12 @@ namespace TouchMeta
                             }
                             else image.Density = new Density(72, 72, DensityUnit.PixelsPerInch);
 
-                            if (fmt == MagickFormat.Tif || fmt == MagickFormat.Tiff || fmt == MagickFormat.Tiff64)
-                            {
-                                image.SetAttribute("tiff:alpha", "unassociated");
-                                image.SetAttribute("tiff:photometric", "min-is-black");
-                                image.SetAttribute("tiff:rows-per-strip", "512");
-                            }
+                            //if (fmt == MagickFormat.Tif || fmt == MagickFormat.Tiff || fmt == MagickFormat.Tiff64)
+                            //{
+                            //    image.SetAttribute("tiff:alpha", "unassociated");
+                            //    image.SetAttribute("tiff:photometric", "min-is-black");
+                            //    image.SetAttribute("tiff:rows-per-strip", "512");
+                            //}
 
                             image.Write(name, fmt);
                             var nfi = new FileInfo(name);
