@@ -790,6 +790,49 @@ namespace TouchMeta
             }
         }
 
+        public static bool IsValidRead(MagickImage image)
+        {
+            return (image is MagickImage && image.FormatInfo.IsReadable);
+        }
+
+        public static bool IsValidWrite(MagickImage image)
+        {
+            return (image is MagickImage && image.FormatInfo.IsWritable);
+        }
+
+        public static Point GetSystemDPI()
+        {
+            var result = new Point(96, 96);
+            try
+            {
+                BindingFlags flags = BindingFlags.NonPublic | BindingFlags.Static;
+                var dpiXProperty = typeof(SystemParameters).GetProperty("DpiX", flags);
+                //var dpiYProperty = typeof(SystemParameters).GetProperty("DpiY", flags);
+                var dpiYProperty = typeof(SystemParameters).GetProperty("Dpi", flags);
+                if (dpiXProperty != null) { result.X = (int)dpiXProperty.GetValue(null, null); }
+                if (dpiYProperty != null) { result.Y = (int)dpiYProperty.GetValue(null, null); }
+            }
+            catch (Exception ex) { ShowMessage(ex.Message); }
+            return (result);
+        }
+
+        public static void FixDPI(MagickImage image)
+        {
+            if (IsValidRead(image))
+            {
+                var dpi = GetSystemDPI();
+                if (image.Density is Density && image.Density.X > 0 && image.Density.Y > 0)
+                {
+                    var unit = image.Density.ChangeUnits(DensityUnit.PixelsPerInch);
+                    if (unit.X <= 0 || unit.Y <= 0)
+                        image.Density = new Density(dpi.X, dpi.Y, DensityUnit.PixelsPerInch);
+                    else
+                        image.Density = new Density(Math.Round(unit.X), Math.Round(unit.Y), DensityUnit.PixelsPerInch);
+                }
+                else image.Density = new Density(dpi.X, dpi.Y, DensityUnit.PixelsPerInch);
+            }
+        }
+
         public static string GetAttribute(MagickImage image, string attr)
         {
             string result = null;
@@ -1225,6 +1268,7 @@ namespace TouchMeta
                             catch (Exception ex) { Log(ex.Message); }
                         }
 
+                        FixDPI(image);
                         image.Write(fi.FullName);
                     }
                     else
@@ -1953,6 +1997,7 @@ namespace TouchMeta
                             }
                             #endregion
 
+                            FixDPI(image);
                             image.Write(fi.FullName);
 
                             fi.CreationTime = dc;
@@ -2219,13 +2264,8 @@ namespace TouchMeta
                             var fmt_info = MagickNET.SupportedFormats.Where(f => f.Format == fmt).FirstOrDefault();
                             var ext = fmt_info is MagickFormatInfo ? fmt_info.Format.ToString() : fmt.ToString();
                             var name = Path.ChangeExtension(fi.FullName, $".{ext.ToLower()}");
-                            if (image.Density is Density)
-                            {
-                                var unit = image.Density.ChangeUnits(DensityUnit.PixelsPerInch);
-                                var density = new Density(Math.Round(unit.X), Math.Round(unit.Y), DensityUnit.PixelsPerInch);
-                                image.Density = density;
-                            }
-                            else image.Density = new Density(72, 72, DensityUnit.PixelsPerInch);
+
+                            FixDPI(image);
 
                             //if (fmt == MagickFormat.Tif || fmt == MagickFormat.Tiff || fmt == MagickFormat.Tiff64)
                             //{
