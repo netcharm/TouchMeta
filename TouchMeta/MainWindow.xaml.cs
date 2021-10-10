@@ -553,6 +553,33 @@ namespace TouchMeta
             var vs = trimzero && !u_str.Equals("B") ? v_str.Trim('0').TrimEnd('.') : v_str;
             return ((unit ? $"{vs} {u_str}" : vs).PadLeft(padleft));
         }
+
+        private static char[] DateTimeTrimSymbols = new char[] {
+            '·',
+            '`', '~', '!', '@', '#', '$', '%', '^', '&', '*', ':', ';', '?', ',', '.', '+', '-', '_',
+            '！', '＠', '＃', '＄', '％', '＾', '＆', '＊', '～',  '。', '，', '；', '：', '＇', '？', '，', '．', '＝', '－', '＿', '＋',
+            '|', '\'', '/', '＼', '／', '｜',
+            '<', '>', '(', ')', '[', ']', '{', '}', '＜', '＞', '（', '）', '【', '】', '｛', '｝', '「', '」',
+            '"', '＂', '“', '”'
+        };
+        private static string NormalizeDateTimeText(string text)
+        {
+            var AM = CultureInfo.CurrentCulture.DateTimeFormat.AMDesignator;
+            var PM = CultureInfo.CurrentCulture.DateTimeFormat.PMDesignator;
+            var result = text;
+            try
+            {
+                result = Regex.Replace(result, @"号|號|日", "日 ", RegexOptions.IgnoreCase);
+                result = Regex.Replace(result, @"点|點|時|时", "时 ", RegexOptions.IgnoreCase);
+                result = Regex.Replace(result, $@"早 *?上|午 *?前|{AM}|AM", $"{AM} ", RegexOptions.IgnoreCase);
+                result = Regex.Replace(result, $@"晚 *?上|午 *?後|{PM}|PM", $"{PM} ", RegexOptions.IgnoreCase);
+                result = Regex.Replace(result, @"[·]", " ", RegexOptions.IgnoreCase);
+                result = result.Trim(DateTimeTrimSymbols);
+                DateTime.Parse(result);
+            }
+            catch (Exception ex) { ShowMessage(ex.Message); }
+            return (result.Trim());
+        }
         #endregion
 
         #region XML Formating Helper
@@ -2647,7 +2674,7 @@ namespace TouchMeta
             {
                 #region Parsing DateTime
                 var dt = DateTime.Now;
-                var dt_text = FileTimeFormatedText.Text.Replace("·", "").Replace("晚上", "下午").Replace("早上", "上午").Replace("点", "时").Trim();
+                var dt_text = NormalizeDateTimeText(FileTimeFormatedText.Text);
                 if (DateTime.TryParse(dt_text, out dt)) SetCustomDateTime(dt);
                 #endregion
             }
