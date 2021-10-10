@@ -1309,6 +1309,9 @@ namespace TouchMeta
                     if (!string.IsNullOrEmpty(keywords)) keywords.Replace("\0", string.Empty).TrimEnd('\0');
                     if (!string.IsNullOrEmpty(comment)) comment.Replace("\0", string.Empty).TrimEnd('\0');
 
+                    var keyword_list = keywords.Split(new char[] { ' ', ';', '#' }, StringSplitOptions.RemoveEmptyEntries).Select(k => k.Trim()).Where(k => !string.IsNullOrEmpty(k)).Distinct();
+                    keywords = string.Join("; ", keyword_list);
+
                     using (MagickImage image = new MagickImage(fi.FullName))
                     {
                         if (image.FormatInfo.IsReadable && image.FormatInfo.IsWritable)
@@ -1824,7 +1827,7 @@ namespace TouchMeta
                                         {
                                             if(!string.IsNullOrEmpty(text))
                                             {
-                                                var items = text.Split(new string[] { ";", "#" }, StringSplitOptions.RemoveEmptyEntries).Select(k => k.Trim()).Where(k => !string.IsNullOrEmpty(k)).Distinct();
+                                                var items = text.Split(new string[] { " ", ";", "#" }, StringSplitOptions.RemoveEmptyEntries).Select(k => k.Trim()).Where(k => !string.IsNullOrEmpty(k)).Distinct();
                                                 foreach (var item in items)
                                                 {
                                                     var node_author_li = xml_doc.CreateElement("rdf:li", "rdf");
@@ -2644,7 +2647,8 @@ namespace TouchMeta
             {
                 #region Parsing DateTime
                 var dt = DateTime.Now;
-                if (DateTime.TryParse(FileTimeFormatedText.Text.Replace("·", "").Trim(), out dt)) SetCustomDateTime(dt);
+                var dt_text = FileTimeFormatedText.Text.Replace("·", "").Replace("晚上", "下午").Replace("早上", "上午").Replace("点", "时").Trim();
+                if (DateTime.TryParse(dt_text, out dt)) SetCustomDateTime(dt);
                 #endregion
             }
             else if (sender == BtnTouchTime)

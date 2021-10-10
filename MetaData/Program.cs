@@ -843,6 +843,9 @@ namespace NetCharm
                     if (!string.IsNullOrEmpty(keywords)) keywords.Replace("\0", string.Empty).TrimEnd('\0');
                     if (!string.IsNullOrEmpty(comment)) comment.Replace("\0", string.Empty).TrimEnd('\0');
 
+                    var keyword_list = keywords.Split(new char[] { ' ', ';', '#' }, StringSplitOptions.RemoveEmptyEntries).Select(k => k.Trim()).Where(k => !string.IsNullOrEmpty(k)).Distinct();
+                    keywords = string.Join("; ", keyword_list);
+
                     using (MagickImage image = new MagickImage(fi.FullName))
                     {
                         if (image.FormatInfo.IsReadable && image.FormatInfo.IsWritable)
@@ -1358,7 +1361,7 @@ namespace NetCharm
                                         {
                                             if(!string.IsNullOrEmpty(text))
                                             {
-                                                var items = text.Split(new string[] { ";", "#" }, StringSplitOptions.RemoveEmptyEntries).Select(k => k.Trim()).Where(k => !string.IsNullOrEmpty(k)).Distinct();
+                                                var items = text.Split(new string[] { " ", ";", "#" }, StringSplitOptions.RemoveEmptyEntries).Select(k => k.Trim()).Where(k => !string.IsNullOrEmpty(k)).Distinct();
                                                 foreach (var item in items)
                                                 {
                                                     var node_author_li = xml_doc.CreateElement("rdf:li", "rdf");
