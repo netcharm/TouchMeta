@@ -80,6 +80,8 @@ namespace TouchMeta
         private static Encoding UTF8 = Encoding.UTF8;
         private static Encoding UNICODE = Encoding.Unicode;
 
+        private static List<string> SupportedFormats { get; set; } = null;
+
         #region DoEvent Helper
         private static object ExitFrame(object state)
         {
@@ -2070,7 +2072,7 @@ namespace TouchMeta
                 {
                     try
                     {
-                        dm = GetMetaTime(file) ?? dm;
+                        if (SupportedFormats is List<string> && SupportedFormats.Contains(fi.Extension)) dm = GetMetaTime(file) ?? dm;
                         fi.CreationTime = dm;
                         fi.LastWriteTime = dm;
                         fi.LastAccessTime = dm;
@@ -2363,6 +2365,8 @@ namespace TouchMeta
                 //ResourceLimits.Throttle = 
                 OpenCL.IsEnabled = true;
                 if (Directory.Exists(magick_cache)) OpenCL.SetCacheDirectory(magick_cache);
+
+                SupportedFormats = ((MagickFormat[])Enum.GetValues(typeof(MagickFormat))).Select(e => $".{e}").ToList();
             }
             catch (Exception ex) { Log(ex.Message); }
         }
