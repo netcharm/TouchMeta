@@ -1338,7 +1338,7 @@ namespace TouchMeta
                     if (!string.IsNullOrEmpty(keywords)) keywords.Replace("\0", string.Empty).TrimEnd('\0');
                     if (!string.IsNullOrEmpty(comment)) comment.Replace("\0", string.Empty).TrimEnd('\0');
 
-                    var keyword_list = keywords.Split(new char[] { ' ', ';', '#' }, StringSplitOptions.RemoveEmptyEntries).Select(k => k.Trim()).Where(k => !string.IsNullOrEmpty(k)).Distinct();
+                    var keyword_list = string.IsNullOrEmpty(keywords) ? new List<string>() : keywords.Split(new char[] { ' ', ';', '#' }, StringSplitOptions.RemoveEmptyEntries).Select(k => k.Trim()).Where(k => !string.IsNullOrEmpty(k)).Distinct();
                     keywords = string.Join("; ", keyword_list);
 
                     using (MagickImage image = new MagickImage(fi.FullName))
@@ -1367,9 +1367,9 @@ namespace TouchMeta
                             if (!force)
                             {
                                 var dt = GetMetaTime(image);
-                                dc = dt ?? dc;
-                                dm = dt ?? dm;
-                                da = dt ?? da;
+                                dc = dt ?? (meta is MetaInfo ? meta.DateAcquired ?? meta.DateTaken : null) ?? fi.CreationTime;
+                                dm = dt ?? (meta is MetaInfo ? meta.DateAcquired ?? meta.DateTaken : null) ?? fi.LastWriteTime;
+                                da = dt ?? (meta is MetaInfo ? meta.DateAcquired ?? meta.DateTaken : null) ?? fi.LastAccessTime;
                             }
 
                             // 2021:09:13 11:00:16
@@ -2072,7 +2072,7 @@ namespace TouchMeta
                 {
                     try
                     {
-                        if (SupportedFormats is List<string> && SupportedFormats.Contains(fi.Extension)) dm = GetMetaTime(file) ?? dm;
+                        if (SupportedFormats is List<string> && SupportedFormats.Contains(fi.Extension.ToLower())) dm = GetMetaTime(file) ?? dm;
                         fi.CreationTime = dm;
                         fi.LastWriteTime = dm;
                         fi.LastAccessTime = dm;
@@ -2366,7 +2366,7 @@ namespace TouchMeta
                 OpenCL.IsEnabled = true;
                 if (Directory.Exists(magick_cache)) OpenCL.SetCacheDirectory(magick_cache);
 
-                SupportedFormats = ((MagickFormat[])Enum.GetValues(typeof(MagickFormat))).Select(e => $".{e}").ToList();
+                SupportedFormats = ((MagickFormat[])Enum.GetValues(typeof(MagickFormat))).Select(e => $".{e.ToString().ToLower()}").ToList();
             }
             catch (Exception ex) { Log(ex.Message); }
         }
