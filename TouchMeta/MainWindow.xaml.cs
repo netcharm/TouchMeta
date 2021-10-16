@@ -485,6 +485,17 @@ namespace TouchMeta
             return (MagickColor.FromRgba(c.R, c.G, c.B, c.A));
         }
 
+        private static string BytesToString(byte[] bytes, bool ascii = false)
+        {
+            var result = string.Empty;
+            if (bytes is byte[] && bytes.Length > 0)
+            {
+                var bytes_text = bytes.Select(c => ascii ? $"{Convert.ToChar(c)}" : $"{c}");
+                result = string.Join(", ", bytes_text);
+            }
+            return (result);
+        }
+
         private static string BytesToUnicode(string text)
         {
             var result = text;
@@ -873,7 +884,7 @@ namespace TouchMeta
                     var iptc = image.HasProfile("iptc") ? image.GetIptcProfile() : new IptcProfile();
 
                     result = attr.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(attr)) : image.GetAttribute(attr);
-                    if (attr.StartsWith("exif:"))
+                    if (attr.StartsWith("exif:") && !attr.Contains("WinXP"))
                     {
                         Type exiftag_type = typeof(ExifTag);
                         var tag_name =  attr.Contains("WinXP") ? $"XP{attr.Substring(11)}" : attr.Substring(5);
@@ -885,8 +896,48 @@ namespace TouchMeta
                             {
                                 if (tag_value.DataType == ExifDataType.String)
                                     result = tag_value.GetValue() as string;
-                                else if ((tag_value.DataType == ExifDataType.Byte || tag_value.DataType == ExifDataType.Undefined || tag_value.DataType == ExifDataType.Unknown) && tag_value.IsArray)
-                                    result = Encoding.Unicode.GetString(tag_value.GetValue() as byte[]);
+                                else if (tag_value.DataType == ExifDataType.Rational && tag_value.IsArray)
+                                {
+                                    var rs = (Rational[])(tag_value.GetValue());
+                                    var rr = new List<string>();
+                                    foreach (var r in rs)
+                                    {
+                                        var ri = r.Numerator / r.Denominator;
+                                        var rf = r.ToDouble();
+                                        rr.Add(ri == rf ? $"{ri}" : (rf > 0 ? $"{rf:F1}" : $"{r.Numerator}/{r.Denominator}"));
+                                    }
+                                    result = string.Join(", ", rr);
+                                }
+                                else if (tag_value.DataType == ExifDataType.Rational)
+                                {
+                                    var r = (Rational)(tag_value.GetValue());
+                                    var ri = r.Numerator / r.Denominator;
+                                    var rf = r.ToDouble();
+                                    result = ri == rf ? $"{ri}" : (rf > 0 ? $"{rf:F1}" : $"{r.Numerator}/{r.Denominator}");
+                                }
+                                else if (tag_value.DataType == ExifDataType.Rational && tag_value.IsArray)
+                                {
+                                    var rs = (SignedRational[])(tag_value.GetValue());
+                                    var rr = new List<string>();
+                                    foreach (var r in rs)
+                                    {
+                                        var ri = r.Numerator / r.Denominator;
+                                        var rf = r.ToDouble();
+                                        rr.Add(ri == rf ? $"{ri}" : (rf > 0 ? $"{rf:F1}" : $"{r.Numerator}/{r.Denominator}"));
+                                    }
+                                    result = string.Join(", ", rr);
+                                }
+                                else if (tag_value.DataType == ExifDataType.SignedRational)
+                                {
+                                    var r = (SignedRational)(tag_value.GetValue());
+                                    var ri = r.Numerator / r.Denominator;
+                                    var rf = r.ToDouble();
+                                    result = ri == rf ? $"{ri}" : (rf > 0 ? $"{rf:F0}" : $"{r.Numerator}/{r.Denominator}");
+                                }
+                                else if (tag_value.DataType == ExifDataType.Undefined && tag_value.IsArray)
+                                    result = BytesToString(tag_value.GetValue() as byte[], tag_value.Tag == ExifTag.ExifVersion);
+                                else if ((tag_value.DataType == ExifDataType.Byte || tag_value.DataType == ExifDataType.Unknown) && tag_value.IsArray)
+                                    result = BytesToString(tag_value.GetValue() as byte[]);
                             }
                         }
                     }
@@ -1401,6 +1452,11 @@ namespace TouchMeta
                             var dm_misc = dm.ToString("yyyy:MM:dd HH:mm:sszzz");
                             var da_misc = da.ToString("yyyy:MM:dd HH:mm:sszzz");
 
+                            if (image.AttributeNames.Contains("exif:DateTime"))
+                            {
+                                var edt = GetAttribute(image, "exif:DateTime");
+                                if (!edt.Equals(dm_exif)) image.RemoveAttribute("exif:DateTime");
+                            }
                             foreach (var tag in tag_date)
                             {
                                 try
