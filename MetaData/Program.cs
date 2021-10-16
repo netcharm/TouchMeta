@@ -90,8 +90,27 @@ namespace NetCharm
             var result = string.Empty;
             if (bytes is byte[] && bytes.Length > 0)
             {
-                var bytes_text = bytes.Select(c => ascii ? $"{Convert.ToChar(c)}" : $"{c}");
-                result = string.Join(", ", bytes_text);
+                if (ascii) result = Encoding.ASCII.GetString(bytes);
+                else
+                {
+                    var bytes_text = bytes.Select(c => ascii ? $"{Convert.ToChar(c)}" : $"{c}");
+                    result = string.Join(", ", bytes_text);
+                    if (bytes.Length > 4)
+                    {
+                        var text = BytesToUnicode(result);
+                        if (!result.StartsWith("0,") && !string.IsNullOrEmpty(text)) result = text;
+                    }
+                }
+            }
+            return (result);
+        }
+
+        private static string BytesToUnicode(byte[] bytes, bool ascii = false)
+        {
+            var result = string.Empty;
+            if (bytes is byte[] && bytes.Length > 0)
+            {
+                result = ascii ? Encoding.ASCII.GetString(bytes) : Encoding.Unicode.GetString(bytes);
             }
             return (result);
         }
@@ -409,6 +428,7 @@ namespace NetCharm
                     {
                         Type exiftag_type = typeof(ExifTag);
                         var tag_name =  attr.Contains("WinXP") ? $"XP{attr.Substring(11)}" : attr.Substring(5);
+                        if (tag_name.Equals("FlashPixVersion")) tag_name = "FlashpixVersion";
                         dynamic tag_property = exiftag_type.GetProperty(tag_name) ?? exiftag_type.GetProperty($"{tag_name}s") ?? exiftag_type.GetProperty(tag_name.Substring(0, tag_name.Length-1));
                         if (tag_property != null)
                         {
@@ -456,9 +476,16 @@ namespace NetCharm
                                     result = ri == rf ? $"{ri}" : (rf > 0 ? $"{rf:F0}" : $"{r.Numerator}/{r.Denominator}");
                                 }
                                 else if (tag_value.DataType == ExifDataType.Undefined && tag_value.IsArray)
-                                    result = BytesToString(tag_value.GetValue() as byte[], tag_value.Tag == ExifTag.ExifVersion);
-                                else if ((tag_value.DataType == ExifDataType.Byte || tag_value.DataType == ExifDataType.Unknown) && tag_value.IsArray)
+                                {
+                                    if (tag_value.Tag == ExifTag.ExifVersion)
+                                        result = BytesToString(tag_value.GetValue() as byte[], true);
+                                    else
+                                        result = BytesToString(tag_value.GetValue() as byte[], false);
+                                }
+                                else if (tag_value.DataType == ExifDataType.Byte && tag_value.IsArray)
                                     result = BytesToString(tag_value.GetValue() as byte[]);
+                                else if (tag_value.DataType == ExifDataType.Unknown && tag_value.IsArray)
+                                    result = BytesToString(tag_value.GetValue() as byte[], tag_value.Tag.ToString().Contains("Version"));
                             }
                         }
                     }
