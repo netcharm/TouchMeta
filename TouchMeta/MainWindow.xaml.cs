@@ -1939,7 +1939,7 @@ namespace TouchMeta
                                         {
                                             if(!string.IsNullOrEmpty(text))
                                             {
-                                                var items = text.Split(new string[] { " ", ";", "#" }, StringSplitOptions.RemoveEmptyEntries).Select(k => k.Trim()).Where(k => !string.IsNullOrEmpty(k)).Distinct();
+                                                var items = text.Split(new string[] { ";", "#" }, StringSplitOptions.RemoveEmptyEntries).Select(k => k.Trim()).Where(k => !string.IsNullOrEmpty(k)).Distinct();
                                                 foreach (var item in items)
                                                 {
                                                     var node_author_li = xml_doc.CreateElement("rdf:li", "rdf");
