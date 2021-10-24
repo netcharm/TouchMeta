@@ -197,7 +197,10 @@ namespace NetCharm
             //{"iptc", "http://ns.adobe.com/iptc/1.0/" },
             {"exif", "http://ns.adobe.com/exif/1.0/" },
             {"tiff", "http://ns.adobe.com/tiff/1.0/" },
+            {"photoshop", "http://ns.adobe.com/photoshop/1.0/" },
             {"MicrosoftPhoto", "http://ns.microsoft.com/photo/1.0" },
+            //{"MicrosoftPhoto", "http://ns.microsoft.com/photo/1.0/" },
+            //{"MicrosoftPhoto", "http://ns.microsoft.com/photo/1.2/" },
         };
 
         private static string FormatXML(string xml)
@@ -294,7 +297,21 @@ namespace NetCharm
                                             elements_list[key].SetAttribute($"xmlns:{key}", xmp_ns_lookup[key]);
                                         }
                                         foreach (XmlElement item in ChildList.Invoke(node))
-                                            elements_list[key].AppendChild(item);
+                                        {
+                                            var xmlns = $"xmlns:{item.Prefix}";
+                                            if (item.HasAttribute(xmlns))
+                                            {
+                                                if (!xmp_ns_lookup.ContainsKey(item.Prefix)) { xmp_ns_lookup.Add(item.Prefix, item.GetAttribute(xmlns)); }
+                                                if (!elements_list.ContainsKey(item.Prefix) || elements_list[item.Prefix] == null)
+                                                {
+                                                    elements_list[item.Prefix] = xml.CreateElement("rdf:Description", "rdf");
+                                                    elements_list[item.Prefix].SetAttribute($"xmlns:{item.Prefix}", xmp_ns_lookup[item.Prefix]);
+                                                }
+                                                item.RemoveAttribute(xmlns);
+                                                elements_list[item.Prefix].AppendChild(item);
+                                            }
+                                            else elements_list[key].AppendChild(item);
+                                        }
                                         root.RemoveChild(node);
                                     }
                                 }
@@ -1810,6 +1827,7 @@ namespace NetCharm
                                         foreach (XmlAttribute attr in node.Attributes)
                                         {
                                             if (string.IsNullOrEmpty(attr.Value)) continue;
+                                            else if (attr.Name.StartsWith("xmlns:", StringComparison.CurrentCultureIgnoreCase)) continue;
                                             Log($"{$"  {attr.Name}".PadRight(cw)}= {attr.Value}");
                                         }
                                         foreach (XmlNode child in node.ChildNodes)
@@ -1817,6 +1835,7 @@ namespace NetCharm
                                             foreach (XmlAttribute attr in child.Attributes)
                                             {
                                                 if (string.IsNullOrEmpty(attr.Value)) continue;
+                                                else if (attr.Name.StartsWith("xmlns:", StringComparison.CurrentCultureIgnoreCase)) continue;
                                                 Log($"{$"    {attr.Name}".PadRight(cw)}= {attr.Value}");
                                             }
                                             if (child.Name.Equals("dc:title", StringComparison.CurrentCultureIgnoreCase))
