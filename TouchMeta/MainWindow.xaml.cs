@@ -615,7 +615,7 @@ namespace TouchMeta
         #endregion
 
         #region XML Formating Helper
-        private static string[] xmp_ns = new string[] { "rdf", "xmp", "dc", "exif", "tiff", "iptc", "MicrosoftPhoto" };
+        private static List<string> xmp_ns = new List<string> { "rdf", "xmp", "dc", "exif", "tiff", "iptc", "MicrosoftPhoto" };
         private static Dictionary<string, string> xmp_ns_lookup = new Dictionary<string, string>()
         {
             {"rdf", "http://www.w3.org/1999/02/22-rdf-syntax-ns#" },
@@ -711,40 +711,78 @@ namespace TouchMeta
                     {
                         foreach (XmlAttribute attr in node.Attributes)
                         {
-                            try
+                            if (attr.Name.StartsWith("xmlns:"))
                             {
-                                if (attr.Name.StartsWith("xmlns:"))
+                                var key = attr.Name.Substring(6);
+                                if (xmp_ns_lookup.ContainsKey(key))
                                 {
-                                    var key = attr.Name.Substring(6);
-                                    if (xmp_ns_lookup.ContainsKey(key))
+                                    if (!elements_list.ContainsKey(key) || elements_list[key] == null)
                                     {
-                                        if (!elements_list.ContainsKey(key) || elements_list[key] == null)
-                                        {
-                                            elements_list[key] = xml.CreateElement("rdf:Description", "rdf");
-                                            elements_list[key].SetAttribute($"xmlns:{key}", xmp_ns_lookup[key]);
-                                        }
-                                        foreach (XmlElement item in ChildList.Invoke(node))
-                                        {
-                                            var xmlns = $"xmlns:{item.Prefix}";
-                                            if (item.HasAttribute(xmlns))
-                                            {
-                                                if (!xmp_ns_lookup.ContainsKey(item.Prefix)) { xmp_ns_lookup.Add(item.Prefix, item.GetAttribute(xmlns)); }
-                                                if (!elements_list.ContainsKey(item.Prefix) || elements_list[item.Prefix] == null)
-                                                {
-                                                    elements_list[item.Prefix] = xml.CreateElement("rdf:Description", "rdf");
-                                                    elements_list[item.Prefix].SetAttribute($"xmlns:{item.Prefix}", xmp_ns_lookup[item.Prefix]);
-                                                }
-                                                item.RemoveAttribute(xmlns);
-                                                elements_list[item.Prefix].AppendChild(item);
-                                            }
-                                            else elements_list[key].AppendChild(item);
-                                        }
-                                        root.RemoveChild(node);
+                                        elements_list[key] = xml.CreateElement("rdf:Description", "rdf");
+                                        elements_list[key].SetAttribute($"xmlns:{key}", xmp_ns_lookup[key]);
                                     }
                                 }
+                                else
+                                {
+                                    if (!elements_list.ContainsKey(key) || elements_list[key] == null)
+                                    {
+                                        elements_list[key] = xml.CreateElement("rdf:Description", "rdf");
+                                        elements_list[key].SetAttribute($"xmlns:{key}", attr.Value);
+                                    }
+                                }
+                                if (!xmp_ns.Contains(key)) xmp_ns.Append(key);
                             }
-                            catch (Exception ex) { Log(ex.Message); }
+                            else
+                            {
+                                var keys = attr.Name.Split(':');
+                                var key = keys[0];
+                                var xmlns = $"xmlns:{key}";
+                                if (node.HasAttribute(xmlns))
+                                {
+                                    var value = node.GetAttribute(xmlns);
+                                    if (!elements_list.ContainsKey(key) || elements_list[key] == null)
+                                    {
+                                        elements_list[key] = xml.CreateElement("rdf:Description", "rdf");
+                                        elements_list[key].SetAttribute($"xmlns:{key}", value);
+                                    }
+                                    if (!xmp_ns.Contains(key)) xmp_ns.Append(key);
+                                    var child = xml.CreateElement(attr.Name, key);
+                                    child.InnerText = attr.Value;
+                                    elements_list[key].AppendChild(child);
+                                }
+                            }
                         }
+
+                        try
+                        {
+                            foreach (XmlElement item in ChildList.Invoke(node))
+                            {
+                                var xmlns = $"xmlns:{item.Prefix}";
+                                var ns = item.NamespaceURI;
+                                if (item.HasAttribute(xmlns))
+                                {
+                                    if (!xmp_ns_lookup.ContainsKey(item.Prefix)) { xmp_ns_lookup.Add(item.Prefix, item.GetAttribute(xmlns)); }
+                                    if (!elements_list.ContainsKey(item.Prefix) || elements_list[item.Prefix] == null)
+                                    {
+                                        elements_list[item.Prefix] = xml.CreateElement("rdf:Description", "rdf");
+                                        elements_list[item.Prefix].SetAttribute($"xmlns:{item.Prefix}", xmp_ns_lookup[item.Prefix]);
+                                    }
+                                    item.RemoveAttribute(xmlns);
+                                }
+                                else
+                                {
+                                    if (!xmp_ns_lookup.ContainsKey(item.Prefix)) { xmp_ns_lookup.Add(item.Prefix, ns); }
+                                    if (!elements_list.ContainsKey(item.Prefix) || elements_list[item.Prefix] == null)
+                                    {
+                                        elements_list[item.Prefix] = xml.CreateElement("rdf:Description", "rdf");
+                                        elements_list[item.Prefix].SetAttribute($"xmlns:{item.Prefix}", xmp_ns_lookup[item.Prefix]);
+                                    }
+                                }
+                                elements_list[item.Prefix].AppendChild(item);
+                            }
+                            root.RemoveChild(node);
+                        }
+                        catch (Exception ex) { Log(ex.Message); }
                     }
                     foreach (var kv in elements_list) { if (kv.Value is XmlElement && kv.Value.HasChildNodes) root.AppendChild(kv.Value); }
                 }
