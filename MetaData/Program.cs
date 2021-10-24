@@ -1713,7 +1713,7 @@ namespace NetCharm
             else Log($"File \"{file}\" not exists!");
         }
 
-        public static void ShowMeta(string file)
+        public static void ShowMeta(string file, bool xmp_merge_nodes = false)
         {
             if (File.Exists(file))
             {
@@ -1867,10 +1867,7 @@ namespace NetCharm
                                                 Log($"{$"    {child.Name}".PadRight(cw)}= {child.InnerText}");
                                         }
                                     }
-#if DEBUG
-                                    xml = FormatXML(xml, true);
-#endif
-                                    Log($"{"  XML Contents".PadRight(cw)}= {FormatXML(xml).Replace("\"", "'")}");
+                                    Log($"{"  XML Contents".PadRight(cw)}= {FormatXML(xml, xmp_merge_nodes)}");
                                 }
                                 #endregion
                             }

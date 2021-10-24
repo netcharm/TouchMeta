@@ -2206,7 +2206,7 @@ namespace TouchMeta
             else Log($"File \"{file}\" not exists!");
         }
 
-        public static void ShowMeta(string file)
+        public static void ShowMeta(string file, bool xmp_merge_nodes = false)
         {
             if (File.Exists(file))
             {
@@ -2360,10 +2360,7 @@ namespace TouchMeta
                                                 Log($"{$"    {child.Name}".PadRight(cw)}= {child.InnerText}");
                                         }
                                     }
-#if DEBUG
-                                    xml = FormatXML(xml, true);
-#endif
-                                    Log($"{"  XML Contents".PadRight(cw)}= {FormatXML(xml).Replace("\"", "'")}");
+                                    Log($"{"  XML Contents".PadRight(cw)}= {FormatXML(xml, xmp_merge_nodes)}");
                                 }
                                 #endregion
                             }
@@ -2820,9 +2817,10 @@ namespace TouchMeta
             else if (sender == BtnShowMeta)
             {
                 #region Show Metadata
+                bool xmp_merge_nodes = Keyboard.Modifiers == ModifierKeys.Control;
                 RunBgWorker(new Action<string>((file) =>
                 {
-                    ShowMeta(file);
+                    ShowMeta(file, xmp_merge_nodes);
                 }));
                 #endregion
             }
