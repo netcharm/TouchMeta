@@ -978,7 +978,7 @@ namespace NetCharm
                     if (!string.IsNullOrEmpty(keywords)) keywords.Replace("\0", string.Empty).TrimEnd('\0');
                     if (!string.IsNullOrEmpty(comment)) comment.Replace("\0", string.Empty).TrimEnd('\0');
 
-                    var keyword_list = string.IsNullOrEmpty(keywords) ? new List<string>() : keywords.Split(new char[] { ' ', ';', '#' }, StringSplitOptions.RemoveEmptyEntries).Select(k => k.Trim()).Where(k => !string.IsNullOrEmpty(k)).Distinct();
+                    var keyword_list = string.IsNullOrEmpty(keywords) ? new List<string>() : keywords.Split(new char[] { ';', '#' }, StringSplitOptions.RemoveEmptyEntries).Select(k => k.Trim()).Where(k => !string.IsNullOrEmpty(k)).Distinct();
                     keywords = string.Join("; ", keyword_list);
 
                     using (MagickImage image = new MagickImage(fi.FullName))
@@ -1098,6 +1098,10 @@ namespace NetCharm
                                                 if (!string.IsNullOrEmpty(title)) SetAttribute(image, tag, value_old);
                                             }
                                             else title = GetAttribute(image, tag);
+                                        }
+                                        else if (tag.Equals("iptc:Description"))
+                                        {
+
                                         }
                                     }
                                 }
@@ -1497,12 +1501,21 @@ namespace NetCharm
                                         #endregion
 
                                         #region xml nodes updating
-                                        Action<XmlElement, string> add_rdf_li = new Action<XmlElement, string>((element, text)=>
+                                        Action<XmlElement, dynamic> add_rdf_li = new Action<XmlElement, dynamic>((element, text)=>
                                         {
-                                            if(!string.IsNullOrEmpty(text))
+                                            if (text is string && !string.IsNullOrEmpty(text as string))
                                             {
-                                                var items = text.Split(new string[] { ";", "#" }, StringSplitOptions.RemoveEmptyEntries).Select(k => k.Trim()).Where(k => !string.IsNullOrEmpty(k)).Distinct();
+                                                var items = (text as string).Split(new string[] { ";", "#" }, StringSplitOptions.RemoveEmptyEntries).Select(k => k.Trim()).Where(k => !string.IsNullOrEmpty(k)).Distinct();
                                                 foreach (var item in items)
+                                                {
+                                                    var node_author_li = xml_doc.CreateElement("rdf:li", "rdf");
+                                                    node_author_li.InnerText = item;
+                                                    element.AppendChild(node_author_li);
+                                                }
+                                            }
+                                            else if(text is IEnumerable<string> && (text as IEnumerable<string>).Count() > 0)
+                                            {
+                                                foreach (var item in (text as IEnumerable<string>))
                                                 {
                                                     var node_author_li = xml_doc.CreateElement("rdf:li", "rdf");
                                                     node_author_li.InnerText = item;
@@ -1539,7 +1552,7 @@ namespace NetCharm
                                                     child.RemoveAll();
                                                     var node_subject = xml_doc.CreateElement("rdf:Bag", "rdf");
                                                     node_subject.SetAttribute("xmlns:rdf", "http://www.w3.org/1999/02/22-rdf-syntax-ns#");
-                                                    add_rdf_li.Invoke(node_subject, keywords);
+                                                    add_rdf_li.Invoke(node_subject, keyword_list);
                                                     child.AppendChild(node_subject);
                                                 }
                                                 else if (child.Name.Equals("MicrosoftPhoto:Rating", StringComparison.CurrentCultureIgnoreCase))
