@@ -1501,6 +1501,8 @@ namespace NetCharm
                                         #endregion
 
                                         #region xml nodes updating
+                                        var rdf_attr = "xmlns:rdf";
+                                        var rdf_value = "http://www.w3.org/1999/02/22-rdf-syntax-ns#";
                                         Action<XmlElement, dynamic> add_rdf_li = new Action<XmlElement, dynamic>((element, text)=>
                                         {
                                             if (text is string && !string.IsNullOrEmpty(text as string))
@@ -1538,20 +1540,29 @@ namespace NetCharm
                                                     node_title.AppendChild(node_title_li);
                                                     child.AppendChild(node_title);
                                                 }
-                                                else if (child.Name.Equals("xmp:creator", StringComparison.CurrentCultureIgnoreCase))
+                                                else if (child.Name.Equals("xmp:creator", StringComparison.CurrentCultureIgnoreCase) ||
+                                                    child.Name.Equals("dc:creator", StringComparison.CurrentCultureIgnoreCase))
                                                 {
                                                     child.RemoveAll();
                                                     var node_author = xml_doc.CreateElement("rdf:Seq", "rdf");
-                                                    node_author.SetAttribute("xmlns:rdf", "http://www.w3.org/1999/02/22-rdf-syntax-ns#");
+                                                    node_author.SetAttribute(rdf_attr, rdf_value);
                                                     add_rdf_li.Invoke(node_author, authors);
                                                     child.AppendChild(node_author);
+                                                }
+                                                else if (child.Name.Equals("dc:rights", StringComparison.CurrentCultureIgnoreCase))
+                                                {
+                                                    child.RemoveAll();
+                                                    var node_rights = xml_doc.CreateElement("rdf:Bag", "rdf");
+                                                    node_rights.SetAttribute(rdf_attr, rdf_value);
+                                                    add_rdf_li.Invoke(node_rights, copyright);
+                                                    child.AppendChild(node_rights);
                                                 }
                                                 else if (child.Name.Equals("dc:subject", StringComparison.CurrentCultureIgnoreCase) ||
                                                     child.Name.StartsWith("MicrosoftPhoto:LastKeyword", StringComparison.CurrentCultureIgnoreCase))
                                                 {
                                                     child.RemoveAll();
                                                     var node_subject = xml_doc.CreateElement("rdf:Bag", "rdf");
-                                                    node_subject.SetAttribute("xmlns:rdf", "http://www.w3.org/1999/02/22-rdf-syntax-ns#");
+                                                    node_subject.SetAttribute(rdf_attr, rdf_value);
                                                     add_rdf_li.Invoke(node_subject, keyword_list);
                                                     child.AppendChild(node_subject);
                                                 }
@@ -1891,8 +1902,8 @@ namespace NetCharm
                                             }
                                             if (child.Name.Equals("dc:title", StringComparison.CurrentCultureIgnoreCase))
                                                 Log($"{"    dc:Title".PadRight(cw)}= {child.InnerText}");
-                                            else if (child.Name.Equals("dc:creator") || child.Name.Equals("dc:subject") ||
-                                                child.Name.StartsWith("MicrosoftPhoto:LastKeyword"))
+                                            else if (child.Name.Equals("xmp:creator") || child.Name.Equals("dc:creator") || child.Name.Equals("dc:rights") ||
+                                                child.Name.Equals("dc:subject") || child.Name.StartsWith("MicrosoftPhoto:LastKeyword"))
                                             {
                                                 var contents = new List<string>();
                                                 foreach (XmlNode subchild in child.ChildNodes)
