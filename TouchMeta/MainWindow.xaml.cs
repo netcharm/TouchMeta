@@ -594,6 +594,7 @@ namespace TouchMeta
             '<', '>', '(', ')', '[', ']', '{', '}', '＜', '＞', '（', '）', '【', '】', '｛', '｝', '「', '」',
             '"', '＂', '“', '”'
         };
+
         private static string NormalizeDateTimeText(string text)
         {
             var AM = CultureInfo.CurrentCulture.DateTimeFormat.AMDesignator;
@@ -609,7 +610,7 @@ namespace TouchMeta
                 result = result.Trim(DateTimeTrimSymbols);
                 DateTime.Parse(result);
             }
-            catch (Exception ex) { ShowMessage(ex.Message); }
+            catch (Exception ex) { Log(ex.Message); }
             return (result.Trim());
         }
         #endregion
@@ -926,7 +927,7 @@ namespace TouchMeta
                 if (dpiXProperty != null) { result.X = (int)dpiXProperty.GetValue(null, null); }
                 if (dpiYProperty != null) { result.Y = (int)dpiYProperty.GetValue(null, null); }
             }
-            catch (Exception ex) { ShowMessage(ex.Message); }
+            catch (Exception ex) { Log(ex.Message); }
             return (result);
         }
 
@@ -1262,7 +1263,7 @@ namespace TouchMeta
                             dm = GetMetaTime(image) ?? dm;
                         }
                     }
-                    catch (Exception ex) { ShowMessage(ex.Message, "ERROR"); }
+                    catch (Exception ex) { Log(ex.Message); }
                 }
                 result = dm;
             }
@@ -1367,7 +1368,7 @@ namespace TouchMeta
                             if (!string.IsNullOrEmpty(result.Copyright)) break;
                         }
                     }
-                    catch(Exception ex) { ShowMessage(ex.Message); }
+                    catch(Exception ex) { Log(ex.Message); }
                 }
                 #endregion
             }
@@ -1391,7 +1392,7 @@ namespace TouchMeta
                             result = GetMetaInfo(image);
                         }
                     }
-                    catch (Exception ex) { ShowMessage(ex.Message, "ERROR"); }
+                    catch (Exception ex) { Log(ex.Message); }
                 }
             }
             else Log($"File \"{file}\" not exists!");

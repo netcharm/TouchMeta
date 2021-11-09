@@ -447,7 +447,7 @@ namespace NetCharm
                 if (dpiXProperty != null) { result.X = (int)dpiXProperty.GetValue(null, null); }
                 if (dpiYProperty != null) { result.Y = (int)dpiYProperty.GetValue(null, null); }
             }
-            catch (Exception ex) { ShowMessage(ex.Message); }
+            catch (Exception ex) { Log(ex.Message); }
             return (result);
         }
 
@@ -783,7 +783,7 @@ namespace NetCharm
                             dm = GetMetaTime(image) ?? dm;
                         }
                     }
-                    catch (Exception ex) { ShowMessage(ex.Message, "ERROR"); }
+                    catch (Exception ex) { Log(ex.Message); }
                 }
                 result = dm;
             }
@@ -898,7 +898,7 @@ namespace NetCharm
                             result = GetMetaInfo(image);
                         }
                     }
-                    catch (Exception ex) { ShowMessage(ex.Message, "ERROR"); }
+                    catch (Exception ex) { Log(ex.Message); }
                 }
             }
             else Log($"File \"{file}\" not exists!");
