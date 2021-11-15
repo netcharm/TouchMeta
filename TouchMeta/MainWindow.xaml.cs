@@ -1260,12 +1260,11 @@ namespace TouchMeta
                     {
                         using (MagickImage image = new MagickImage(ms))
                         {
-                            dm = GetMetaTime(image) ?? dm;
+                            result = GetMetaTime(image);
                         }
                     }
                     catch (Exception ex) { Log(ex.Message); }
                 }
-                result = dm;
             }
             else Log($"File \"{file}\" not exists!");
             return (result);
@@ -1501,9 +1500,9 @@ namespace TouchMeta
                             if (!force)
                             {
                                 var dt = GetMetaTime(image);
-                                dc = dt ?? (meta is MetaInfo ? meta.DateAcquired ?? meta.DateTaken : null) ?? fi.CreationTime;
-                                dm = dt ?? (meta is MetaInfo ? meta.DateAcquired ?? meta.DateTaken : null) ?? fi.LastWriteTime;
-                                da = dt ?? (meta is MetaInfo ? meta.DateAcquired ?? meta.DateTaken : null) ?? fi.LastAccessTime;
+                                dc = dt ?? (meta is MetaInfo ? meta.DateCreated ?? meta.DateAcquired ?? meta.DateTaken : null) ?? fi.CreationTime;
+                                dm = dt ?? (meta is MetaInfo ? meta.DateModified ?? meta.DateAcquired ?? meta.DateTaken : null) ?? fi.LastWriteTime;
+                                da = dt ?? (meta is MetaInfo ? meta.DateAccesed ?? meta.DateAcquired ?? meta.DateTaken : null) ?? fi.LastAccessTime;
                             }
 
                             // 2021:09:13 11:00:16
