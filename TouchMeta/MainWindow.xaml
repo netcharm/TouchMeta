@@ -88,6 +88,14 @@
                     <MenuItem x:Name="GetFileTimeFromFilaName" x:Uid="GetFileTimeFromFilaName" Header="Get File Time From File Name" Click="FilesListAction_Click"/>
                     <MenuItem x:Name="SetFileTimeFromFileName" x:Uid="SetFileTimeFromFileName" Header="Set File Time From File Name" Click="FilesListAction_Click"/>
                     <Separator/>
+                    <MenuItem x:Name="SetFileTimeFromC" x:Uid="SetFileTimeFromC" Header="Set File Time From Created Name" Click="FilesListAction_Click"/>
+                    <MenuItem x:Name="SetFileTimeFromM" x:Uid="SetFileTimeFromM" Header="Set File Time From Modified Name" Click="FilesListAction_Click"/>
+                    <MenuItem x:Name="SetFileTimeFromA" x:Uid="SetFileTimeFromA" Header="Set File Time From Accessed Name" Click="FilesListAction_Click"/>
+                    <Separator/>
+                    <MenuItem x:Name="TouchMetaFromC" x:Uid="TouchMetaFromC" Header="Touch Meta Time From Created Name" Click="FilesListAction_Click"/>
+                    <MenuItem x:Name="TouchMetaFromM" x:Uid="TouchMetaFromM" Header="Touch Meta Time From Modified Name" Click="FilesListAction_Click"/>
+                    <MenuItem x:Name="TouchMetaFromA" x:Uid="TouchMetaFromA" Header="Touch Meta Time From Accessed Name" Click="FilesListAction_Click"/>
+                    <Separator/>                    
                     <MenuItem x:Name="ConvertSelectedToJpg" x:Uid="ConvertSelectedToJpg" Header="Convert Selected Files to JPG" Click="FilesListAction_Click"/>
                     <MenuItem x:Name="ConvertSelectedToPng" x:Uid="ConvertSelectedToPng" Header="Convert Selected Files to PNG" Click="FilesListAction_Click"/>
                     <MenuItem x:Name="ConvertSelectedToGif" x:Uid="ConvertSelectedToGif" Header="Convert Selected Files to GIF" Click="FilesListAction_Click"/>

@@ -166,7 +166,7 @@ namespace TouchMeta
             Application.Current.Dispatcher.BeginInvoke(new Action(() =>
             {
                 var contents_style = (Style)Application.Current.FindResource("MessageDialogWidth");
-                var contents = string.Join(Environment.NewLine, _log_);
+                var contents = string.Join(Environment.NewLine, _log_.Skip(_log_.Count-500));
                 var dlg = new Xceed.Wpf.Toolkit.MessageBox() { };
                 dlg.Resources.Add(typeof(TextBlock), contents_style);
                 dlg.CaptionIcon = Application.Current.MainWindow.Icon;
@@ -249,7 +249,7 @@ namespace TouchMeta
                             ProgressReport(count / files.Count, file);
                             Log($"{file}");
                             Log("-".PadRight(ExtendedMessageWidth, '-'));
-                            action.Invoke(file);
+                            if (File.Exists(file)) action.Invoke(file);
                             Log("=".PadRight(ExtendedMessageWidth, '='));
                             ProgressReport(++count / files.Count, file);
                         }
@@ -1544,9 +1544,9 @@ namespace TouchMeta
                             if (!force)
                             {
                                 var dt = GetMetaTime(image);
-                                dc = dt ?? (meta is MetaInfo ? meta.DateCreated ?? meta.DateAcquired ?? meta.DateTaken : null) ?? fi.CreationTime;
-                                dm = dt ?? (meta is MetaInfo ? meta.DateModified ?? meta.DateAcquired ?? meta.DateTaken : null) ?? fi.LastWriteTime;
-                                da = dt ?? (meta is MetaInfo ? meta.DateAccesed ?? meta.DateAcquired ?? meta.DateTaken : null) ?? fi.LastAccessTime;
+                                dc = dt ?? dtc ?? (meta is MetaInfo ? meta.DateCreated ?? meta.DateAcquired ?? meta.DateTaken : null) ?? fi.CreationTime;
+                                dm = dt ?? dtm ?? (meta is MetaInfo ? meta.DateModified ?? meta.DateAcquired ?? meta.DateTaken : null) ?? fi.LastWriteTime;
+                                da = dt ?? dta ?? (meta is MetaInfo ? meta.DateAccesed ?? meta.DateAcquired ?? meta.DateTaken : null) ?? fi.LastAccessTime;
                             }
 
                             // 2021:09:13 11:00:16
@@ -2809,6 +2809,105 @@ namespace TouchMeta
                 }));
                 #endregion
             }
+
+            else if (sender == SetFileTimeFromC)
+            {
+                #region Touching File Time
+                var force = Keyboard.Modifiers == ModifierKeys.Control;
+                var meta = CurrentMeta;
+
+                meta.DateCreated = null;
+                meta.DateModified = null;
+                meta.DateAccesed = null;
+
+                RunBgWorker(new Action<string>((file) =>
+                {
+                    TouchDate(file, force: force, dtc: File.GetCreationTime(file), meta: meta);
+                }));
+                #endregion
+            }
+            else if (sender == SetFileTimeFromM)
+            {
+                #region Touching File Time
+                var force = Keyboard.Modifiers == ModifierKeys.Control;
+                var meta = CurrentMeta;
+
+                meta.DateCreated = null;
+                meta.DateModified = null;
+                meta.DateAccesed = null;
+
+                RunBgWorker(new Action<string>((file) =>
+                {
+                    TouchDate(file, force: force, dtm: File.GetLastWriteTime(file), meta: meta);
+                }));
+                #endregion
+            }
+            else if (sender == SetFileTimeFromA)
+            {
+                #region Touching File Time
+                var force = Keyboard.Modifiers == ModifierKeys.Control;
+                var meta = CurrentMeta;
+
+                meta.DateCreated = null;
+                meta.DateModified = null;
+                meta.DateAccesed = null;
+
+                RunBgWorker(new Action<string>((file) =>
+                {
+                    TouchDate(file, force: force, dta: File.GetLastAccessTime(file), meta: meta);
+                }));
+                #endregion
+            }
+
+            else if (sender == TouchMetaFromC)
+            {
+                #region Touching File Time
+                var force = Keyboard.Modifiers == ModifierKeys.Control;
+                var meta = CurrentMeta;
+
+                meta.DateCreated = null;
+                meta.DateModified = null;
+                meta.DateAccesed = null;
+
+                RunBgWorker(new Action<string>((file) =>
+                {
+                    TouchMeta(file, force: force, dtc: File.GetCreationTime(file), meta: meta);
+                }));
+                #endregion
+            }
+            else if (sender == TouchMetaFromM)
+            {
+                #region Touching File Time
+                var force = Keyboard.Modifiers == ModifierKeys.Control;
+                var meta = CurrentMeta;
+
+                meta.DateCreated = null;
+                meta.DateModified = null;
+                meta.DateAccesed = null;
+
+                RunBgWorker(new Action<string>((file) =>
+                {
+                    TouchMeta(file, force: force, dtm: File.GetLastWriteTime(file), meta: meta);
+                }));
+                #endregion
+            }
+            else if (sender == TouchMetaFromA)
+            {
+                #region Touching File Time
+                var force = Keyboard.Modifiers == ModifierKeys.Control;
+                var meta = CurrentMeta;
+
+                meta.DateCreated = null;
+                meta.DateModified = null;
+                meta.DateAccesed = null;
+
+                RunBgWorker(new Action<string>((file) =>
+                {
+                    TouchMeta(file, force: force, dta: File.GetLastAccessTime(file), meta: meta);
+                }));
+                #endregion
+            }
+
             else if (sender == ConvertSelectedToJpg)
             {
                 ConvertImagesTo(MagickFormat.Jpg);
@@ -2919,7 +3018,12 @@ namespace TouchMeta
                 #region Touching File Time
                 var force = Keyboard.Modifiers == ModifierKeys.Control;
                 var meta = CurrentMeta;
-
+                if (!force)
+                {
+                    meta.DateCreated = null;
+                    meta.DateModified = null;
+                    meta.DateAccesed = null;
+                }
                 RunBgWorker(new Action<string>((file) =>
                 {
                     TouchDate(file, force: force, meta: meta);
