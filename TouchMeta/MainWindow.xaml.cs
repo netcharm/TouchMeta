@@ -948,6 +948,46 @@ namespace TouchMeta
             }
         }
 
+        public static DateTime? ParseDateTime(string text)
+        {
+            DateTime? result = null;
+
+            try
+            {
+                var file = text;
+                text = Path.GetFileNameWithoutExtension(text);
+                var trim_chars = new char[] { '_', '.', ' ' };
+                DateTime dt;
+
+                var pattens = new string[]
+                {
+                    @"(\d{2,4})[ :_\-/\.\\年]{0,3}(\d{1,2})[ :_\-/\.\\月]{0,3}(\d{1,2})[ :_\-/\.\\日]{0,3}[ ,:_\-/\.\\T]?(\d{1,2})[ :_\-\.时]{0,3}(\d{1,2})[ :_\-\.分]{0,3}(\d{1,2})[ :_\-\.秒]{0,3}",
+                    @"(\d{2,4})[ :_\-/\.\\年]{0,3}((\d{1,2})[ :_\-/\.\\月日]{0,3}){2}[ ,:_\-/\.\\T]?(\d{2})[:_\-/\.\\时分秒]{0,3}",
+                    @"(\d{4}[ :_\-/\.\\年]{0,3})(\d{2}[ :_\-/\.\\月日时分秒T]{0,3})+",
+                    @"(\d{2}[ :_\-/\.\\月日]{0,3})+(\d{4})[ \-,:T](\d{2}[:_\-\.\\时分秒]{0,3}){3}",
+                    @"(\d{2}[ :_\-/\.\\月日时分秒]{0,3})+(\d{4})",
+                };
+
+                if (DateTime.TryParse(text, out dt)) result = dt;
+                else
+                {
+                    foreach (var patten in pattens)
+                    {
+                        if (Regex.IsMatch(text, patten))
+                        {
+                            var match = Regex.Replace(text.Replace("_", " "), $@"^.*?({patten}).*?$", "$1");
+                            //match = Regex.Replace(match.Trim(trim_chars), patten, (m) => { return ($" {m.Value.Trim(trim_chars)} "); });
+                            match = Regex.Replace(match.Trim(trim_chars), patten, "$1/$2/$3 $4:$5:$6");
+                            if (DateTime.TryParse(match, out dt)) { result = dt; Log($"{file} => {dt.ToString("yyyy/MM/dd HH:mm:ss")}"); break; }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex) { Log(ex.Message); }
+
+            return (result);
+        }
+
         public static string GetAttribute(MagickImage image, string attr)
         {
             string result = null;
@@ -1225,20 +1265,24 @@ namespace TouchMeta
         public static DateTime? GetMetaTime(MagickImage image)
         {
             DateTime? result = null;
-            if (image is MagickImage && image.FormatInfo.IsReadable)
+            try
             {
-                foreach (var tag in tag_date)
+                if (image is MagickImage && image.FormatInfo.IsReadable)
                 {
-                    if (image.AttributeNames.Contains(tag))
+                    foreach (var tag in tag_date)
                     {
-                        var v = image.GetAttribute(tag);
-                        var nv = Regex.Replace(v, @"^(\d{4}):(\d{2}):(\d{2})[ |T](.*?)Z?$", "$1-$2-$3T$4");
-                        //Log($"{tag.PadRight(32)}= {v} > {nv}");
-                        result = DateTime.Parse(tag.Contains("png") ? nv.Substring(0, tag.Length - 1) : nv);
-                        break;
+                        if (image.AttributeNames.Contains(tag))
+                        {
+                            var v = image.GetAttribute(tag);
+                            var nv = Regex.Replace(v, @"^(\d{4}):(\d{2}):(\d{2})[ |T](.*?)Z?$", "$1-$2-$3T$4");
+                            //Log($"{tag.PadRight(32)}= {v} > {nv}");
+                            result = DateTime.Parse(tag.Contains("png") ? nv.Substring(0, tag.Length - 1) : nv);
+                            break;
+                        }
                     }
                 }
             }
+            catch (Exception ex) { Log(ex.Message); }
             return (result);
         }
 
@@ -2737,6 +2781,33 @@ namespace TouchMeta
                     CurrentMeta = GetMetaInfo(file);
                     #endregion
                 }
+            }
+            else if (sender == GetFileTimeFromFilaName)
+            {
+                if (FilesList.SelectedItem != null)
+                {
+                    #region Touching File Time
+                    var force = Keyboard.Modifiers == ModifierKeys.Control;
+                    var meta = CurrentMeta;
+
+                    RunBgWorker(new Action<string>((file) =>
+                    {
+                        SetCustomDateTime(dt: ParseDateTime(file));
+                    }));
+                    #endregion
+                }
+            }
+            else if (sender == SetFileTimeFromFileName)
+            {
+                #region Touching File Time
+                var force = Keyboard.Modifiers == ModifierKeys.Control;
+                var meta = CurrentMeta;
+
+                RunBgWorker(new Action<string>((file) =>
+                {
+                    TouchDate(file, force: force, dtm: ParseDateTime(file), meta: meta);
+                }));
+                #endregion
             }
             else if (sender == ConvertSelectedToJpg)
             {
