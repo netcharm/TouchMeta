@@ -1292,12 +1292,6 @@ namespace TouchMeta
             if (File.Exists(file))
             {
                 var fi = new FileInfo(file);
-                var dc = fi.CreationTime;
-                var dm = fi.LastWriteTime;
-                var da = fi.LastAccessTime;
-
-                var ov = dm.ToString("yyyy-MM-ddTHH:mm:sszzz");
-
                 using (var ms = new FileStream(fi.FullName, FileMode.Open, FileAccess.Read, FileShare.Read))
                 {
                     try
@@ -3018,12 +3012,12 @@ namespace TouchMeta
                 #region Touching File Time
                 var force = Keyboard.Modifiers == ModifierKeys.Control;
                 var meta = CurrentMeta;
-                if (!force)
-                {
-                    meta.DateCreated = null;
-                    meta.DateModified = null;
-                    meta.DateAccesed = null;
-                }
+                //if (!force)
+                //{
+                //    meta.DateCreated = null;
+                //    meta.DateModified = null;
+                //    meta.DateAccesed = null;
+                //}
                 RunBgWorker(new Action<string>((file) =>
                 {
                     TouchDate(file, force: force, meta: meta);
