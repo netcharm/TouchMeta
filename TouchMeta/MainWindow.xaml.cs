@@ -948,14 +948,14 @@ namespace TouchMeta
             }
         }
 
-        public static DateTime? ParseDateTime(string text)
+        public static DateTime? ParseDateTime(string text, bool is_file = true)
         {
             DateTime? result = null;
 
             try
             {
                 var file = text;
-                text = Path.GetFileNameWithoutExtension(text);
+                if (is_file) text = Path.GetFileNameWithoutExtension(text);
                 var trim_chars = new char[] { '_', '.', ' ' };
                 DateTime dt;
 
@@ -966,8 +966,10 @@ namespace TouchMeta
                     @"(\d{4}[ :_\-/\.\\年]{0,3})(\d{2}[ :_\-/\.\\月日时分秒T]{0,3})+",
                     @"(\d{2}[ :_\-/\.\\月日]{0,3})+(\d{4})[ \-,:T](\d{2}[:_\-\.\\时分秒]{0,3}){3}",
                     @"(\d{2}[ :_\-/\.\\月日时分秒]{0,3})+(\d{4})",
+                    @"(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})(\d{2})",
                 };
 
+                text = Regex.Replace(text, @"^(\d{8,}_\d{4,}_)", "", RegexOptions.IgnoreCase);
                 if (DateTime.TryParse(text, out dt)) result = dt;
                 else
                 {
@@ -3004,7 +3006,8 @@ namespace TouchMeta
                 #region Parsing DateTime
                 var dt = DateTime.Now;
                 var dt_text = NormalizeDateTimeText(FileTimeFormatedText.Text);
-                if (DateTime.TryParse(dt_text, out dt)) SetCustomDateTime(dt);
+                var fdt = ParseDateTime(dt_text);
+                if (fdt is DateTime || DateTime.TryParse(dt_text, out dt)) SetCustomDateTime(fdt ?? dt);
                 #endregion
             }
             else if (sender == BtnTouchTime)
