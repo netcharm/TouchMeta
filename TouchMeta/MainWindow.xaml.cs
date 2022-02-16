@@ -958,9 +958,10 @@ namespace TouchMeta
                 if (is_file) text = Path.GetFileNameWithoutExtension(text);
                 var trim_chars = new char[] { '_', '.', ' ' };
                 DateTime dt;
-
+                //‎2022‎年‎02‎月‎04‎日，‏‎16:49:26
                 var pattens = new string[]
                 {
+                    @"‎(\d{2,4}.*?年.*?\d{1,2}.*?‎月.*?\d{1,2}.*?‎日.*?[，,T].*?\d{1,2}:\d{1,2}:\d{1,2})",
                     @"(\d{2,4})[ :_\-/\.\\年]{0,3}(\d{1,2})[ :_\-/\.\\月]{0,3}(\d{1,2})[ :_\-/\.\\日]{0,3}[ ,:_\-/\.\\T]?(\d{1,2})[ :_\-\.时]{0,3}(\d{1,2})[ :_\-\.分]{0,3}(\d{1,2})[ :_\-\.秒]{0,3}",
                     @"(\d{2,4})[ :_\-/\.\\年]{0,3}((\d{1,2})[ :_\-/\.\\月日]{0,3}){2}[ ,:_\-/\.\\T]?(\d{2})[:_\-/\.\\时分秒]{0,3}",
                     @"(\d{4}[ :_\-/\.\\年]{0,3})(\d{2}[ :_\-/\.\\月日时分秒T]{0,3})+",
@@ -969,6 +970,8 @@ namespace TouchMeta
                     @"(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})(\d{2})",
                 };
 
+                text = Regex.Replace(text, @"[\u0000-\u001F\u007F\u2000-\u201F\u207F]", "");
+                text = Regex.Replace(text, @"[，]", ",");
                 text = Regex.Replace(text, @"^(\d{8,}_\d{4,}_)", "", RegexOptions.IgnoreCase);
                 if (DateTime.TryParse(text, out dt)) result = dt;
                 else
@@ -3001,12 +3004,12 @@ namespace TouchMeta
                 MetaInputPopup.StaysOpen = Keyboard.Modifiers == ModifierKeys.Control;
                 #endregion
             }
-            else if (sender == FileTimeParsing)
+            else if (sender == TimeStringParsing)
             {
                 #region Parsing DateTime
                 var dt = DateTime.Now;
-                var dt_text = NormalizeDateTimeText(FileTimeFormatedText.Text);
-                var fdt = ParseDateTime(dt_text);
+                var dt_text = NormalizeDateTimeText(TimeStringContent.Text);
+                var fdt = ParseDateTime(dt_text, is_file: false);
                 if (fdt is DateTime || DateTime.TryParse(dt_text, out dt)) SetCustomDateTime(fdt ?? dt);
                 #endregion
             }
