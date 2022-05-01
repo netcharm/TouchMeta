@@ -386,8 +386,9 @@ namespace NetCharm
           "MicrosoftPhoto:DateTaken",
           //"png:tIME",
           "xmp:CreateDate",
-          //"xmp:DateTimeDigitized",
-          //"xmp:DateTimeOriginal",
+          "xmp:ModifyDate",
+          "xmp:DateTimeDigitized",
+          "xmp:DateTimeOriginal",
           "Creation Time",
           "create-date",
           "modify-date",
@@ -1006,9 +1007,9 @@ namespace NetCharm
                             if (!force)
                             {
                                 var dt = GetMetaTime(image);
-                                dc = dt ?? (meta is MetaInfo ? meta.DateCreated ?? meta.DateAcquired ?? meta.DateTaken : null) ?? fi.CreationTime;
-                                dm = dt ?? (meta is MetaInfo ? meta.DateModified ?? meta.DateAcquired ?? meta.DateTaken : null) ?? fi.LastWriteTime;
-                                da = dt ?? (meta is MetaInfo ? meta.DateAccesed ?? meta.DateAcquired ?? meta.DateTaken : null) ?? fi.LastAccessTime;
+                                dc = dt ?? dtc ?? (meta is MetaInfo ? meta.DateCreated ?? meta.DateAcquired ?? meta.DateTaken : null) ?? fi.CreationTime;
+                                dm = dt ?? dtm ?? (meta is MetaInfo ? meta.DateModified ?? meta.DateAcquired ?? meta.DateTaken : null) ?? fi.LastWriteTime;
+                                da = dt ?? dta ?? (meta is MetaInfo ? meta.DateAccesed ?? meta.DateAcquired ?? meta.DateTaken : null) ?? fi.LastAccessTime;
                             }
 
                             // 2021:09:13 11:00:16
@@ -1058,7 +1059,7 @@ namespace NetCharm
                                         else if (tag.StartsWith("png")) { image.RemoveAttribute(tag); SetAttribute(image, tag, dm_png); }
                                         else if (tag.StartsWith("tiff")) { image.RemoveAttribute(tag); SetAttribute(image, tag, dm_date); }
                                         else if (tag.StartsWith("Microsoft")) { image.RemoveAttribute(tag); SetAttribute(image, tag, dm_ms); }
-                                        else if (tag.StartsWith("xmp")) SetAttribute(image, tag, dm_date);
+                                        else if (tag.StartsWith("xmp")) SetAttribute(image, tag, dm_xmp);
                                         else SetAttribute(image, tag, dm_misc);
 
                                         var value_new = GetAttribute(image, tag);
@@ -1402,6 +1403,36 @@ namespace NetCharm
                                             root_node.AppendChild(desc);
                                         }
                                         #endregion
+                                        #region ModifyDate node
+                                        if (xml_doc.GetElementsByTagName("xmp:ModifyDate").Count <= 0)
+                                        {
+                                            var desc = xml_doc.CreateElement("rdf:Description", "rdf");
+                                            desc.SetAttribute("rdf:about", "uuid:faf5bdd5-ba3d-11da-ad31-d33d75182f1b");
+                                            desc.SetAttribute("xmlns:xmp", xmp_ns_lookup["xmp"]);
+                                            desc.AppendChild(xml_doc.CreateElement("xmp:ModifyDate", "xmp"));
+                                            root_node.AppendChild(desc);
+                                        }
+                                        #endregion
+                                        #region DateTimeOriginal node
+                                        if (xml_doc.GetElementsByTagName("xmp:DateTimeOriginal").Count <= 0)
+                                        {
+                                            var desc = xml_doc.CreateElement("rdf:Description", "rdf");
+                                            desc.SetAttribute("rdf:about", "uuid:faf5bdd5-ba3d-11da-ad31-d33d75182f1b");
+                                            desc.SetAttribute("xmlns:xmp", xmp_ns_lookup["xmp"]);
+                                            desc.AppendChild(xml_doc.CreateElement("xmp:DateTimeOriginal", "xmp"));
+                                            root_node.AppendChild(desc);
+                                        }
+                                        #endregion
+                                        #region DateTimeDigitized node
+                                        if (xml_doc.GetElementsByTagName("xmp:DateTimeDigitized").Count <= 0)
+                                        {
+                                            var desc = xml_doc.CreateElement("rdf:Description", "rdf");
+                                            desc.SetAttribute("rdf:about", "uuid:faf5bdd5-ba3d-11da-ad31-d33d75182f1b");
+                                            desc.SetAttribute("xmlns:xmp", xmp_ns_lookup["xmp"]);
+                                            desc.AppendChild(xml_doc.CreateElement("xmp:DateTimeDigitized", "xmp"));
+                                            root_node.AppendChild(desc);
+                                        }
+                                        #endregion
                                         #region Ranking/Rating node
                                         if (xml_doc.GetElementsByTagName("xmp:Rating").Count <= 0 && rating > 0)
                                         {
@@ -1584,7 +1615,13 @@ namespace NetCharm
                                                     //else child.ParentNode.RemoveChild(child);
                                                 }
                                                 else if (child.Name.Equals("xmp:CreateDate", StringComparison.CurrentCultureIgnoreCase))
+                                                    child.InnerText = dc_xmp;
+                                                else if (child.Name.Equals("xmp:ModifyDate", StringComparison.CurrentCultureIgnoreCase))
                                                     child.InnerText = dm_xmp;
+                                                else if (child.Name.Equals("xmp:DateTimeOriginal", StringComparison.CurrentCultureIgnoreCase))
+                                                    child.InnerText = dm_date;
+                                                else if (child.Name.Equals("xmp:DateTimeDigitized", StringComparison.CurrentCultureIgnoreCase))
+                                                    child.InnerText = dm_date;
                                                 else if (child.Name.Equals("MicrosoftPhoto:DateAcquired", StringComparison.CurrentCultureIgnoreCase))
                                                     child.InnerText = dm_msxmp;
                                                 else if (child.Name.Equals("MicrosoftPhoto:DateTaken", StringComparison.CurrentCultureIgnoreCase))
