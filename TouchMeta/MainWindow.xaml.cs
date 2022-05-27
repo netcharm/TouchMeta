@@ -847,9 +847,11 @@ namespace TouchMeta
         };
         private static string[] tag_keywords = new string[] {
           "exif:WinXP-Keywords",
+          "dc:Subject",
         };
         private static string[] tag_rating = new string[] {
           "MicrosoftPhoto:Rating",
+          "xmp:Rating",
         };
         #endregion
 
@@ -1158,10 +1160,12 @@ namespace TouchMeta
                         }
                     }
 
-                    //if (!image.HasProfile("exif")) 
-                    image.SetProfile(exif);
-                    //if (!image.HasProfile("iptc")) 
-                    image.SetProfile(iptc);
+                    //if (!image.HasProfile("exif"))
+                    if (exif is ExifProfile && exif.GetData().Length > 0 && exif.Values.Count() > 0)
+                        image.SetProfile(exif);
+                    //if (!image.HasProfile("iptc"))
+                    if (iptc is IptcProfile && iptc.GetData().Length > 0 && iptc.Values.Count() > 0)
+                        image.SetProfile(iptc);
                 }
             }
             catch (Exception ex) { Log(ex.Message); }
