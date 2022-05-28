@@ -1161,10 +1161,10 @@ namespace TouchMeta
                     }
 
                     //if (!image.HasProfile("exif"))
-                    if (exif is ExifProfile && exif.GetData().Length > 0 && exif.Values.Count() > 0)
+                    if (exif is ExifProfile)
                         image.SetProfile(exif);
                     //if (!image.HasProfile("iptc"))
-                    if (iptc is IptcProfile && iptc.GetData().Length > 0 && iptc.Values.Count() > 0)
+                    if (iptc is IptcProfile)
                         image.SetProfile(iptc);
                 }
             }
