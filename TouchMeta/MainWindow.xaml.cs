@@ -1863,7 +1863,7 @@ namespace TouchMeta
                                     if (root_nodes.Count >= 1)
                                     {
                                         var root_node = root_nodes.Item(0);
-                                        #region Title node
+                                        #region Title/Comment node
                                         if (xml_doc.GetElementsByTagName("dc:title").Count <= 0)
                                         {
                                             var desc = xml_doc.CreateElement("rdf:Description", "rdf");
@@ -1871,6 +1871,8 @@ namespace TouchMeta
                                             desc.AppendChild(xml_doc.CreateElement("dc:title", "dc"));
                                             root_node.AppendChild(desc);
                                         }
+                                        #endregion
+                                        #region Comment node
                                         if (xml_doc.GetElementsByTagName("dc:description").Count <= 0)
                                         {
                                             var desc = xml_doc.CreateElement("rdf:Description", "rdf");
@@ -2100,8 +2102,7 @@ namespace TouchMeta
                                         {
                                             foreach (XmlNode child in node.ChildNodes)
                                             {
-                                                if (child.Name.Equals("dc:title", StringComparison.CurrentCultureIgnoreCase) ||
-                                                    child.Name.Equals("dc:description", StringComparison.CurrentCultureIgnoreCase))
+                                                if (child.Name.Equals("dc:title", StringComparison.CurrentCultureIgnoreCase))
                                                 {
                                                     child.RemoveAll();
                                                     var node_title = xml_doc.CreateElement("rdf:Alt", "rdf");
@@ -2110,6 +2111,16 @@ namespace TouchMeta
                                                     node_title_li.InnerText = title;
                                                     node_title.AppendChild(node_title_li);
                                                     child.AppendChild(node_title);
+                                                }
+                                                else if (child.Name.Equals("dc:description", StringComparison.CurrentCultureIgnoreCase))
+                                                {
+                                                    child.RemoveAll();
+                                                    var node_comment = xml_doc.CreateElement("rdf:Alt", "rdf");
+                                                    var node_comment_li = xml_doc.CreateElement("rdf:li", "rdf");
+                                                    node_comment_li.SetAttribute("xml:lang", "x-default");
+                                                    node_comment_li.InnerText = comment;
+                                                    node_comment.AppendChild(node_comment_li);
+                                                    child.AppendChild(node_comment);
                                                 }
                                                 else if (child.Name.Equals("xmp:creator", StringComparison.CurrentCultureIgnoreCase) ||
                                                     child.Name.Equals("dc:creator", StringComparison.CurrentCultureIgnoreCase))
