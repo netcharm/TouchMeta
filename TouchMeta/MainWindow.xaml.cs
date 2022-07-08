@@ -2819,11 +2819,11 @@ namespace TouchMeta
                                 Ranking = RatingToRanking(rating),
                             };
 
-                            if (is_png) TouchMetaAlt(file, meta: meta_new);
-
                             fi.CreationTime = dc;
                             fi.LastWriteTime = dm;
                             fi.LastAccessTime = da;
+
+                            if (is_png) TouchMetaAlt(file, meta: meta_new);
                         }
                         else
                         {
@@ -3013,6 +3013,11 @@ namespace TouchMeta
                             var xmp_profile = new XmpProfile(Encoding.UTF8.GetBytes(xmp));
                             image.SetProfile(xmp_profile);
                         }
+
+                        fi.CreationTime = dc;
+                        fi.LastWriteTime = dm;
+                        fi.LastAccessTime = da;
+
                         Log($"File \"{file}\" touched!");
                     }
                 }
