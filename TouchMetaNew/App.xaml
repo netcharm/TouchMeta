@@ -1,0 +1,61 @@
+﻿<Application x:Class="TouchMeta.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:sys="clr-namespace:System;assembly=mscorlib"
+             xmlns:xctk="http://schemas.xceed.com/wpf/xaml/toolkit"
+             xmlns:local="clr-namespace:TouchMeta"
+             StartupUri="MainWindow.xaml">
+    <Application.Resources>
+        <FontFamily x:Uid="MonoSpaceFamily" x:Key="MonoSpaceFamily">
+            "Sarasa Mono J, 等距更纱黑体 SC, FontAwesome, Iosevka, Consolas, Segoe UI Emoji, Segoe MDL2 Assets, 更纱黑体 SC, Segoe UI, Monospace"
+        </FontFamily>
+        <FontFamily x:Uid="MDL2Family" x:Key="MDL2Family">
+            "Segoe MDL2 Assets"
+        </FontFamily>
+        <sys:Double x:Uid="MonoSpaceSize" x:Key="MonoSpaceSize">14</sys:Double>
+        <Style x:Uid="ToolTipStyle" x:Key="{x:Type ToolTip}" TargetType="{x:Type ToolTip}">
+            <Setter x:Uid="ToolTipStyleFontFamily" Property="FontFamily" Value="{StaticResource MonoSpaceFamily}"/>
+            <Setter x:Uid="ToolTipStyleFontSize" Property="FontSize" Value="{StaticResource MonoSpaceSize}"/>
+            <Setter x:Uid="ToolTipStyleMaxWidth" Property="MaxWidth" Value="1024"/>
+            <Style.Resources>
+                <Style x:Uid="ToolTipContentStyle" TargetType="ContentPresenter">
+                    <Style.Resources>
+                        <Style x:Uid="ToolTipContentStyleTextBlock" TargetType="TextBlock">
+                            <!--<Setter Property="MaxLength" Value="500" />-->
+                            <Setter x:Uid="ToolTipContentStyleTextWrapping" Property="TextWrapping" Value="Wrap" />
+                            <Setter x:Uid="ToolTipContentStyleTextTrimming" Property="TextTrimming" Value="WordEllipsis" />
+                        </Style>
+                    </Style.Resources>
+                </Style>
+            </Style.Resources>
+        </Style>
+        <Style x:Uid="TextBoxStyle" x:Key="{x:Type TextBox}" TargetType="{x:Type TextBox}">
+            <Setter x:Uid="TextBoxStyleFontFamily" Property="FontFamily" Value="{StaticResource MonoSpaceFamily}"/>
+            <Setter x:Uid="TextBoxStyleFontSize" Property="FontSize" Value="{StaticResource MonoSpaceSize}"/>
+        </Style>
+        <Style x:Uid="TextBlockStyle" x:Key="{x:Type TextBlock}" TargetType="{x:Type TextBlock}">
+            <Setter x:Uid="TextBoxStyleFontFamily" Property="FontFamily" Value="{StaticResource MonoSpaceFamily}"/>
+            <Setter x:Uid="TextBoxStyleFontSize" Property="FontSize" Value="{StaticResource MonoSpaceSize}"/>
+        </Style>
+        <Style x:Uid="DatePickerBoxStyle" x:Key="{x:Type DatePicker}" TargetType="{x:Type DatePicker}">
+            <Setter x:Uid="DatePickerStyleFontFamily" Property="FontFamily" Value="{StaticResource MonoSpaceFamily}"/>
+            <Setter x:Uid="DatePickerStyleFontSize" Property="FontSize" Value="{StaticResource MonoSpaceSize}"/>
+        </Style>
+        <Style x:Uid="TimePickerBoxStyle" x:Key="{x:Type xctk:TimePicker}" TargetType="{x:Type xctk:TimePicker}">
+            <Setter x:Uid="TimePickerStyleFontFamily" Property="FontFamily" Value="{StaticResource MonoSpaceFamily}"/>
+            <Setter x:Uid="TimePickerStyleFontSize" Property="FontSize" Value="{StaticResource MonoSpaceSize}"/>
+        </Style>        
+        <!--Fixed Bug:[System.Windows.Data Error: 4 : Cannot find source for binding with reference...] When Dynamic add MenuItem to UI-->
+        <Style TargetType="MenuItem">
+            <Setter Property="HorizontalContentAlignment" Value="Left"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+        </Style>
+        <!--Extend Xceed Message Dialog Content Display Area Width-->
+        <Style x:Key="MessageDialogWidth" TargetType="TextBlock">
+            <!--<Setter Property="Width" Value="640"/>-->
+            <Setter Property="MinWidth" Value="640"/>
+            <Setter Property="MaxWidth" Value="640"/>
+            <Setter Property="OverridesDefaultStyle" Value="True"/>
+        </Style>
+    </Application.Resources>
+</Application>

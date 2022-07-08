@@ -1,18 +1,31 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Diagnostics;
+using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Text;
-using System.IO;
 using System.Text.RegularExpressions;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
+using System.Windows.Data;
+using System.Windows.Documents;
+using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Imaging;
+using System.Windows.Navigation;
+using System.Windows.Threading;
 using System.Xml;
 
 using ImageMagick;
+using System.Xml.Linq;
 
-namespace NetCharm
+namespace TouchMeta
 {
     public class MetaInfo
     {
@@ -34,37 +47,424 @@ namespace NetCharm
         public Dictionary<string, IImageProfile> Profiles { get; set; } = null;
     }
 
-    class Metadata
+    /// <summary>
+    /// MainWindow.xaml 的交互逻辑
+    /// </summary>
+    public partial class MainWindow : Window
     {
         private static string AppExec = Application.ResourceAssembly.CodeBase.ToString().Replace("file:///", "").Replace("/", "\\");
         private static string AppPath = Path.GetDirectoryName(AppExec);
         private static string AppName = Path.GetFileNameWithoutExtension(AppPath);
         private static string CachePath =  "cache";
+        private string DefaultTitle = null;
+
+        //private static string Symbol_Rating_Star_Empty = "\uE8D9";
+        private static string Symbol_Rating_Star_Outline = "\uE1CE";
+        private static string Symbol_Rating_Star_Filled = "\uE1CF";
+        private int _CurrentMetaRating_ = 0;
+        public int CurrentMetaRating
+        {
+            get { return (_CurrentMetaRating_); }
+            set
+            {
+                _CurrentMetaRating_ = value;
+                MetaInputRanking1Text.Text = _CurrentMetaRating_ >= 01 ? Symbol_Rating_Star_Filled : Symbol_Rating_Star_Outline;
+                MetaInputRanking2Text.Text = _CurrentMetaRating_ >= 20 ? Symbol_Rating_Star_Filled : Symbol_Rating_Star_Outline;
+                MetaInputRanking3Text.Text = _CurrentMetaRating_ >= 40 ? Symbol_Rating_Star_Filled : Symbol_Rating_Star_Outline;
+                MetaInputRanking4Text.Text = _CurrentMetaRating_ >= 60 ? Symbol_Rating_Star_Filled : Symbol_Rating_Star_Outline;
+                MetaInputRanking5Text.Text = _CurrentMetaRating_ >= 80 ? Symbol_Rating_Star_Filled : Symbol_Rating_Star_Outline;
+            }
+        }
+
         private static Encoding DBCS = Encoding.GetEncoding("GB18030");
         private static Encoding UTF8 = Encoding.UTF8;
         private static Encoding UNICODE = Encoding.Unicode;
 
         private static List<string> SupportedFormats { get; set; } = null;
 
+        #region DoEvent Helper
+        private static object ExitFrame(object state)
+        {
+            ((DispatcherFrame)state).Continue = false;
+            return null;
+        }
+
+        private static SemaphoreSlim CanDoEvents = new SemaphoreSlim(1, 1);
+        public static async void DoEvents()
+        {
+            if (await CanDoEvents.WaitAsync(0))
+            {
+                try
+                {
+                    if (Application.Current.Dispatcher.CheckAccess())
+                    {
+                        await Dispatcher.Yield(DispatcherPriority.Render);
+                        //await System.Windows.Threading.Dispatcher.Yield();
+
+                        //DispatcherFrame frame = new DispatcherFrame();
+                        //await Application.Current.Dispatcher.BeginInvoke(DispatcherPriority.Render, new DispatcherOperationCallback(ExitFrame), frame);
+                        //Dispatcher.PushFrame(frame);
+                    }
+                }
+                catch (Exception)
+                {
+                    try
+                    {
+                        if (Application.Current.Dispatcher.CheckAccess())
+                        {
+                            DispatcherFrame frame = new DispatcherFrame();
+                            //Dispatcher.CurrentDispatcher.BeginInvoke(DispatcherPriority.Render, new Action(delegate { }));
+                            //Dispatcher.CurrentDispatcher.BeginInvoke(DispatcherPriority.Send, new Action(delegate { }));
+
+                            //await Dispatcher.CurrentDispatcher.BeginInvoke(DispatcherPriority.Background, new DispatcherOperationCallback(ExitFrame), frame);
+                            //await Dispatcher.CurrentDispatcher.BeginInvoke(DispatcherPriority.Render, new DispatcherOperationCallback(ExitFrame), frame);
+                            await Application.Current.Dispatcher.BeginInvoke(DispatcherPriority.Send, new DispatcherOperationCallback(ExitFrame), frame);
+                            Dispatcher.PushFrame(frame);
+                        }
+                    }
+                    catch (Exception)
+                    {
+                        await Task.Delay(1);
+                    }
+                }
+                finally
+                {
+                    //CanDoEvents.Release(max: 1);
+                    if (CanDoEvents is SemaphoreSlim && CanDoEvents.CurrentCount <= 0) CanDoEvents.Release();
+                }
+            }
+        }
+        #endregion
+
         #region Log/MessageBox helper
+        private static List<string> _log_ = new List<string>();
         private static void Log(string text)
         {
+            try
+            {
 #if DEBUG
-            Debug.WriteLine(text);
-            Console.WriteLine(text);
+                Debug.WriteLine(text);
 #else
-            Console.WriteLine(text);
+                //_log_.Add(text);
 #endif
+                _log_.Add(text.TrimEnd('\0'));
+            }
+            catch (Exception ex) { ShowMessage(ex.Message, "ERROR"); }
+        }
+
+        private static void ClearLog()
+        {
+            //Application.Current.Dispatcher.BeginInvoke(new Action(() =>
+            //{
+            try { _log_.Clear(); }
+            catch (Exception ex) { ShowMessage(ex.Message, "ERROR"); }
+            //}));
+        }
+
+        private static void ShowLog()
+        {
+            Application.Current.Dispatcher.BeginInvoke(new Action(() =>
+            {
+                var contents_style = (Style)Application.Current.FindResource("MessageDialogWidth");
+                var contents = string.Join(Environment.NewLine, _log_.Skip(_log_.Count-500));
+                var dlg = new Xceed.Wpf.Toolkit.MessageBox() { };
+                dlg.Resources.Add(typeof(TextBlock), contents_style);
+                dlg.CaptionIcon = Application.Current.MainWindow.Icon;
+                dlg.Language = System.Windows.Markup.XmlLanguage.GetLanguage(CultureInfo.CurrentCulture.IetfLanguageTag);
+                dlg.FontFamily = Application.Current.FindResource("MonoSpaceFamily") as FontFamily;
+                dlg.Text = contents;
+                dlg.Caption = "Metadata Info";
+                dlg.Width = 720;
+                dlg.MaxWidth = 800;
+                dlg.MaxHeight = 480;
+                dlg.HorizontalContentAlignment = HorizontalAlignment.Stretch;
+                dlg.MouseDoubleClick += (o, e) => { Clipboard.SetText(dlg.Text.Replace("\0", string.Empty).TrimEnd('\0')); };
+                Application.Current.MainWindow.Activate();
+                dlg.ShowDialog();
+            }));
         }
 
         private static void ShowMessage(string text)
         {
-            Log(text);
+            Xceed.Wpf.Toolkit.MessageBox.Show(Application.Current.MainWindow, text);
         }
 
         private static void ShowMessage(string text, string title)
         {
-            Log($"[{title}]{text}");
+            var style = new Style(typeof(Xceed.Wpf.Toolkit.MessageBox));
+            style.Setters.Add(new Setter(FontFamilyProperty, Application.Current.FindResource("MonoSpaceFamily") as FontFamily));
+            Xceed.Wpf.Toolkit.MessageBox.Show(Application.Current.MainWindow, text, title, messageBoxStyle: style);
+        }
+
+        private static string ShowInput(string input)
+        {
+            var result = input;
+            Application.Current.Dispatcher.BeginInvoke(new Action(() =>
+            {
+                var dlg = new Xceed.Wpf.Toolkit.MessageBox();
+                dlg.CaptionIcon = Application.Current.MainWindow.Icon;
+                dlg.Language = System.Windows.Markup.XmlLanguage.GetLanguage(CultureInfo.CurrentCulture.IetfLanguageTag);
+                dlg.FontFamily = Application.Current.FindResource("MonoSpaceFamily") as FontFamily;
+                dlg.Caption = "Metadata Info";
+                dlg.MaxWidth = 720;
+                dlg.MaxHeight = 480;
+                dlg.HorizontalContentAlignment = HorizontalAlignment.Stretch;
+                dlg.MouseDoubleClick += (o, e) => { Clipboard.SetText(dlg.Text.Replace("\0", string.Empty).TrimEnd('\0')); };
+                Application.Current.MainWindow.Activate();
+            }));
+            return (result);
+        }
+        #endregion
+
+        #region Background Worker Helper
+        private IProgress<KeyValuePair<double, string>> progress = null;
+        private Action<double, string> ReportProgress = null;
+        private BackgroundWorker bgWorker = null;
+        private int ExtendedMessageWidth = 106;
+        private int NormallyMessageWidth = 75;
+        private void ProgressReset()
+        {
+            Dispatcher.Invoke(() => { Progress.Value = 0; });
+        }
+
+        private void ProgressReport(double percent, string tooltip)
+        {
+            if (ReportProgress is Action<double, string>) ReportProgress.Invoke(percent, tooltip);
+        }
+
+        private void RunBgWorker(Action<string> action, bool showlog = true)
+        {
+            if (action is Action<string> && bgWorker is BackgroundWorker && !bgWorker.IsBusy)
+            {
+                IList<string> files = GetFiles(FilesList);
+                if (files.Count > 0)
+                {
+                    bgWorker.RunWorkerAsync(new Action(() =>
+                    {
+                        ClearLog();
+                        ProgressReset();
+                        double count = 0;
+                        foreach (var file in files)
+                        {
+                            ProgressReport(count / files.Count, file);
+                            Log($"{file}");
+                            Log("-".PadRight(ExtendedMessageWidth, '-'));
+                            if (File.Exists(file)) action.Invoke(file);
+                            Log("=".PadRight(ExtendedMessageWidth, '='));
+                            ProgressReport(++count / files.Count, file);
+                        }
+                        if (showlog) ShowLog();
+                    }));
+                }
+            }
+        }
+
+        private void BgWorker_ProgressChanged(object sender, ProgressChangedEventArgs e)
+        {
+            if (ReportProgress is Action<double, string>) ReportProgress.Invoke(e.ProgressPercentage, "");
+        }
+
+        private void BgWorker_RunWorkerCompleted(object sender, RunWorkerCompletedEventArgs e)
+        {
+            //Progress.Value = 100;
+        }
+
+        private void BgWorker_DoWork(object sender, DoWorkEventArgs e)
+        {
+            if (e.Argument is Action)
+            {
+                var action = e.Argument as Action;
+                action.Invoke();
+            }
+        }
+
+        private void InitBgWorker()
+        {
+            if (bgWorker == null)
+            {
+                bgWorker = new BackgroundWorker() { WorkerReportsProgress = true, WorkerSupportsCancellation = true };
+                bgWorker.DoWork += BgWorker_DoWork;
+                bgWorker.RunWorkerCompleted += BgWorker_RunWorkerCompleted;
+                bgWorker.ProgressChanged += BgWorker_ProgressChanged;
+            }
+            if (progress == null)
+            {
+                progress = new Progress<KeyValuePair<double, string>>(kv =>
+                {
+                    try
+                    {
+                        var k = kv.Key;
+                        var v = kv.Value;
+                        Progress.Value = k * 100;
+                        if (k >= 1) Progress.ToolTip = $"100% : {v}";
+                        else if (k <= 0) Progress.ToolTip = $"0% : {v}";
+                        else Progress.ToolTip = $"{k:P1} : {v}";
+                    }
+                    catch { }
+                });
+            }
+            if (ReportProgress == null)
+            {
+                Progress.Minimum = 0;
+                Progress.Maximum = 100;
+                Progress.Value = 0;
+                ReportProgress = new Action<double, string>((percent, tooltip) =>
+                {
+                    Dispatcher.Invoke(async () =>
+                    {
+                        //if (progress is IProgress<KeyValuePair<double, string>>)
+                        //    progress.Report(new KeyValuePair<double, string>(percent, tooltip));
+                        try
+                        {
+                            Progress.Value = percent * 100;
+                            if (percent >= 1) Progress.ToolTip = $"100% : {tooltip}";
+                            else if (percent <= 0) Progress.ToolTip = $"0% : {tooltip}";
+                            else Progress.ToolTip = $"{percent:P1} : {tooltip}";
+                        }
+                        catch { }
+
+                        if (percent >= 1 || percent <= 0) Title = DefaultTitle;
+                        else Title = $"{DefaultTitle} [{percent:P1}]";
+
+                        await Task.Delay(1);
+                        DoEvents();
+                    });
+                });
+            }
+        }
+        #endregion
+
+        #region Get/Set Datetime Helper
+        private void SetCustomDateTime(DateTime? dt = null, DateTime? dtc = null, DateTime? dtm = null, DateTime? dta = null)
+        {
+            Dispatcher.Invoke(() =>
+            {
+                DateCreated.SelectedDate = dtc ?? dt ?? DateCreated.SelectedDate;
+                DateModified.SelectedDate = dtm ?? dt ?? DateModified.SelectedDate;
+                DateAccessed.SelectedDate = dta ?? dt ?? DateAccessed.SelectedDate;
+
+                TimeCreated.Value = dtc ?? dt ?? TimeCreated.Value;
+                TimeModified.Value = dtm ?? dt ?? TimeModified.Value;
+                TimeAccessed.Value = dta ?? dt ?? TimeAccessed.Value;
+
+                UpdateFileTimeInfo();
+            });
+        }
+
+        private DateTime? GetCustomDateTime(FrameworkElement element_date, FrameworkElement element_time)
+        {
+            DateTime? result = null;
+            if (element_date is DatePicker && element_time is Xceed.Wpf.Toolkit.TimePicker)
+            {
+                var date = element_date as DatePicker;
+                var time = element_time as Xceed.Wpf.Toolkit.TimePicker;
+
+                var d_value = date.SelectedDate ?? time.Value ?? DateTime.Now;
+                var t_value = time.Value ?? date.SelectedDate ?? DateTime.Now;
+                result = d_value.Date + t_value.TimeOfDay;
+            }
+            return (result);
+        }
+        #endregion
+
+        #region Files List Opration Helper
+        private bool LoadFiles(IEnumerable<string> files)
+        {
+            var result = false;
+            try
+            {
+                foreach (var file in files)
+                {
+                    if (Directory.Exists(file))
+                    {
+                        var fs = Directory.EnumerateFiles(file);
+                        foreach (var f in fs) if (FilesList.Items.IndexOf(f) < 0) FilesList.Items.Add(f);
+                    }
+                    else if (FilesList.Items.IndexOf(file) < 0) FilesList.Items.Add(file);
+                }
+                result = true;
+            }
+            catch (Exception ex) { ShowMessage(ex.Message, "ERROR"); }
+            return (result);
+        }
+
+        public bool LoadFiles()
+        {
+            var result = false;
+            try
+            {
+                var dlgOpen = new Microsoft.Win32.OpenFileDialog() { Multiselect = true, CheckFileExists = true, CheckPathExists = true, ValidateNames = true };
+                dlgOpen.Filter = "All Files|*.*";
+                if (dlgOpen.ShowDialog() ?? false)
+                {
+                    var files = dlgOpen.FileNames;
+                    result = new Func<bool>(() => { return (LoadFiles(files)); }).Invoke();
+                }
+            }
+            catch (Exception ex) { ShowMessage(ex.Message, "ERROR"); }
+            return (result);
+        }
+
+        private void UpdateFileTimeInfo(string file = null)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(file))
+                {
+                    if (FilesList.SelectedItem != null)
+                    {
+                        file = FilesList.SelectedItem as string;
+                        UpdateFileTimeInfo(file);
+                    }
+                }
+                else if (File.Exists(file))
+                {
+                    var fi = new FileInfo(file);
+
+                    List<string> info = new List<string>();
+                    info.Add($"Created  Time : {fi.CreationTime.ToString()} => {DateCreated.SelectedDate}");
+                    info.Add($"Modified Time : {fi.LastWriteTime.ToString()} => {DateModified.SelectedDate}");
+                    info.Add($"Accessed Time : {fi.LastAccessTime.ToString()} => {DateAccessed.SelectedDate}");
+                    FileTimeInfo.Text = string.Join(Environment.NewLine, info);
+                }
+            }
+            catch (Exception ex) { ShowMessage(ex.Message, "ERROR"); }
+        }
+
+        private void AddFile(string file)
+        {
+            Dispatcher.Invoke(() =>
+            {
+                var idx = FilesList.Items.IndexOf(file);
+                if (idx >= 0) FilesList.Items.RemoveAt(idx);
+                FilesList.Items.Add(file);
+            });
+        }
+
+        private Func<ListBox, IList<string>> GetFiles = (element)=>
+        {
+            List<string> files = new List<string>();
+            if (element is ListBox && element.Items.Count > 0)
+            {
+                element.Dispatcher.Invoke(() =>
+                {
+                    foreach (var item in element.SelectedItems.Count > 0 ? element.SelectedItems : element.Items) files.Add(item as string);
+                });
+            }
+            return(files);
+        };
+
+        private IList<string> GetSelected()
+        {
+            List<string> files = new List<string>();
+            if (FilesList.Items.Count >= 1)
+            {
+                Dispatcher.Invoke(() =>
+                {
+                    foreach (var item in FilesList.SelectedItems.Count > 0 ? FilesList.SelectedItems : FilesList.Items) files.Add(item as string);
+                });
+            }
+            return (files);
         }
         #endregion
 
@@ -184,6 +584,34 @@ namespace NetCharm
             else { v_str = $"{v / factor:F0}"; u_str = "B"; }
             var vs = trimzero && !u_str.Equals("B") ? v_str.Trim('0').TrimEnd('.') : v_str;
             return ((unit ? $"{vs} {u_str}" : vs).PadLeft(padleft));
+        }
+
+        private static char[] DateTimeTrimSymbols = new char[] {
+            '·',
+            '`', '~', '!', '@', '#', '$', '%', '^', '&', '*', ':', ';', '?', ',', '.', '+', '-', '_',
+            '！', '＠', '＃', '＄', '％', '＾', '＆', '＊', '～',  '。', '，', '；', '：', '＇', '？', '，', '．', '＝', '－', '＿', '＋',
+            '|', '\'', '/', '＼', '／', '｜',
+            '<', '>', '(', ')', '[', ']', '{', '}', '＜', '＞', '（', '）', '【', '】', '｛', '｝', '「', '」',
+            '"', '＂', '“', '”'
+        };
+
+        private static string NormalizeDateTimeText(string text)
+        {
+            var AM = CultureInfo.CurrentCulture.DateTimeFormat.AMDesignator;
+            var PM = CultureInfo.CurrentCulture.DateTimeFormat.PMDesignator;
+            var result = text;
+            try
+            {
+                result = Regex.Replace(result, @"号|號|日", "日 ", RegexOptions.IgnoreCase);
+                result = Regex.Replace(result, @"点|點|時|时", "时 ", RegexOptions.IgnoreCase);
+                result = Regex.Replace(result, $@"早 *?上|午 *?前|{AM}|AM", $"{AM} ", RegexOptions.IgnoreCase);
+                result = Regex.Replace(result, $@"晚 *?上|午 *?後|{PM}|PM", $"{PM} ", RegexOptions.IgnoreCase);
+                result = Regex.Replace(result, @"[·]", " ", RegexOptions.IgnoreCase);
+                result = result.Trim(DateTimeTrimSymbols);
+                DateTime.Parse(result);
+            }
+            catch (Exception ex) { Log(ex.Message); }
+            return (result.Trim());
         }
         #endregion
 
@@ -404,6 +832,7 @@ namespace NetCharm
         private static string[] tag_copyright = new string[] {
           "exif:Copyright",
           "tiff:copyright",
+          //"iptc:CopyrightNotice",
         };
         private static string[] tag_title = new string[] {
           "exif:ImageDescription",
@@ -418,16 +847,68 @@ namespace NetCharm
         };
         private static string[] tag_keywords = new string[] {
           "exif:WinXP-Keywords",
+          //"iptc:Keywords",
           "dc:Subject",
         };
         private static string[] tag_rating = new string[] {
           "MicrosoftPhoto:Rating",
-          //"iptc:Keywords",
           "xmp:Rating",
         };
         #endregion
 
         #region Metadata Helper
+        //private static MetaInfo CurrentMeta = null;
+        private MetaInfo _current_meta_ = null;
+        private MetaInfo CurrentMeta
+        {
+            get
+            {
+                if (_current_meta_ == null) _current_meta_ = new MetaInfo();
+                Dispatcher.Invoke(() =>
+                {
+                    _current_meta_.TouchProfiles = MetaInputTouchProfile.IsChecked ?? true;
+
+                    _current_meta_.DateCreated = DateCreated.SelectedDate;
+                    _current_meta_.DateModified = DateModified.SelectedDate;
+                    _current_meta_.DateAccesed = DateAccessed.SelectedDate;
+
+                    _current_meta_.Title = string.IsNullOrEmpty(MetaInputTitleText.Text) ? null : MetaInputTitleText.Text;
+                    _current_meta_.Subject = string.IsNullOrEmpty(MetaInputSubjectText.Text) ? null : MetaInputSubjectText.Text;
+                    _current_meta_.Comment = string.IsNullOrEmpty(MetaInputCommentText.Text) ? null : MetaInputCommentText.Text;
+                    _current_meta_.Keywords = string.IsNullOrEmpty(MetaInputKeywordsText.Text) ? null : MetaInputKeywordsText.Text;
+                    _current_meta_.Author = string.IsNullOrEmpty(MetaInputAuthorText.Text) ? null : MetaInputAuthorText.Text;
+                    _current_meta_.Copyright = string.IsNullOrEmpty(MetaInputCopyrightText.Text) ? null : MetaInputCopyrightText.Text;
+                    _current_meta_.Rating = CurrentMetaRating;
+                });
+                return (_current_meta_);
+            }
+            set
+            {
+                _current_meta_ = value;
+                Dispatcher.Invoke(() =>
+                {
+                    if (_current_meta_ != null)
+                    {
+                        DateCreated.SelectedDate = _current_meta_.DateAcquired ?? _current_meta_.DateTaken ?? DateCreated.SelectedDate;
+                        DateModified.SelectedDate = _current_meta_.DateAcquired ?? _current_meta_.DateTaken ?? DateModified.SelectedDate;
+                        DateAccessed.SelectedDate = _current_meta_.DateAcquired ?? _current_meta_.DateTaken ?? DateAccessed.SelectedDate;
+
+                        TimeCreated.Value = _current_meta_.DateAcquired ?? _current_meta_.DateTaken ?? TimeCreated.Value;
+                        TimeModified.Value = _current_meta_.DateAcquired ?? _current_meta_.DateTaken ?? TimeModified.Value;
+                        TimeAccessed.Value = _current_meta_.DateAcquired ?? _current_meta_.DateTaken ?? TimeAccessed.Value;
+
+                        MetaInputTitleText.Text = _current_meta_.Title;
+                        MetaInputSubjectText.Text = _current_meta_.Subject;
+                        MetaInputCommentText.Text = _current_meta_.Comment;
+                        MetaInputKeywordsText.Text = _current_meta_.Keywords;
+                        MetaInputAuthorText.Text = _current_meta_.Author;
+                        MetaInputCopyrightText.Text = _current_meta_.Copyright;
+                        CurrentMetaRating = _current_meta_.Rating ?? 0;
+                    }
+                });
+            }
+        }
+
         public static bool IsValidRead(MagickImage image)
         {
             return (image is MagickImage && image.FormatInfo.IsReadable);
@@ -469,6 +950,51 @@ namespace NetCharm
                 }
                 else image.Density = new Density(dpi.X, dpi.Y, DensityUnit.PixelsPerInch);
             }
+        }
+
+        public static DateTime? ParseDateTime(string text, bool is_file = true)
+        {
+            DateTime? result = null;
+
+            try
+            {
+                var file = text;
+                if (is_file) text = Path.GetFileNameWithoutExtension(text);
+                var trim_chars = new char[] { '_', '.', ' ' };
+                DateTime dt;
+                //‎2022‎年‎02‎月‎04‎日，‏‎16:49:26
+                var pattens = new string[]
+                {
+                    @"‎(\d{2,4}.*?年.*?\d{1,2}.*?‎月.*?\d{1,2}.*?‎日.*?[，,T].*?\d{1,2}:\d{1,2}:\d{1,2})",
+                    @"(\d{2,4})[ :_\-/\.\\年]{0,3}(\d{1,2})[ :_\-/\.\\月]{0,3}(\d{1,2})[ :_\-/\.\\日]{0,3}[ ,:_\-/\.\\T]?(\d{1,2})[ :_\-\.时]{0,3}(\d{1,2})[ :_\-\.分]{0,3}(\d{1,2})[ :_\-\.秒]{0,3}",
+                    @"(\d{2,4})[ :_\-/\.\\年]{0,3}((\d{1,2})[ :_\-/\.\\月日]{0,3}){2}[ ,:_\-/\.\\T]?(\d{2})[:_\-/\.\\时分秒]{0,3}",
+                    @"(\d{4}[ :_\-/\.\\年]{0,3})(\d{2}[ :_\-/\.\\月日时分秒T]{0,3})+",
+                    @"(\d{2}[ :_\-/\.\\月日]{0,3})+(\d{4})[ \-,:T](\d{2}[:_\-\.\\时分秒]{0,3}){3}",
+                    @"(\d{2}[ :_\-/\.\\月日时分秒]{0,3})+(\d{4})",
+                    @"(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})(\d{2})",
+                };
+
+                text = Regex.Replace(text, @"[\u0000-\u001F\u007F\u2000-\u201F\u207F]", "");
+                text = Regex.Replace(text, @"[，]", ",");
+                text = Regex.Replace(text, @"^(\d{8,}_\d{4,}_)", "", RegexOptions.IgnoreCase);
+                if (DateTime.TryParse(text, out dt)) result = dt;
+                else
+                {
+                    foreach (var patten in pattens)
+                    {
+                        if (Regex.IsMatch(text, patten))
+                        {
+                            var match = Regex.Replace(text.Replace("_", " "), $@"^.*?({patten}).*?$", "$1");
+                            //match = Regex.Replace(match.Trim(trim_chars), patten, (m) => { return ($" {m.Value.Trim(trim_chars)} "); });
+                            match = Regex.Replace(match.Trim(trim_chars), patten, "$1/$2/$3 $4:$5:$6");
+                            if (DateTime.TryParse(match, out dt)) { result = dt; Log($"{file} => {dt.ToString("yyyy/MM/dd HH:mm:ss")}"); break; }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex) { Log(ex.Message); }
+
+            return (result);
         }
 
         public static string GetAttribute(MagickImage image, string attr)
@@ -755,20 +1281,24 @@ namespace NetCharm
         public static DateTime? GetMetaTime(MagickImage image)
         {
             DateTime? result = null;
-            if (image is MagickImage && image.FormatInfo.IsReadable)
+            try
             {
-                foreach (var tag in tag_date)
+                if (image is MagickImage && image.FormatInfo.IsReadable)
                 {
-                    if (image.AttributeNames.Contains(tag))
+                    foreach (var tag in tag_date)
                     {
-                        var v = image.GetAttribute(tag);
-                        var nv = Regex.Replace(v, @"^(\d{4}):(\d{2}):(\d{2})[ |T](.*?)Z?$", "$1-$2-$3T$4");
-                        //Log($"{tag.PadRight(32)}= {v} > {nv}");
-                        result = DateTime.Parse(tag.Contains("png") ? nv.Substring(0, tag.Length - 1) : nv);
-                        break;
+                        if (image.AttributeNames.Contains(tag))
+                        {
+                            var v = image.GetAttribute(tag);
+                            var nv = Regex.Replace(v, @"^(\d{4}):(\d{2}):(\d{2})[ |T](.*?)Z?$", "$1-$2-$3T$4");
+                            //Log($"{tag.PadRight(32)}= {v} > {nv}");
+                            result = DateTime.Parse(tag.Contains("png") ? nv.Substring(0, tag.Length - 1) : nv);
+                            break;
+                        }
                     }
                 }
             }
+            catch (Exception ex) { Log(ex.Message); }
             return (result);
         }
 
@@ -778,12 +1308,6 @@ namespace NetCharm
             if (File.Exists(file))
             {
                 var fi = new FileInfo(file);
-                var dc = fi.CreationTime;
-                var dm = fi.LastWriteTime;
-                var da = fi.LastAccessTime;
-
-                var ov = dm.ToString("yyyy-MM-ddTHH:mm:sszzz");
-
                 using (var ms = new FileStream(fi.FullName, FileMode.Open, FileAccess.Read, FileShare.Read))
                 {
                     try
@@ -884,6 +1408,20 @@ namespace NetCharm
                         result.Copyright = GetAttribute(image, tag);
                         if (!string.IsNullOrEmpty(result.Copyright)) break;
                     }
+                }
+                #endregion
+                #region Rating
+                foreach (var tag in tag_rating)
+                {
+                    try
+                    {
+                        if (image.AttributeNames.Contains(tag))
+                        {
+                            result.Rating = Convert.ToInt32(GetAttribute(image, tag));
+                            if (!string.IsNullOrEmpty(result.Copyright)) break;
+                        }
+                    }
+                    catch(Exception ex) { Log(ex.Message); }
                 }
                 #endregion
             }
@@ -1331,7 +1869,7 @@ namespace NetCharm
                                     if (root_nodes.Count >= 1)
                                     {
                                         var root_node = root_nodes.Item(0);
-                                        #region Title node
+                                        #region Title/Comment node
                                         if (xml_doc.GetElementsByTagName("dc:title").Count <= 0)
                                         {
                                             var desc = xml_doc.CreateElement("rdf:Description", "rdf");
@@ -1999,6 +2537,82 @@ namespace NetCharm
         }
         #endregion
 
+        #region Converting Image Format Helper
+        public string ConvertImageTo(string file, MagickFormat fmt)
+        {
+            var result = file;
+            if (File.Exists(file))
+            {
+                var fi = new FileInfo(file);
+                var dc = fi.CreationTime;
+                var dm = fi.LastWriteTime;
+                var da = fi.LastAccessTime;
+                using (var ms = new FileStream(fi.FullName, FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite))
+                {
+                    try
+                    {
+                        using (MagickImage image = new MagickImage(ms))
+                        {
+                            var meta = GetMetaInfo(image);
+
+                            var fmt_info = MagickNET.SupportedFormats.Where(f => f.Format == fmt).FirstOrDefault();
+                            var ext = fmt_info is MagickFormatInfo ? fmt_info.Format.ToString() : fmt.ToString();
+                            var name = Path.ChangeExtension(fi.FullName, $".{ext.ToLower()}");
+
+                            FixDPI(image);
+
+                            //if (fmt == MagickFormat.Tif || fmt == MagickFormat.Tiff || fmt == MagickFormat.Tiff64)
+                            //{
+                            //    image.SetAttribute("tiff:alpha", "unassociated");
+                            //    image.SetAttribute("tiff:photometric", "min-is-black");
+                            //    image.SetAttribute("tiff:rows-per-strip", "512");
+                            //}
+
+                            image.Write(name, fmt);
+                            var nfi = new FileInfo(name);
+                            nfi.CreationTime = dc;
+                            nfi.LastWriteTime = dm;
+                            nfi.LastAccessTime = da;
+
+                            Log($"Convert {file} => {name}");
+                            Log("~".PadRight(ExtendedMessageWidth, '~'));
+                            TouchMeta(name, dtc: dc, dtm: dm, dta: da, meta: meta);
+                            result = name;
+                        }
+                    }
+                    catch (Exception ex) { Log(ex.Message); }
+                }
+                fi.CreationTime = dc;
+                fi.LastWriteTime = dm;
+                fi.LastAccessTime = da;
+            }
+            else Log($"File \"{file}\" not exists!");
+            return (result);
+        }
+
+        public void ConvertImagesTo(IEnumerable<string> files, MagickFormat fmt)
+        {
+            if (files is IEnumerable<string>)
+            {
+                RunBgWorker(new Action<string>((file) =>
+                {
+                    var ret = ConvertImageTo(file, fmt);
+                    if (!string.IsNullOrEmpty(ret) && File.Exists(ret)) AddFile(ret);
+                }));
+            }
+        }
+
+        public void ConvertImagesTo(MagickFormat fmt)
+        {
+            if (FilesList.Items.Count >= 1)
+            {
+                List<string> files = new List<string>();
+                foreach (var item in FilesList.SelectedItems.Count > 0 ? FilesList.SelectedItems : FilesList.Items) files.Add(item as string);
+                ConvertImagesTo(files, fmt);
+            }
+        }
+        #endregion
+
         public static void InitMagicK()
         {
             try
@@ -2019,63 +2633,571 @@ namespace NetCharm
             catch (Exception ex) { Log(ex.Message); }
         }
 
-        public static void Main(string[] args)
+        public MainWindow()
         {
-            InitMagicK();
+            InitializeComponent();
+        }
 
+        private void Window_Loaded(object sender, RoutedEventArgs e)
+        {
             try
             {
-                if (args.Length == 1)
+                Icon = new BitmapImage(new Uri("pack://application:,,,/TouchMeta;component/Resources/time.ico"));
+            }
+            catch (Exception ex) { ShowMessage(ex.Message); }
+#if DEBUG
+            WindowStartupLocation = WindowStartupLocation.Manual;
+            Topmost = false;
+#else
+            WindowStartupLocation = WindowStartupLocation.CenterScreen;
+            Topmost = true;
+#endif
+            DefaultTitle = Title;
+            InitMagicK();
+
+            #region Default UI values
+            var now = DateTime.Now;
+            DateCreated.SelectedDate = now;
+            DateModified.SelectedDate = now;
+            DateAccessed.SelectedDate = now;
+            DateCreated.IsTodayHighlighted = true;
+            DateModified.IsTodayHighlighted = true;
+            DateAccessed.IsTodayHighlighted = true;
+
+            TimeCreated.Value = now;
+            TimeModified.Value = now;
+            TimeAccessed.Value = now;
+            TimeCreated.DefaultValue = now;
+            TimeModified.DefaultValue = now;
+            TimeAccessed.DefaultValue = now;
+
+            SetCreatedDateToAllEnabled.IsChecked = true;
+            SetModifiedDateToAllEnabled.IsChecked = true;
+            SetAccessedDateToAllEnabled.IsChecked = true;
+
+            SetCreatedTimeToAllEnabled.IsChecked = true;
+            SetModifiedTimeToAllEnabled.IsChecked = true;
+            SetAccessedTimeToAllEnabled.IsChecked = true;
+
+            FileRenameInputPopupCanvas.Background = Background;
+            FileRenameInputPopupBorder.BorderBrush = FilesList.BorderBrush;
+            FileRenameInputPopupBorder.BorderThickness = FilesList.BorderThickness;
+
+            MetaInputPopupCanvas.Background = Background;
+            MetaInputPopupBorder.BorderBrush = FilesList.BorderBrush;
+            MetaInputPopupBorder.BorderThickness = FilesList.BorderThickness;
+            MetaInputPopup.Width = Width - 28;
+            MetaInputPopup.MinHeight = 336;
+            //MetaInputPopup.Height = 336;
+
+            MetaInputPopup.StaysOpen = true;
+            MetaInputPopup.Placement = PlacementMode.Bottom;
+            MetaInputPopup.HorizontalOffset = MetaInputPopup.Width - ShowMetaInputPopup.ActualWidth;
+            MetaInputPopup.VerticalOffset = -6;
+
+            MetaInputPopup.PreviewMouseDown += (obj, evt) => { Activate(); };
+
+            CurrentMetaRating = 0;
+            #endregion
+
+            InitBgWorker();
+
+            var args = Environment.GetCommandLineArgs();
+            LoadFiles(args.Skip(1).ToArray());
+        }
+
+        private void Window_DragOver(object sender, DragEventArgs e)
+        {
+            var fmts = e.Data.GetFormats(true);
+#if DEBUG
+            Debug.WriteLine(string.Join(", ", fmts));
+#endif
+            if (new List<string>(fmts).Contains("FileDrop"))
+            {
+                e.Effects = DragDropEffects.Link;
+            }
+        }
+
+        private void Window_Drop(object sender, DragEventArgs e)
+        {
+            var fmts = e.Data.GetFormats(true);
+            if (new List<string>(fmts).Contains("FileDrop"))
+            {
+                var files = e.Data.GetData("FileDrop");
+                if (files is IEnumerable<string>)
                 {
-                    var fi = args[0];
-                    var path = Path.GetDirectoryName(fi);
-                    //Log(path);
-                    if (!Path.IsPathRooted(path)) path = Path.Combine(Directory.GetCurrentDirectory(), path);
-                    //Log(Path.GetFileName(fi));
-                    var files = Directory.GetFiles(path, Path.GetFileName(fi), SearchOption.TopDirectoryOnly);
-                    foreach (var file in files)
-                    {
-                        try
-                        {
-                            var fn = Path.GetFullPath(Path.Combine(path, file));
-                            Log($"{fn}");
-                            Log($"-".PadRight(80, '-'));
-                            ShowMeta(fn);
-                            Log("=".PadRight(80, '='));
-                        }
-                        catch (Exception ex) { Log(ex.Message); }
-                    }
-                }
-                else if (args.Length >= 2)
-                {
-                    var opt = args[0];
-                    var fi = args[1];
-                    var path = Path.GetDirectoryName(fi);
-                    //Log(path);
-                    if (!Path.IsPathRooted(path)) path = Path.Combine(Directory.GetCurrentDirectory(), path);
-                    //Log(Path.GetFileName(fi));
-                    var files = Directory.GetFiles(path, Path.GetFileName(fi), SearchOption.TopDirectoryOnly);
-                    foreach (var file in files)
-                    {
-                        try
-                        {
-                            var fn = Path.GetFullPath(Path.Combine(path, file));
-                            Log($"{fn}");
-                            Log($"-".PadRight(80, '-'));
-                            if (opt.Equals("-M", StringComparison.CurrentCultureIgnoreCase)) TouchMeta(fn);
-                            else if (opt.Equals("-MF", StringComparison.CurrentCultureIgnoreCase)) TouchMeta(fn, force: true);
-                            else if (opt.Equals("-T", StringComparison.CurrentCultureIgnoreCase)) TouchDate(fn, args.Length >= 3 ? args[2] : null);
-                            else if (opt.Equals("-C", StringComparison.CurrentCultureIgnoreCase)) ClearMeta(fn);
-                            Log("=".PadRight(80, '='));
-                        }
-                        catch (Exception ex) { Log(ex.Message); }
-                    }
+                    LoadFiles((files as IEnumerable<string>).ToArray());
                 }
             }
-            catch (Exception ex) { Log($"{ex.Message}{Environment.NewLine}{ex.StackTrace}"); }
-            finally
-            {
+        }
 
+        private bool _date_changed_ = false;
+        private bool _time_changed_ = false;
+        private void DateSelector_SelectedDateChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (_time_changed_)
+                e.Handled = true;
+            else
+            {
+                _date_changed_ = true;
+                if (sender == DateCreated)
+                {
+                    var dt = GetCustomDateTime(DateCreated, TimeCreated);
+                    DateCreated.SelectedDate = dt ?? DateCreated.SelectedDate;
+                    TimeCreated.Value = DateCreated.SelectedDate;
+                }
+                else if (sender == DateModified)
+                {
+                    var dt = GetCustomDateTime(DateModified, TimeModified);
+                    DateModified.SelectedDate = dt ?? DateModified.SelectedDate;
+                    TimeModified.Value = DateModified.SelectedDate;
+                }
+                else if (sender == DateAccessed)
+                {
+                    var dt = GetCustomDateTime(DateAccessed, TimeAccessed);
+                    DateAccessed.SelectedDate = dt ?? DateAccessed.SelectedDate;
+                    TimeAccessed.Value = DateAccessed.SelectedDate;
+                }
+                UpdateFileTimeInfo();
+                _date_changed_ = false;
+            }
+        }
+
+        private void TimeSelector_ValueChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
+        {
+            if (_date_changed_)
+                e.Handled = true;
+            else
+            {
+                _time_changed_ = true;
+                if (sender == TimeCreated)
+                {
+                    var dt = GetCustomDateTime(DateCreated, TimeCreated);
+                    DateCreated.SelectedDate = dt ?? DateCreated.SelectedDate;
+                    TimeCreated.Value = DateCreated.SelectedDate;
+                }
+                else if (sender == TimeModified)
+                {
+                    var dt = GetCustomDateTime(DateModified, TimeModified);
+                    DateModified.SelectedDate = dt ?? DateModified.SelectedDate;
+                    TimeModified.Value = DateModified.SelectedDate;
+                }
+                else if (sender == TimeAccessed)
+                {
+                    var dt = GetCustomDateTime(DateAccessed, TimeAccessed);
+                    DateAccessed.SelectedDate = dt ?? DateAccessed.SelectedDate;
+                    TimeAccessed.Value = DateAccessed.SelectedDate;
+                }
+                UpdateFileTimeInfo();
+                _time_changed_ = false;
+            }
+        }
+
+        private void FilesList_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (FilesList.SelectedItem != null)
+            {
+                var file = FilesList.SelectedItem as string;
+                UpdateFileTimeInfo(file);
+            }
+        }
+
+        private void FilesListAction_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender == GetFileTimeFromSelected)
+            {
+                if (FilesList.SelectedItem != null)
+                {
+                    #region Get File DateTime From Selected File
+                    var file = FilesList.SelectedItem as string;
+                    if (File.Exists(file))
+                    {
+                        var fi = new FileInfo(file);
+                        SetCustomDateTime(dtc: fi.CreationTime, dtm: fi.LastWriteTime, dta: fi.LastAccessTime);
+                    }
+                    #endregion
+                }
+            }
+            else if (sender == GetMetaTimeFromSelected)
+            {
+                if (FilesList.SelectedItem != null)
+                {
+                    #region Get Metadata DateTime From Selected File
+                    var file = FilesList.SelectedItem as string;
+                    var dt = GetMetaTime(file);
+                    if (dt != null) SetCustomDateTime(dt: dt);
+                    #endregion
+                }
+            }
+            else if (sender == GetMetaInfoFromSelected)
+            {
+                if (FilesList.SelectedItem != null)
+                {
+                    #region Get Metadata Infomation From Selected File
+                    var file = FilesList.SelectedItem as string;
+                    CurrentMeta = GetMetaInfo(file);
+                    #endregion
+                }
+            }
+            else if (sender == GetFileTimeFromFilaName)
+            {
+                if (FilesList.SelectedItem != null)
+                {
+                    #region Touching File Time
+                    var force = Keyboard.Modifiers == ModifierKeys.Control;
+                    var meta = CurrentMeta;
+
+                    RunBgWorker(new Action<string>((file) =>
+                    {
+                        SetCustomDateTime(dt: ParseDateTime(file));
+                    }));
+                    #endregion
+                }
+            }
+            else if (sender == SetFileTimeFromFileName)
+            {
+                #region Touching File Time
+                var force = Keyboard.Modifiers == ModifierKeys.Control;
+                var meta = CurrentMeta;
+
+                RunBgWorker(new Action<string>((file) =>
+                {
+                    TouchDate(file, force: force, dtm: ParseDateTime(file), meta: meta);
+                }));
+                #endregion
+            }
+
+            else if (sender == SetFileTimeFromC)
+            {
+                #region Touching File Time
+                var force = Keyboard.Modifiers == ModifierKeys.Control;
+                var meta = CurrentMeta;
+
+                meta.DateCreated = null;
+                meta.DateModified = null;
+                meta.DateAccesed = null;
+
+                RunBgWorker(new Action<string>((file) =>
+                {
+                    TouchDate(file, force: force, dtc: File.GetCreationTime(file), meta: meta);
+                }));
+                #endregion
+            }
+            else if (sender == SetFileTimeFromM)
+            {
+                #region Touching File Time
+                var force = Keyboard.Modifiers == ModifierKeys.Control;
+                var meta = CurrentMeta;
+
+                meta.DateCreated = null;
+                meta.DateModified = null;
+                meta.DateAccesed = null;
+
+                RunBgWorker(new Action<string>((file) =>
+                {
+                    TouchDate(file, force: force, dtm: File.GetLastWriteTime(file), meta: meta);
+                }));
+                #endregion
+            }
+            else if (sender == SetFileTimeFromA)
+            {
+                #region Touching File Time
+                var force = Keyboard.Modifiers == ModifierKeys.Control;
+                var meta = CurrentMeta;
+
+                meta.DateCreated = null;
+                meta.DateModified = null;
+                meta.DateAccesed = null;
+
+                RunBgWorker(new Action<string>((file) =>
+                {
+                    TouchDate(file, force: force, dta: File.GetLastAccessTime(file), meta: meta);
+                }));
+                #endregion
+            }
+
+            else if (sender == TouchMetaFromC)
+            {
+                #region Touching File Time
+                var force = Keyboard.Modifiers == ModifierKeys.Control;
+                var meta = CurrentMeta;
+
+                meta.DateCreated = null;
+                meta.DateModified = null;
+                meta.DateAccesed = null;
+
+                RunBgWorker(new Action<string>((file) =>
+                {
+                    TouchMeta(file, force: force, dtc: File.GetCreationTime(file), meta: meta);
+                }));
+                #endregion
+            }
+            else if (sender == TouchMetaFromM)
+            {
+                #region Touching File Time
+                var force = Keyboard.Modifiers == ModifierKeys.Control;
+                var meta = CurrentMeta;
+
+                meta.DateCreated = null;
+                meta.DateModified = null;
+                meta.DateAccesed = null;
+
+                RunBgWorker(new Action<string>((file) =>
+                {
+                    TouchMeta(file, force: force, dtm: File.GetLastWriteTime(file), meta: meta);
+                }));
+                #endregion
+            }
+            else if (sender == TouchMetaFromA)
+            {
+                #region Touching File Time
+                var force = Keyboard.Modifiers == ModifierKeys.Control;
+                var meta = CurrentMeta;
+
+                meta.DateCreated = null;
+                meta.DateModified = null;
+                meta.DateAccesed = null;
+
+                RunBgWorker(new Action<string>((file) =>
+                {
+                    TouchMeta(file, force: force, dta: File.GetLastAccessTime(file), meta: meta);
+                }));
+                #endregion
+            }
+            else if(sender == ReTouchMeta)
+            {
+                RunBgWorker(new Action<string>((file) =>
+                {
+                    var meta = GetMetaInfo(file);
+                    TouchMeta(file, force: true, meta: meta);
+                }));
+            }
+            else if (sender == ConvertSelectedToJpg)
+            {
+                ConvertImagesTo(MagickFormat.Jpg);
+            }
+            else if (sender == ConvertSelectedToPng)
+            {
+                ConvertImagesTo(MagickFormat.Png);
+            }
+            else if (sender == ConvertSelectedToGif)
+            {
+                ConvertImagesTo(MagickFormat.Gif);
+            }
+            else if (sender == ConvertSelectedToPdf)
+            {
+                ConvertImagesTo(MagickFormat.Pdf);
+            }
+            else if (sender == ConvertSelectedToTif)
+            {
+                ConvertImagesTo(MagickFormat.Tiff);
+            }
+            else if (sender == ConvertSelectedToAvif)
+            {
+                ConvertImagesTo(MagickFormat.Avif);
+            }
+            else if (sender == ConvertSelectedToWebp)
+            {
+                ConvertImagesTo(MagickFormat.WebP);
+            }
+            else if (sender == ViewSelected)
+            {
+                bool openwith = Keyboard.Modifiers == ModifierKeys.Shift ? true : false;
+                RunBgWorker(new Action<string>((file) =>
+                {
+                    if (openwith)
+                        Process.Start("OpenWith.exe", file);
+                    else
+                        Process.Start(file);
+                }), showlog: false);
+            }
+            else if (sender == RenameSelected)
+            {
+                if (FilesList.SelectedItem != null)
+                {
+                    var file = FilesList.SelectedItem as string;
+                    FileRenameInputNameText.Tag = file;
+                    FileRenameInputNameText.Text = Path.GetFileName(file);
+                    FileRenameInputPopup.StaysOpen = true;
+                    FileRenameInputPopup.IsOpen = true;
+                }
+            }
+            else if (sender == RemoveSelected)
+            {
+                #region From Files List Remove Selected Files
+                try
+                {
+                    foreach (var i in FilesList.SelectedItems.OfType<string>().ToList())
+                        FilesList.Items.Remove(i);
+                }
+                catch (Exception ex) { ShowMessage(ex.Message, "ERROR"); }
+                #endregion
+            }
+            else if (sender == RemoveAll)
+            {
+                FilesList.Items.Clear();
+            }
+        }
+
+        private void BtnAction_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender == SetCreatedDateTimeToAll)
+            {
+                #region Set Created DateTime To All
+                SetCustomDateTime(dtm: DateCreated.SelectedDate, dta: DateCreated.SelectedDate);
+                #endregion
+            }
+            else if (sender == SetModifiedDateTimeToAll)
+            {
+                #region Set Modified DateTime To All
+                SetCustomDateTime(dtc: DateModified.SelectedDate, dta: DateModified.SelectedDate);
+                #endregion
+            }
+            else if (sender == SetAccessedDateTimeToAll)
+            {
+                #region Set Accessed DateTime To All
+                SetCustomDateTime(dtc: DateAccessed.SelectedDate, dtm: DateAccessed.SelectedDate);
+                #endregion
+            }
+            else if (sender == ShowMetaInputPopup)
+            {
+                #region Popup Metadata Input Panel
+                if (MetaInputPopup.StaysOpen)
+                    MetaInputPopup.IsOpen = !MetaInputPopup.IsOpen;
+                else
+                    MetaInputPopup.IsOpen = true;
+                MetaInputPopup.StaysOpen = Keyboard.Modifiers == ModifierKeys.Control;
+                #endregion
+            }
+            else if (sender == TimeStringParsing)
+            {
+                #region Parsing DateTime
+                var dt = DateTime.Now;
+                var dt_text = NormalizeDateTimeText(TimeStringContent.Text);
+                var fdt = ParseDateTime(dt_text, is_file: false);
+                if (fdt is DateTime || DateTime.TryParse(dt_text, out dt)) SetCustomDateTime(fdt ?? dt);
+                #endregion
+            }
+            else if (sender == BtnTouchTime)
+            {
+                #region Touching File Time
+                var force = Keyboard.Modifiers == ModifierKeys.Control;
+                var meta = CurrentMeta;
+                //if (!force)
+                //{
+                //    meta.DateCreated = null;
+                //    meta.DateModified = null;
+                //    meta.DateAccesed = null;
+                //}
+                RunBgWorker(new Action<string>((file) =>
+                {
+                    TouchDate(file, force: force, meta: meta);
+                }));
+                #endregion
+            }
+            else if (sender == BtnTouchMeta)
+            {
+                #region Touching Metadata
+                var force = Keyboard.Modifiers == ModifierKeys.Control;
+                var meta = CurrentMeta;
+
+                RunBgWorker(new Action<string>((file) =>
+                {
+                    TouchMeta(file, force: force, meta: meta);
+                }));
+                #endregion
+            }
+            else if (sender == BtnClearMeta)
+            {
+                #region Clear Metadata
+                RunBgWorker(new Action<string>((file) =>
+                {
+                    ClearMeta(file);
+                }));
+                #endregion
+            }
+            else if (sender == BtnShowMeta)
+            {
+                #region Show Metadata
+                bool xmp_merge_nodes = Keyboard.Modifiers == ModifierKeys.Control;
+                RunBgWorker(new Action<string>((file) =>
+                {
+                    ShowMeta(file, xmp_merge_nodes);
+                }));
+                #endregion
+            }
+            else if (sender == BtnAddFile)
+            {
+                LoadFiles();
+            }
+            else if (sender == FileRenameInputClose)
+            {
+                FileRenameInputPopup.IsOpen = false;
+                FileRenameInputNameText.Tag = null;
+                FileRenameInputNameText.Text = string.Empty;
+            }
+            else if (sender == FileRenameApply)
+            {
+                #region Rename Selected File
+                if (FileRenameInputNameText.Tag is string)
+                {
+                    try
+                    {
+                        var file = FileRenameInputNameText.Tag as string;
+                        if (File.Exists(file))
+                        {
+                            var folder = Path.GetDirectoryName(file);
+                            var fi = new FileInfo(file);
+                            var fn_new = FileRenameInputNameText.Text.Trim();
+                            if (!Path.IsPathRooted(fn_new)) fn_new = Path.GetFullPath(Path.Combine(fi.DirectoryName, fn_new));
+                            fi.MoveTo(fn_new);
+                            var idx = FilesList.Items.IndexOf(file);
+                            if (idx >= 0) FilesList.Items[idx] = fn_new;
+                        }
+                    }
+                    catch (Exception ex) { ShowMessage(ex.Message); }
+                }
+                FileRenameInputPopup.IsOpen = false;
+                #endregion
+            }
+            else if (sender == MetaInputRanking0)
+            {
+                CurrentMetaRating = 0;
+            }
+            else if(sender == MetaInputRanking1)
+            {
+                CurrentMetaRating = 1;
+            }
+            else if (sender == MetaInputRanking2)
+            {
+                CurrentMetaRating = 25;
+            }
+            else if (sender == MetaInputRanking3)
+            {
+                CurrentMetaRating = 50;
+            }
+            else if (sender == MetaInputRanking4)
+            {
+                CurrentMetaRating = 75;
+            }
+            else if (sender == MetaInputRanking5)
+            {
+                CurrentMetaRating = 99;
+            }
+            else if (sender == ShowHelp)
+            {
+                var lines = new List<string>();
+                lines.Add("Usage");
+                lines.Add("-".PadRight(NormallyMessageWidth, '-'));
+
+                lines.Add("Ctrl+Click Touch Time Button : Force Touching DateTime");
+                lines.Add("Ctrl+Click Touch Meta Button : Force Touching Metadata");
+
+                lines.Add("~".PadRight(NormallyMessageWidth, '~'));
+                lines.Add("Note:");
+                lines.Add("Convert To AVIIF Format is very slowly and Huge CPU/Memory Usage, so NOT RECOMMENDED!");
+                lines.Add("=".PadRight(NormallyMessageWidth, '='));
+                ShowMessage(string.Join(Environment.NewLine, lines), "Usage");
             }
         }
     }

@@ -97,7 +97,6 @@
                     <MenuItem x:Name="TouchMetaFromA" x:Uid="TouchMetaFromA" Header="Touch Meta Time From Accessed Name" Click="FilesListAction_Click"/>
                     <Separator/>
                     <MenuItem x:Name="ReTouchMeta" x:Uid="ReTouchMeta" Header="ReTouch Meta Info for Selected File" Click="FilesListAction_Click"/>
-                    <MenuItem x:Name="ReTouchMetaAlt" x:Uid="ReTouchMetaAlt" Header="ReTouch Meta Info for Selected File (Alt)" Click="FilesListAction_Click"/>
                     <Separator/>                    
                     <MenuItem x:Name="ConvertSelectedToJpg" x:Uid="ConvertSelectedToJpg" Header="Convert Selected Files to JPG" Click="FilesListAction_Click"/>
                     <MenuItem x:Name="ConvertSelectedToPng" x:Uid="ConvertSelectedToPng" Header="Convert Selected Files to PNG" Click="FilesListAction_Click"/>

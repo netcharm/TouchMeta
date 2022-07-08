@@ -13,36 +13,38 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
-using System.Windows.Data;
-using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
 using System.Windows.Threading;
 using System.Xml;
 
 using ImageMagick;
-using System.Xml.Linq;
+using CompactExifLib;
 
 namespace TouchMeta
 {
     public class MetaInfo
     {
         public bool TouchProfiles { get; set; } = true;
+
         public DateTime? DateCreated { get; set; } = null;
         public DateTime? DateModified { get; set; } = null;
         public DateTime? DateAccesed { get; set; } = null;
 
         public DateTime? DateAcquired { get; set; } = null;
         public DateTime? DateTaken { get; set; } = null;
+
         public string Title { get; set; } = null;
         public string Subject { get; set; } = null;
         public string Keywords { get; set; } = null;
         public string Comment { get; set; } = null;
         public string Author { get; set; } = null;
         public string Copyright { get; set; } = null;
+
         public int? Rating { get; set; } = null;
+        public int? Ranking { get; set; } = null;
+
         public Dictionary<string, string> Attributes { get; set; } = null;
         public Dictionary<string, IImageProfile> Profiles { get; set; } = null;
     }
@@ -469,6 +471,26 @@ namespace TouchMeta
         #endregion
 
         #region Text/Color Converting Helper
+        private static int RatingToRanking(int rating)
+        {
+            var rating_level = 0;
+            try
+            {
+                if (rating >= 99) rating_level = 5;
+                else if (rating >= 75) rating_level = 4;
+                else if (rating >= 50) rating_level = 3;
+                else if (rating >= 25) rating_level = 2;
+                else if (rating >= 01) rating_level = 1;
+            }
+            catch { }
+            return (rating_level);
+        }
+
+        private static int RatingToRanking(int? rating)
+        {
+            return (RatingToRanking(rating ?? 0));
+        }
+
         private static MagickColor XYZ2RGB(double x, double y, double z)
         {
             var r =  3.2410 * x + -1.5374 * y + -0.4986 * z;
@@ -803,6 +825,491 @@ namespace TouchMeta
             }
             return (result);
         }
+
+        private static string TouchXMP(FileInfo fi, string xml, MetaInfo meta)
+        {
+            if (meta is MetaInfo)
+            {
+                var title = meta is MetaInfo ? meta.Title ?? Path.GetFileNameWithoutExtension(fi.Name) : Path.GetFileNameWithoutExtension(fi.Name);
+                var subject = meta is MetaInfo ? meta.Subject : title;
+                var authors = meta is MetaInfo ? meta.Author : string.Empty;
+                var copyright = meta is MetaInfo ? meta.Copyright : authors;
+                var keywords = meta is MetaInfo ? meta.Keywords : string.Empty;
+                var comment = meta is MetaInfo ? meta.Comment : string.Empty;
+                var rating = meta is MetaInfo ? meta.Rating : null;
+                if (!string.IsNullOrEmpty(title)) title.Replace("\0", string.Empty).TrimEnd('\0');
+                if (!string.IsNullOrEmpty(subject)) subject.Replace("\0", string.Empty).TrimEnd('\0');
+                if (!string.IsNullOrEmpty(authors)) authors.Replace("\0", string.Empty).TrimEnd('\0');
+                if (!string.IsNullOrEmpty(copyright)) copyright.Replace("\0", string.Empty).TrimEnd('\0');
+                if (!string.IsNullOrEmpty(keywords)) keywords.Replace("\0", string.Empty).TrimEnd('\0');
+                if (!string.IsNullOrEmpty(comment)) comment.Replace("\0", string.Empty).TrimEnd('\0');
+
+                var dc = (meta is MetaInfo ? meta.DateCreated ?? meta.DateAcquired ?? meta.DateTaken : null) ?? fi.CreationTime;
+                var dm = (meta is MetaInfo ? meta.DateModified ?? meta.DateAcquired ?? meta.DateTaken : null) ?? fi.LastWriteTime;
+                var da = (meta is MetaInfo ? meta.DateAccesed ?? meta.DateAcquired ?? meta.DateTaken : null) ?? fi.LastAccessTime;
+
+                // 2021:09:13 11:00:16
+                var dc_exif = dc.ToString("yyyy:MM:dd HH:mm:ss");
+                var dm_exif = dm.ToString("yyyy:MM:dd HH:mm:ss");
+                var da_exif = da.ToString("yyyy:MM:dd HH:mm:ss");
+                // 2021:09:13T11:00:16
+                var dc_xmp = dc.ToString("yyyy:MM:dd HH:mm:ss");
+                var dm_xmp = dm.ToString("yyyy:MM:dd HH:mm:ss");
+                var da_xmp = da.ToString("yyyy:MM:dd HH:mm:ss");
+                // 2021-09-13T06:38:49+00:00
+                var dc_date = dc.ToString("yyyy-MM-ddTHH:mm:sszzz");
+                var dm_date = dm.ToString("yyyy-MM-ddTHH:mm:sszzz");
+                var da_date = da.ToString("yyyy-MM-ddTHH:mm:sszzz");
+                // 2021-08-26T12:23:49
+                var dc_ms = dc.ToString("yyyy-MM-ddTHH:mm:sszzz");
+                var dm_ms = dm.ToString("yyyy-MM-ddTHH:mm:sszzz");
+                var da_ms = da.ToString("yyyy-MM-ddTHH:mm:sszzz");
+                // 2021-08-26T12:23:49.002
+                var dc_msxmp = dc.ToString("yyyy-MM-ddTHH:mm:ss.fff");
+                var dm_msxmp = dm.ToString("yyyy-MM-ddTHH:mm:ss.fff");
+                var da_msxmp = da.ToString("yyyy-MM-ddTHH:mm:ss.fff");
+                // 2021-09-13T08:38:13Z
+                var dc_png = dc.ToString("yyyy-MM-ddTHH:mm:ssZ");
+                var dm_png = dm.ToString("yyyy-MM-ddTHH:mm:ssZ");
+                var da_png = da.ToString("yyyy-MM-ddTHH:mm:ssZ");
+                // 2021:09:13 11:00:16+08:00
+                var dc_misc = dc.ToString("yyyy:MM:dd HH:mm:sszzz");
+                var dm_misc = dm.ToString("yyyy:MM:dd HH:mm:sszzz");
+                var da_misc = da.ToString("yyyy:MM:dd HH:mm:sszzz");
+
+                var keyword_list = string.IsNullOrEmpty(keywords) ? new List<string>() : keywords.Split(new char[] { ';', '#' }, StringSplitOptions.RemoveEmptyEntries).Select(k => k.Trim()).Where(k => !string.IsNullOrEmpty(k)).Distinct();
+                keywords = string.Join("; ", keyword_list);
+
+                #region Init a XMP contents
+                if (string.IsNullOrEmpty(xml))
+                {
+                    //var xml = $"<?xpacket begin='?' id='W5M0MpCehiHzreSzNTczkc9d'?>{Environment.NewLine}<x:xmpmeta xmlns:x=\"adobe:ns:meta/\"><rdf:RDF xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\"><rdf:Description rdf:about=\"uuid:faf5bdd5-ba3d-11da-ad31-d33d75182f1b\" xmlns:MicrosoftPhoto=\"http://ns.microsoft.com/photo/1.0/\"><MicrosoftPhoto:DateAcquired>{dm_msxmp}</MicrosoftPhoto:DateAcquired></rdf:Description></rdf:RDF></x:xmpmeta>{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}{Environment.NewLine}                            <?xpacket end='w'?>";
+                    //var xml = $"<?xpacket begin='?' id='W5M0MpCehiHzreSzNTczkc9d'?><x:xmpmeta xmlns:x=\"adobe:ns:meta/\"><rdf:RDF xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\"><rdf:Description rdf:about=\"uuid:faf5bdd5-ba3d-11da-ad31-d33d75182f1b\" xmlns:MicrosoftPhoto=\"http://ns.microsoft.com/photo/1.0/\"><MicrosoftPhoto:DateAcquired>{dm_msxmp}</MicrosoftPhoto:DateAcquired><MicrosoftPhoto:DateTaken>{dm_msxmp}</MicrosoftPhoto:DateTaken></rdf:Description><rdf:Description about='' xmlns:exif='http://ns.adobe.com/exif/1.0/'><exif:DateTimeDigitized>{dm_ms}</exif:DateTimeDigitized><exif:DateTimeOriginal>{dm_ms}</exif:DateTimeOriginal></rdf:Description></rdf:RDF></x:xmpmeta><?xpacket end='w'?>";
+
+                    xml = $"<?xpacket begin='?' id='W5M0MpCehiHzreSzNTczkc9d'?><x:xmpmeta xmlns:x=\"adobe:ns:meta/\"><rdf:RDF xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\"></rdf:RDF></x:xmpmeta><?xpacket end='w'?>";
+                }
+                #endregion
+                try
+                {
+                    var xml_doc = new XmlDocument();
+                    xml_doc.LoadXml(xml);
+                    var root_nodes = xml_doc.GetElementsByTagName("rdf:RDF");
+                    if (root_nodes.Count >= 1)
+                    {
+                        var root_node = root_nodes.Item(0);
+                        #region Title node
+                        if (xml_doc.GetElementsByTagName("dc:title").Count <= 0)
+                        {
+                            var desc = xml_doc.CreateElement("rdf:Description", "rdf");
+                            desc.SetAttribute("xmlns:dc", xmp_ns_lookup["dc"]);
+                            desc.AppendChild(xml_doc.CreateElement("dc:title", "dc"));
+                            root_node.AppendChild(desc);
+                        }
+                        #endregion
+                        #region Comment node
+                        if (xml_doc.GetElementsByTagName("dc:description").Count <= 0)
+                        {
+                            var desc = xml_doc.CreateElement("rdf:Description", "rdf");
+                            desc.SetAttribute("xmlns:dc", xmp_ns_lookup["dc"]);
+                            desc.AppendChild(xml_doc.CreateElement("dc:description", "dc"));
+                            root_node.AppendChild(desc);
+                        }
+                        #endregion
+                        #region Author node
+                        if (xml_doc.GetElementsByTagName("dc:creator").Count <= 0)
+                        {
+                            var desc = xml_doc.CreateElement("rdf:Description", "rdf");
+                            desc.SetAttribute("xmlns:dc", xmp_ns_lookup["dc"]);
+                            desc.AppendChild(xml_doc.CreateElement("dc:creator", "dc"));
+                            root_node.AppendChild(desc);
+                        }
+                        if (xml_doc.GetElementsByTagName("xmp:creator").Count <= 0)
+                        {
+                            var desc = xml_doc.CreateElement("rdf:Description", "rdf");
+                            desc.SetAttribute("xmlns:xmp", xmp_ns_lookup["xmp"]);
+                            desc.AppendChild(xml_doc.CreateElement("xmp:creator", "xmp"));
+                            root_node.AppendChild(desc);
+                        }
+                        #endregion
+                        #region Keywords node
+                        if (xml_doc.GetElementsByTagName("dc:subject").Count <= 0)
+                        {
+                            var desc = xml_doc.CreateElement("rdf:Description", "rdf");
+                            desc.SetAttribute("xmlns:dc", xmp_ns_lookup["dc"]);
+                            desc.AppendChild(xml_doc.CreateElement("dc:subject", "dc"));
+                            root_node.AppendChild(desc);
+                        }
+                        if (xml_doc.GetElementsByTagName("MicrosoftPhoto:LastKeywordXMP").Count <= 0)
+                        {
+                            var desc = xml_doc.CreateElement("rdf:Description", "rdf");
+                            desc.SetAttribute("xmlns:MicrosoftPhoto", xmp_ns_lookup["MicrosoftPhoto"]);
+                            desc.AppendChild(xml_doc.CreateElement("MicrosoftPhoto:LastKeywordXMP", "MicrosoftPhoto"));
+                            root_node.AppendChild(desc);
+                        }
+                        if (xml_doc.GetElementsByTagName("MicrosoftPhoto:LastKeywordIPTC").Count <= 0)
+                        {
+                            var desc = xml_doc.CreateElement("rdf:Description", "rdf");
+                            desc.SetAttribute("xmlns:MicrosoftPhoto", xmp_ns_lookup["MicrosoftPhoto"]);
+                            desc.AppendChild(xml_doc.CreateElement("MicrosoftPhoto:LastKeywordIPTC", "MicrosoftPhoto"));
+                            root_node.AppendChild(desc);
+                        }
+                        if (xml_doc.GetElementsByTagName("MicrosoftPhoto:LastKeywordIPTC_TIFF_IRB").Count <= 0)
+                        {
+                            var desc = xml_doc.CreateElement("rdf:Description", "rdf");
+                            desc.SetAttribute("xmlns:MicrosoftPhoto", xmp_ns_lookup["MicrosoftPhoto"]);
+                            desc.AppendChild(xml_doc.CreateElement("MicrosoftPhoto:LastKeywordIPTC_TIFF_IRB", "MicrosoftPhoto"));
+                            root_node.AppendChild(desc);
+                        }
+                        #endregion
+                        #region Copyright node
+                        if (xml_doc.GetElementsByTagName("dc:rights").Count <= 0)
+                        {
+                            var desc = xml_doc.CreateElement("rdf:Description", "rdf");
+                            desc.SetAttribute("xmlns:dc", xmp_ns_lookup["dc"]);
+                            desc.AppendChild(xml_doc.CreateElement("dc:rights", "dc"));
+                            root_node.AppendChild(desc);
+                        }
+                        #endregion
+                        #region CreateTime node
+                        if (xml_doc.GetElementsByTagName("xmp:CreateDate").Count <= 0)
+                        {
+                            var desc = xml_doc.CreateElement("rdf:Description", "rdf");
+                            desc.SetAttribute("rdf:about", "uuid:faf5bdd5-ba3d-11da-ad31-d33d75182f1b");
+                            desc.SetAttribute("xmlns:xmp", xmp_ns_lookup["xmp"]);
+                            desc.AppendChild(xml_doc.CreateElement("xmp:CreateDate", "xmp"));
+                            root_node.AppendChild(desc);
+                        }
+                        #endregion
+                        #region ModifyDate node
+                        if (xml_doc.GetElementsByTagName("xmp:ModifyDate").Count <= 0)
+                        {
+                            var desc = xml_doc.CreateElement("rdf:Description", "rdf");
+                            desc.SetAttribute("rdf:about", "uuid:faf5bdd5-ba3d-11da-ad31-d33d75182f1b");
+                            desc.SetAttribute("xmlns:xmp", xmp_ns_lookup["xmp"]);
+                            desc.AppendChild(xml_doc.CreateElement("xmp:ModifyDate", "xmp"));
+                            root_node.AppendChild(desc);
+                        }
+                        #endregion
+                        #region DateTimeOriginal node
+                        if (xml_doc.GetElementsByTagName("xmp:DateTimeOriginal").Count <= 0)
+                        {
+                            var desc = xml_doc.CreateElement("rdf:Description", "rdf");
+                            desc.SetAttribute("rdf:about", "uuid:faf5bdd5-ba3d-11da-ad31-d33d75182f1b");
+                            desc.SetAttribute("xmlns:xmp", xmp_ns_lookup["xmp"]);
+                            desc.AppendChild(xml_doc.CreateElement("xmp:DateTimeOriginal", "xmp"));
+                            root_node.AppendChild(desc);
+                        }
+                        #endregion
+                        #region DateTimeDigitized node
+                        if (xml_doc.GetElementsByTagName("xmp:DateTimeDigitized").Count <= 0)
+                        {
+                            var desc = xml_doc.CreateElement("rdf:Description", "rdf");
+                            desc.SetAttribute("rdf:about", "uuid:faf5bdd5-ba3d-11da-ad31-d33d75182f1b");
+                            desc.SetAttribute("xmlns:xmp", xmp_ns_lookup["xmp"]);
+                            desc.AppendChild(xml_doc.CreateElement("xmp:DateTimeDigitized", "xmp"));
+                            root_node.AppendChild(desc);
+                        }
+                        #endregion
+                        #region Ranking/Rating node
+                        if (xml_doc.GetElementsByTagName("xmp:Rating").Count <= 0 && rating > 0)
+                        {
+                            var desc = xml_doc.CreateElement("rdf:Description", "rdf");
+                            desc.SetAttribute("rdf:about", "uuid:faf5bdd5-ba3d-11da-ad31-d33d75182f1b");
+                            desc.SetAttribute("xmlns:xmp", xmp_ns_lookup["xmp"]);
+                            desc.AppendChild(xml_doc.CreateElement("xmp:Rating", "xmp"));
+                            root_node.AppendChild(desc);
+                        }
+                        if (xml_doc.GetElementsByTagName("MicrosoftPhoto:Rating").Count <= 0 && rating > 0)
+                        {
+                            var desc = xml_doc.CreateElement("rdf:Description", "rdf");
+                            desc.SetAttribute("rdf:about", "uuid:faf5bdd5-ba3d-11da-ad31-d33d75182f1b");
+                            desc.SetAttribute("xmlns:MicrosoftPhoto", xmp_ns_lookup["MicrosoftPhoto"]);
+                            desc.AppendChild(xml_doc.CreateElement("MicrosoftPhoto:Rating", "MicrosoftPhoto"));
+                            root_node.AppendChild(desc);
+                        }
+                        #endregion
+                        #region EXIF DateTime node
+                        if (xml_doc.GetElementsByTagName("exif:DateTimeDigitized").Count <= 0)
+                        {
+                            if (xml_doc.GetElementsByTagName("exif:DateTimeOriginal").Count > 0)
+                            {
+                                var node_msdt = xml_doc.GetElementsByTagName("exif:DateTimeOriginal").Item(0);
+                                node_msdt.ParentNode.AppendChild(xml_doc.CreateElement("exif:DateTimeDigitized", "exif"));
+                            }
+                            else
+                            {
+                                var desc = xml_doc.CreateElement("rdf:Description", "rdf");
+                                desc.SetAttribute("rdf:about", "");
+                                desc.SetAttribute("xmlns:exif", xmp_ns_lookup["exif"]);
+                                desc.AppendChild(xml_doc.CreateElement("exif:DateTimeDigitized", "exif"));
+                                root_node.AppendChild(desc);
+                            }
+                        }
+                        if (xml_doc.GetElementsByTagName("exif:DateTimeOriginal").Count <= 0)
+                        {
+                            if (xml_doc.GetElementsByTagName("exif:DateTimeDigitized").Count > 0)
+                            {
+                                var node_msdt = xml_doc.GetElementsByTagName("exif:DateTimeDigitized").Item(0);
+                                node_msdt.ParentNode.AppendChild(xml_doc.CreateElement("exif:DateTimeOriginal", "exif"));
+                            }
+                            else
+                            {
+                                var desc = xml_doc.CreateElement("rdf:Description", "rdf");
+                                desc.SetAttribute("rdf:about", "");
+                                desc.SetAttribute("xmlns:exif", xmp_ns_lookup["exif"]);
+                                desc.AppendChild(xml_doc.CreateElement("exif:DateTimeOriginal", "exif"));
+                                root_node.AppendChild(desc);
+                            }
+                        }
+                        #endregion
+                        #region TIFF DateTime node
+                        if (xml_doc.GetElementsByTagName("tiff:DateTime").Count <= 0)
+                        {
+                            var desc = xml_doc.CreateElement("rdf:Description", "rdf");
+                            desc.SetAttribute("rdf:about", "");
+                            desc.SetAttribute("xmlns:tiff", xmp_ns_lookup["tiff"]);
+                            desc.AppendChild(xml_doc.CreateElement("tiff:DateTime", "tiff"));
+                            root_node.AppendChild(desc);
+                        }
+                        #endregion
+                        #region MicrosoftPhoto DateTime node
+                        if (xml_doc.GetElementsByTagName("MicrosoftPhoto:DateAcquired").Count <= 0)
+                        {
+                            if (xml_doc.GetElementsByTagName("MicrosoftPhoto:DateTaken").Count > 0)
+                            {
+                                var node_msdt = xml_doc.GetElementsByTagName("MicrosoftPhoto:DateTaken").Item(0);
+                                node_msdt.ParentNode.AppendChild(xml_doc.CreateElement("MicrosoftPhoto:DateAcquired", "MicrosoftPhoto"));
+                            }
+                            else
+                            {
+                                var desc = xml_doc.CreateElement("rdf:Description", "rdf");
+                                desc.SetAttribute("rdf:about", "uuid:faf5bdd5-ba3d-11da-ad31-d33d75182f1b");
+                                desc.SetAttribute("xmlns:MicrosoftPhoto", xmp_ns_lookup["MicrosoftPhoto"]);
+                                desc.AppendChild(xml_doc.CreateElement("MicrosoftPhoto:DateAcquired", "MicrosoftPhoto"));
+                                root_node.AppendChild(desc);
+                            }
+                        }
+                        if (xml_doc.GetElementsByTagName("MicrosoftPhoto:DateTaken").Count <= 0)
+                        {
+                            if (xml_doc.GetElementsByTagName("MicrosoftPhoto:DateAcquired").Count > 0)
+                            {
+                                var node_msdt = xml_doc.GetElementsByTagName("MicrosoftPhoto:DateAcquired").Item(0);
+                                node_msdt.ParentNode.AppendChild(xml_doc.CreateElement("MicrosoftPhoto:DateTaken", "MicrosoftPhoto"));
+                            }
+                            else
+                            {
+                                var desc = xml_doc.CreateElement("rdf:Description", "rdf");
+                                desc.SetAttribute("rdf:about", "uuid:faf5bdd5-ba3d-11da-ad31-d33d75182f1b");
+                                desc.SetAttribute("xmlns:MicrosoftPhoto", xmp_ns_lookup["MicrosoftPhoto"]);
+                                desc.AppendChild(xml_doc.CreateElement("MicrosoftPhoto:DateTaken", "MicrosoftPhoto"));
+                                root_node.AppendChild(desc);
+                            }
+                        }
+                        #endregion
+
+                        #region xml nodes updating
+                        var rdf_attr = "xmlns:rdf";
+                        var rdf_value = "http://www.w3.org/1999/02/22-rdf-syntax-ns#";
+                        Action<XmlElement, dynamic> add_rdf_li = new Action<XmlElement, dynamic>((element, text)=>
+                        {
+                            if (text is string && !string.IsNullOrEmpty(text as string))
+                            {
+                                var items = (text as string).Split(new string[] { ";", "#" }, StringSplitOptions.RemoveEmptyEntries).Select(k => k.Trim()).Where(k => !string.IsNullOrEmpty(k)).Distinct();
+                                foreach (var item in items)
+                                {
+                                    var node_author_li = xml_doc.CreateElement("rdf:li", "rdf");
+                                    node_author_li.InnerText = item;
+                                    element.AppendChild(node_author_li);
+                                }
+                            }
+                            else if(text is IEnumerable<string> && (text as IEnumerable<string>).Count() > 0)
+                            {
+                                foreach (var item in (text as IEnumerable<string>))
+                                {
+                                    var node_author_li = xml_doc.CreateElement("rdf:li", "rdf");
+                                    node_author_li.InnerText = item;
+                                    element.AppendChild(node_author_li);
+                                }
+                            }
+                        });
+                        foreach (XmlNode node in xml_doc.GetElementsByTagName("rdf:Description"))
+                        {
+                            foreach (XmlNode child in node.ChildNodes)
+                            {
+                                if (child.Name.Equals("dc:title", StringComparison.CurrentCultureIgnoreCase))
+                                {
+                                    child.RemoveAll();
+                                    var node_title = xml_doc.CreateElement("rdf:Alt", "rdf");
+                                    var node_title_li = xml_doc.CreateElement("rdf:li", "rdf");
+                                    node_title_li.SetAttribute("xml:lang", "x-default");
+                                    node_title_li.InnerText = title;
+                                    node_title.AppendChild(node_title_li);
+                                    child.AppendChild(node_title);
+                                }
+                                else if (child.Name.Equals("dc:description", StringComparison.CurrentCultureIgnoreCase))
+                                {
+                                    child.RemoveAll();
+                                    var node_comment = xml_doc.CreateElement("rdf:Alt", "rdf");
+                                    var node_comment_li = xml_doc.CreateElement("rdf:li", "rdf");
+                                    node_comment_li.SetAttribute("xml:lang", "x-default");
+                                    node_comment_li.InnerText = comment;
+                                    node_comment.AppendChild(node_comment_li);
+                                    child.AppendChild(node_comment);
+                                }
+                                else if (child.Name.Equals("xmp:creator", StringComparison.CurrentCultureIgnoreCase) ||
+                                    child.Name.Equals("dc:creator", StringComparison.CurrentCultureIgnoreCase))
+                                {
+                                    child.RemoveAll();
+                                    var node_author = xml_doc.CreateElement("rdf:Seq", "rdf");
+                                    node_author.SetAttribute(rdf_attr, rdf_value);
+                                    add_rdf_li.Invoke(node_author, authors);
+                                    child.AppendChild(node_author);
+                                }
+                                else if (child.Name.Equals("dc:rights", StringComparison.CurrentCultureIgnoreCase))
+                                {
+                                    child.RemoveAll();
+                                    var node_rights = xml_doc.CreateElement("rdf:Bag", "rdf");
+                                    node_rights.SetAttribute(rdf_attr, rdf_value);
+                                    add_rdf_li.Invoke(node_rights, copyright);
+                                    child.AppendChild(node_rights);
+                                }
+                                else if (child.Name.Equals("dc:subject", StringComparison.CurrentCultureIgnoreCase) ||
+                                    child.Name.StartsWith("MicrosoftPhoto:LastKeyword", StringComparison.CurrentCultureIgnoreCase))
+                                {
+                                    child.RemoveAll();
+                                    var node_subject = xml_doc.CreateElement("rdf:Bag", "rdf");
+                                    node_subject.SetAttribute(rdf_attr, rdf_value);
+                                    add_rdf_li.Invoke(node_subject, keyword_list);
+                                    child.AppendChild(node_subject);
+                                }
+                                else if (child.Name.Equals("MicrosoftPhoto:Rating", StringComparison.CurrentCultureIgnoreCase))
+                                {
+                                    child.InnerText = $"{rating}";
+                                    //if (rating > 0) child.InnerText = $"{rating}";
+                                    //else child.ParentNode.RemoveChild(child);
+                                }
+                                else if (child.Name.Equals("xmp:Rating", StringComparison.CurrentCultureIgnoreCase))
+                                {
+                                    var rating_level = 0;
+                                    if (rating >= 99) rating_level = 5;
+                                    else if (rating >= 75) rating_level = 4;
+                                    else if (rating >= 50) rating_level = 3;
+                                    else if (rating >= 25) rating_level = 2;
+                                    else if (rating >= 01) rating_level = 1;
+                                    child.InnerText = $"{rating_level}";
+                                    //if (rating_level > 0) child.InnerText = $"{rating_level}";
+                                    //else child.ParentNode.RemoveChild(child);
+                                }
+                                else if (child.Name.Equals("xmp:CreateDate", StringComparison.CurrentCultureIgnoreCase))
+                                    child.InnerText = dc_xmp;
+                                else if (child.Name.Equals("xmp:ModifyDate", StringComparison.CurrentCultureIgnoreCase))
+                                    child.InnerText = dm_xmp;
+                                else if (child.Name.Equals("xmp:DateTimeOriginal", StringComparison.CurrentCultureIgnoreCase))
+                                    child.InnerText = dm_date;
+                                else if (child.Name.Equals("xmp:DateTimeDigitized", StringComparison.CurrentCultureIgnoreCase))
+                                    child.InnerText = dm_date;
+                                else if (child.Name.Equals("MicrosoftPhoto:DateAcquired", StringComparison.CurrentCultureIgnoreCase))
+                                    child.InnerText = dm_msxmp;
+                                else if (child.Name.Equals("MicrosoftPhoto:DateTaken", StringComparison.CurrentCultureIgnoreCase))
+                                    child.InnerText = dm_msxmp;
+                                else if (child.Name.Equals("exif:DateTimeDigitized", StringComparison.CurrentCultureIgnoreCase))
+                                    child.InnerText = dm_ms;
+                                else if (child.Name.Equals("exif:DateTimeOriginal", StringComparison.CurrentCultureIgnoreCase))
+                                    child.InnerText = dm_ms;
+                                else if (child.Name.Equals("tiff:DateTime", StringComparison.CurrentCultureIgnoreCase))
+                                    child.InnerText = dm_ms;
+                            }
+                        }
+                        #endregion
+                        #region pretty xml
+                        xml = FormatXML(xml_doc, true);
+                        #endregion
+                    }
+                }
+                catch
+                {
+                    #region Title
+                    var pattern_title = @"(<dc:title>.*?<rdf:li.*?xml:lang='.*?')(>).*?(</rdf:li></rdf:Alt></dc:title>)";
+                    if (Regex.IsMatch(xml, pattern_title, RegexOptions.IgnoreCase | RegexOptions.Multiline))
+                    {
+                        xml = Regex.Replace(xml, pattern_title, $"$1$2{title}$3", RegexOptions.IgnoreCase | RegexOptions.Multiline);
+                        xml = xml.Replace("$2", ">");
+                    }
+                    else
+                    {
+                        var title_xml = $"<rdf:Description rdf:about='' xmlns:dc='http://purl.org/dc/elements/1.1/'><dc:title><rdf:Alt><rdf:li xml:lang='x-default'>{title}</rdf:li></rdf:Alt></dc:title></rdf:Description>";
+                        xml = Regex.Replace(xml, @"(</rdf:RDF>.*?</x:xmpmeta>)", $"{title_xml}$1", RegexOptions.IgnoreCase);
+                    }
+                    #endregion
+                    #region MS Photo DateAcquired
+                    var pattern_ms_da = @"(<MicrosoftPhoto:DateAcquired>).*?(</MicrosoftPhoto:DateAcquired>)";
+                    if (Regex.IsMatch(xml, pattern_ms_da, RegexOptions.IgnoreCase))
+                    {
+                        xml = Regex.Replace(xml, pattern_ms_da, $"$1{dm_msxmp}$2", RegexOptions.IgnoreCase);
+                        xml = xml.Replace("$1", "<MicrosoftPhoto:DateAcquired>");
+                    }
+                    else
+                    {
+                        var msda_xml = $"<rdf:Description rdf:about=\"uuid:faf5bdd5-ba3d-11da-ad31-d33d75182f1b\" xmlns:MicrosoftPhoto=\"http://ns.microsoft.com/photo/1.0/\"><MicrosoftPhoto:DateAcquired>{dm_msxmp}</MicrosoftPhoto:DateAcquired></rdf:Description>";
+                        xml = Regex.Replace(xml, @"(</rdf:RDF></x:xmpmeta>)", $"{msda_xml}$1", RegexOptions.IgnoreCase);
+                    }
+                    #endregion
+                    #region MS Photo DateTaken
+                    var pattern_ms_dt = @"(<MicrosoftPhoto:DateTaken>).*?(</MicrosoftPhoto:DateTaken>)";
+                    if (Regex.IsMatch(xml, pattern_ms_dt, RegexOptions.IgnoreCase))
+                    {
+                        xml = Regex.Replace(xml, pattern_ms_dt, $"$1{dm_msxmp}$2", RegexOptions.IgnoreCase);
+                        xml = xml.Replace("$1", "<MicrosoftPhoto:DateTaken>");
+                    }
+                    else
+                    {
+                        var msdt_xml = $"<rdf:Description rdf:about=\"uuid:faf5bdd5-ba3d-11da-ad31-d33d75182f1b\" xmlns:MicrosoftPhoto=\"http://ns.microsoft.com/photo/1.0/\"><MicrosoftPhoto:DateTaken>{dm_msxmp}</MicrosoftPhoto:DateTaken></rdf:Description>";
+                        xml = Regex.Replace(xml, @"(</rdf:RDF></x:xmpmeta>)", $"{msdt_xml}$1", RegexOptions.IgnoreCase);
+                    }
+                    #endregion
+                    #region tiff:DateTime
+                    var pattern_tiff_dt = @"(<tiff:DateTime>).*?(</tiff:DateTime>)";
+                    if (Regex.IsMatch(xml, pattern_tiff_dt, RegexOptions.IgnoreCase))
+                    {
+                        xml = Regex.Replace(xml, pattern_tiff_dt, $"$1{dm_ms}$2", RegexOptions.IgnoreCase);
+                        xml = xml.Replace("$1", "<tiff:DateTime>");
+                    }
+                    else
+                    {
+                        var tiffdt_xml = $"<rdf:Description rdf:about='' xmlns:tiff='http://ns.adobe.com/tiff/1.0/'><tiff:DateTime>{dm_ms}</tiff:DateTime></rdf:Description>";
+                        xml = Regex.Replace(xml, @"(</rdf:RDF></x:xmpmeta>)", $"{tiffdt_xml}$1", RegexOptions.IgnoreCase);
+                    }
+                    #endregion
+                    #region exif:DateTimeDigitized
+                    var pattern_exif_dd = @"(<exif:DateTimeDigitized>).*?(</exif:DateTimeDigitized>)";
+                    if (Regex.IsMatch(xml, pattern_exif_dd, RegexOptions.IgnoreCase))
+                    {
+                        xml = Regex.Replace(xml, pattern_exif_dd, $"$1{dm_ms}$2", RegexOptions.IgnoreCase);
+                        xml = xml.Replace("$1", "<exif:DateTimeDigitized>");
+                    }
+                    else
+                    {
+                        var exifdo_xml = $"<rdf:Description rdf:about='' xmlns:exif='http://ns.adobe.com/exif/1.0/'><exif:DateTimeDigitized>{dm_ms}</exif:DateTimeDigitized></rdf:Description>";
+                        xml = Regex.Replace(xml, @"(</rdf:RDF></x:xmpmeta>)", $"{exifdo_xml}$1", RegexOptions.IgnoreCase);
+                    }
+                    #endregion
+                    #region exif:DateTimeOriginal
+                    var pattern_exif_do = @"(<exif:DateTimeOriginal>).*?(</exif:DateTimeOriginal>)";
+                    if (Regex.IsMatch(xml, pattern_exif_do, RegexOptions.IgnoreCase))
+                    {
+                        xml = Regex.Replace(xml, pattern_exif_do, $"$1{dm_ms}$2", RegexOptions.IgnoreCase);
+                        xml = xml.Replace("$1", "<exif:DateTimeOriginal>");
+                    }
+                    else
+                    {
+                        var exifdo_xml = $"<rdf:Description rdf:about='' xmlns:exif='http://ns.adobe.com/exif/1.0/'><exif:DateTimeOriginal>{dm_ms}</exif:DateTimeOriginal></rdf:Description>";
+                        xml = Regex.Replace(xml, @"(</rdf:RDF></x:xmpmeta>)", $"{exifdo_xml}$1", RegexOptions.IgnoreCase);
+                    }
+                    #endregion
+                }
+            }
+            return (xml);
+        }
         #endregion
 
         #region below tags will be touching
@@ -832,6 +1339,7 @@ namespace TouchMeta
         private static string[] tag_copyright = new string[] {
           "exif:Copyright",
           "tiff:copyright",
+          //"iptc:CopyrightNotice",
         };
         private static string[] tag_title = new string[] {
           "exif:ImageDescription",
@@ -841,15 +1349,17 @@ namespace TouchMeta
           "exif:WinXP-Subject",
         };
         private static string[] tag_comments = new string[] {
-          //"exif:WinXP-Comment",
           "exif:WinXP-Comments",
           "exif:UserComment"
         };
         private static string[] tag_keywords = new string[] {
           "exif:WinXP-Keywords",
+          //"iptc:Keywords",
           "dc:Subject",
         };
         private static string[] tag_rating = new string[] {
+          "Rating",
+          "RatingPercent",
           "MicrosoftPhoto:Rating",
           "xmp:Rating",
         };
@@ -1009,7 +1519,7 @@ namespace TouchMeta
                     result = attr.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(attr)) : image.GetAttribute(attr);
                     if (attr.StartsWith("exif:") && !attr.Contains("WinXP"))
                     {
-                        Type exiftag_type = typeof(ExifTag);
+                        Type exiftag_type = typeof(ImageMagick.ExifTag);
                         var tag_name =  attr.Contains("WinXP") ? $"XP{attr.Substring(11)}" : attr.Substring(5);
                         if (tag_name.Equals("FlashPixVersion")) tag_name = "FlashpixVersion";
                         dynamic tag_property = exiftag_type.GetProperty(tag_name) ?? exiftag_type.GetProperty($"{tag_name}s") ?? exiftag_type.GetProperty(tag_name.Substring(0, tag_name.Length-1));
@@ -1060,7 +1570,7 @@ namespace TouchMeta
                                 }
                                 else if (tag_value.DataType == ExifDataType.Undefined && tag_value.IsArray)
                                 {
-                                    if (tag_value.Tag == ExifTag.ExifVersion)
+                                    if (tag_value.Tag == ImageMagick.ExifTag.ExifVersion)
                                         result = BytesToString(tag_value.GetValue() as byte[], true);
                                     else
                                         result = BytesToString(tag_value.GetValue() as byte[], false);
@@ -1115,7 +1625,7 @@ namespace TouchMeta
                     image.SetAttribute(attr, value is bool ? value : (attr.Contains("WinXP") ? UnicodeToBytes(value) : value.ToString()));
                     if (attr.StartsWith("exif:"))
                     {
-                        Type exiftag_type = typeof(ExifTag);
+                        Type exiftag_type = typeof(ImageMagick.ExifTag);
                         var tag_name =  attr.Contains("WinXP") ? $"XP{attr.Substring(11)}" : attr.Substring(5);
                         dynamic tag_property = exiftag_type.GetProperty(tag_name) ?? exiftag_type.GetProperty($"{tag_name}s") ?? exiftag_type.GetProperty(tag_name.Substring(0, tag_name.Length-1));
                         if (tag_property != null)
@@ -1127,7 +1637,12 @@ namespace TouchMeta
                                 if (byte.TryParse(value, out v)) exif.SetValue(tag_property.GetValue(exif), v);
                             }
                             else if (tag_type == typeof(byte[]) && value is string)
-                                exif.SetValue(tag_property.GetValue(exif), Encoding.Unicode.GetBytes(value));
+                            {
+                                byte[] v = Encoding.Unicode.GetBytes(value);
+                                byte[] bom = Encoding.Unicode.GetPreamble();
+                                //exif.SetValue(tag_property.GetValue(exif), bom.Concat(v).ToArray());
+                                exif.SetValue(tag_property.GetValue(exif), v);
+                            }
                             else if (tag_type == typeof(ushort) || tag_type == typeof(ushort))
                             {
                                 ushort v;
@@ -1496,7 +2011,7 @@ namespace TouchMeta
             }
             else Log($"File \"{file}\" not exists!");
         }
-
+    
         public static void TouchMeta(string file, bool force = false, DateTime? dtc = null, DateTime? dtm = null, DateTime? dta = null, MetaInfo meta = null)
         {
             if (File.Exists(file))
@@ -1626,7 +2141,7 @@ namespace TouchMeta
                                     {
                                         if (tag.Equals("exif:WinXP-Title"))
                                         {
-                                            if (exif.GetValue(ExifTag.XPTitle) == null)
+                                            if (exif.GetValue(ImageMagick.ExifTag.XPTitle) == null)
                                             {
                                                 if (!string.IsNullOrEmpty(title)) SetAttribute(image, tag, value_old);
                                             }
@@ -1634,7 +2149,7 @@ namespace TouchMeta
                                         }
                                         else if (tag.Equals("exif:ImageDescription"))
                                         {
-                                            if (exif.GetValue(ExifTag.ImageDescription) == null)
+                                            if (exif.GetValue(ImageMagick.ExifTag.ImageDescription) == null)
                                             {
                                                 if (!string.IsNullOrEmpty(title)) SetAttribute(image, tag, value_old);
                                             }
@@ -1665,11 +2180,11 @@ namespace TouchMeta
                                     {
                                         if (tag.Equals("exif:WinXP-Subject"))
                                         {
-                                            if (exif.GetValue(ExifTag.XPSubject) == null)
+                                            if (exif.GetValue(ImageMagick.ExifTag.XPSubject) == null)
                                             {
-                                                if (!string.IsNullOrEmpty(subject)) exif.SetValue(ExifTag.XPSubject, Encoding.Unicode.GetBytes(value_old));
+                                                if (!string.IsNullOrEmpty(subject)) exif.SetValue(ImageMagick.ExifTag.XPSubject, Encoding.Unicode.GetBytes(value_old));
                                             }
-                                            else subject = Encoding.Unicode.GetString(exif.GetValue(ExifTag.XPSubject).Value);
+                                            else subject = Encoding.Unicode.GetString(exif.GetValue(ImageMagick.ExifTag.XPSubject).Value);
                                         }
                                     }
                                 }
@@ -1692,7 +2207,7 @@ namespace TouchMeta
                                     {
                                         if (tag.Equals("exif:WinXP-Author"))
                                         {
-                                            if (exif.GetValue(ExifTag.XPAuthor) == null)
+                                            if (exif.GetValue(ImageMagick.ExifTag.XPAuthor) == null)
                                             {
                                                 if (!string.IsNullOrEmpty(authors)) SetAttribute(image, tag, value_old);
                                             }
@@ -1700,7 +2215,7 @@ namespace TouchMeta
                                         }
                                         else if (tag.Equals("exif:Artist"))
                                         {
-                                            if (exif.GetValue(ExifTag.Artist) == null)
+                                            if (exif.GetValue(ImageMagick.ExifTag.Artist) == null)
                                             {
                                                 if (!string.IsNullOrEmpty(authors)) SetAttribute(image, tag, value_old);
                                             }
@@ -1727,7 +2242,7 @@ namespace TouchMeta
                                     {
                                         if (tag.Equals("exif:Copyright"))
                                         {
-                                            if (exif.GetValue(ExifTag.Copyright) == null)
+                                            if (exif.GetValue(ImageMagick.ExifTag.Copyright) == null)
                                             {
                                                 if (!string.IsNullOrEmpty(copyright)) SetAttribute(image, tag, value_old);
                                             }
@@ -1754,7 +2269,7 @@ namespace TouchMeta
                                     {
                                         if (tag.Equals("exif:WinXP-Comment"))
                                         {
-                                            if (exif.GetValue(ExifTag.XPComment) == null)
+                                            if (exif.GetValue(ImageMagick.ExifTag.XPComment) == null)
                                             {
                                                 if (!string.IsNullOrEmpty(comment)) SetAttribute(image, tag, value_old);
                                             }
@@ -1762,7 +2277,7 @@ namespace TouchMeta
                                         }
                                         else if (tag.Equals("exif:WinXP-Comments"))
                                         {
-                                            if (exif.GetValue(ExifTag.XPComment) == null)
+                                            if (exif.GetValue(ImageMagick.ExifTag.XPComment) == null)
                                             {
                                                 if (!string.IsNullOrEmpty(comment)) SetAttribute(image, tag, value_old);
                                             }
@@ -1770,7 +2285,7 @@ namespace TouchMeta
                                         }
                                         else if (tag.Equals("exif:UserComment"))
                                         {
-                                            if (exif.GetValue(ExifTag.UserComment) == null)
+                                            if (exif.GetValue(ImageMagick.ExifTag.UserComment) == null)
                                             {
                                                 if (!string.IsNullOrEmpty(comment)) SetAttribute(image, tag, value_old);
                                             }
@@ -1797,7 +2312,7 @@ namespace TouchMeta
                                     {
                                         if (tag.Equals("exif:WinXP-Keywords"))
                                         {
-                                            if (exif.GetValue(ExifTag.XPKeywords) == null)
+                                            if (exif.GetValue(ImageMagick.ExifTag.XPKeywords) == null)
                                             {
                                                 if (!string.IsNullOrEmpty(keywords)) SetAttribute(image, tag, value_old);
                                             }
@@ -1824,7 +2339,7 @@ namespace TouchMeta
                                     {
                                         if (tag.Equals("MicrosoftPhoto:Rating"))
                                         {
-                                            if (exif.GetValue(ExifTag.RatingPercent) == null)
+                                            if (exif.GetValue(ImageMagick.ExifTag.RatingPercent) == null)
                                             {
                                                 if (!string.IsNullOrEmpty(keywords)) SetAttribute(image, tag, value_old);
                                             }
@@ -2156,13 +2671,9 @@ namespace TouchMeta
                                                 }
                                                 else if (child.Name.Equals("xmp:Rating", StringComparison.CurrentCultureIgnoreCase))
                                                 {
-                                                    var rating_level = 0;
-                                                    if (rating >= 99) rating_level = 5;
-                                                    else if (rating >= 75) rating_level = 4;
-                                                    else if (rating >= 50) rating_level = 3;
-                                                    else if (rating >= 25) rating_level = 2;
-                                                    else if (rating >= 01) rating_level = 1;
-                                                    child.InnerText = $"{rating_level}";
+                                                    var rating_level = RatingToRanking(rating);
+                                                    var rating_value = rating_level <= 0 ? string.Empty : $"{rating_level}";
+                                                    child.InnerText = $"{rating_value}";
                                                     //if (rating_level > 0) child.InnerText = $"{rating_level}";
                                                     //else child.ParentNode.RemoveChild(child);
                                                 }
@@ -2289,6 +2800,27 @@ namespace TouchMeta
                             FixDPI(image);
                             image.Write(fi.FullName);
 
+                            var meta_new = new MetaInfo() {
+                                DateAccesed = da,
+                                DateCreated = dc,
+                                DateModified = dm,
+
+                                DateAcquired = dm,
+                                DateTaken = dm,
+
+                                Title = title,
+                                Subject = subject,
+                                Copyright = copyright,
+                                Author = authors,
+                                Keywords = keywords,
+                                Comment = comment,
+
+                                Rating = rating,
+                                Ranking = RatingToRanking(rating),
+                            };
+
+                            if (is_png) TouchMetaAlt(file, meta: meta_new);
+
                             fi.CreationTime = dc;
                             fi.LastWriteTime = dm;
                             fi.LastAccessTime = da;
@@ -2361,6 +2893,83 @@ namespace TouchMeta
                 }
             }
             else Log($"File \"{file}\" not exists!");
+        }
+
+        public static void TouchMetaAlt(string file, bool force = false, DateTime? dtc = null, DateTime? dtm = null, DateTime? dta = null, MetaInfo meta = null)
+        {
+            try
+            {
+                if (File.Exists(file))
+                {
+                    var fi = new FileInfo(file);
+                    var dc = dtc ?? (meta is MetaInfo ? meta.DateCreated : null) ?? fi.CreationTime;
+                    var dm = dtm ?? (meta is MetaInfo ? meta.DateModified : null) ?? fi.LastWriteTime;
+                    var da = dta ?? (meta is MetaInfo ? meta.DateAccesed : null) ?? fi.LastAccessTime;
+
+                    var exif = new ExifData(file);
+                    if (exif is ExifData)
+                    {
+                        DateTime date = dm;
+                        if (!force || exif.GetTagValue(CompactExifLib.ExifTag.DateTime, out date))
+                        {
+                            if (date.Ticks != dm.Ticks) exif.SetDateChanged(dm);
+                        }
+                        else exif.SetDateChanged(dm);
+                        if (!force || exif.GetTagValue(CompactExifLib.ExifTag.DateTimeDigitized, out date))
+                        {
+                            if (date.Ticks != dm.Ticks) exif.SetDateDigitized(dm);
+                        }
+                        else exif.SetDateDigitized(dm);
+                        if (!force || exif.GetTagValue(CompactExifLib.ExifTag.DateTimeOriginal, out date))
+                        {
+                            if (date.Ticks != dm.Ticks) exif.SetDateTaken(dm);
+                        }
+                        else exif.SetDateTaken(dm);
+                        if (!force || exif.GetTagValue(CompactExifLib.ExifTag.SubsecTimeDigitized, out date))
+                        {
+                            if (date.Ticks != dm.Ticks) exif.SetTagValue(CompactExifLib.ExifTag.SubsecTimeDigitized, dm, ExifDateFormat.DateAndTime);
+                        }
+                        else exif.SetTagValue(CompactExifLib.ExifTag.SubsecTimeDigitized, dm, ExifDateFormat.DateAndTime);
+                        if (!force || exif.GetTagValue(CompactExifLib.ExifTag.SubsecTimeOriginal, out date))
+                        {
+                            if (date.Ticks != dm.Ticks) exif.SetTagValue(CompactExifLib.ExifTag.SubsecTimeOriginal, dm, ExifDateFormat.DateAndTime);
+                        }
+                        else exif.SetTagValue(CompactExifLib.ExifTag.SubsecTimeOriginal, dm, ExifDateFormat.DateAndTime);
+
+                        exif.SetTagRawData(CompactExifLib.ExifTag.XpTitle, ExifTagType.Byte, Encoding.Unicode.GetByteCount(meta.Title), Encoding.Unicode.GetBytes(meta.Title));
+                        exif.SetTagValue(CompactExifLib.ExifTag.ImageDescription, meta.Title, StrCoding.Utf8);
+                        exif.SetTagRawData(CompactExifLib.ExifTag.XpSubject, ExifTagType.Byte, Encoding.Unicode.GetByteCount(meta.Subject), Encoding.Unicode.GetBytes(meta.Subject));
+                        exif.SetTagRawData(CompactExifLib.ExifTag.XpKeywords, ExifTagType.Byte, Encoding.Unicode.GetByteCount(meta.Keywords), Encoding.Unicode.GetBytes(meta.Keywords));
+                        exif.SetTagRawData(CompactExifLib.ExifTag.XpAuthor, ExifTagType.Byte, Encoding.Unicode.GetByteCount(meta.Author), Encoding.Unicode.GetBytes(meta.Author));
+                        exif.SetTagValue(CompactExifLib.ExifTag.Artist, meta.Author, StrCoding.Utf8);
+                        exif.SetTagValue(CompactExifLib.ExifTag.Copyright, meta.Copyright, StrCoding.Utf8);
+                        exif.SetTagRawData(CompactExifLib.ExifTag.XpComment, ExifTagType.Byte, Encoding.Unicode.GetByteCount(meta.Comment), Encoding.Unicode.GetBytes(meta.Comment));
+                        exif.SetTagValue(CompactExifLib.ExifTag.UserComment, meta.Comment, StrCoding.Utf8);
+
+                        exif.SetTagRawData(CompactExifLib.ExifTag.XpRanking, ExifTagType.UShort, 1, BitConverter.GetBytes((short)(meta.Ranking ?? 0)).Reverse().ToArray());
+                        exif.SetTagRawData(CompactExifLib.ExifTag.XpRating, ExifTagType.UShort, 1, BitConverter.GetBytes((short)(meta.Rating ?? 0)).Reverse().ToArray());
+
+                        var xmp = string.Empty;
+                        exif.GetTagValue(CompactExifLib.ExifTag.XmpMetadata, out xmp, StrCoding.Utf8);
+                        xmp = TouchXMP(fi, xmp, meta);
+                        //exif.SetTagValue(CompactExifLib.ExifTag.XmpMetadata, xmp, StrCoding.Utf8);
+                        exif.SetTagRawData(CompactExifLib.ExifTag.XmpMetadata, ExifTagType.Byte, Encoding.UTF8.GetByteCount(xmp), Encoding.UTF8.GetBytes(xmp));
+                        exif.Save(file);
+
+                        using (MagickImage image = new MagickImage(fi.FullName))
+                        {
+                            var xmp_profile = new XmpProfile(Encoding.UTF8.GetBytes(xmp));
+                            image.SetProfile(xmp_profile);
+                        }
+                        Log($"File \"{file}\" touched!");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                // Error occurred while reading image file
+                Log($"File \"{file}\" touching failed!{Environment.NewLine}Error: {ex.Message}");
+            }
         }
 
         public static void ShowMeta(string file, bool xmp_merge_nodes = false)
@@ -2963,9 +3572,22 @@ namespace TouchMeta
                 RunBgWorker(new Action<string>((file) =>
                 {
                     var meta = GetMetaInfo(file);
+                    meta.Rating = CurrentMetaRating;
+                    meta.Ranking = RatingToRanking(meta.Rating);
                     TouchMeta(file, force: true, meta: meta);
                 }));
             }
+            else if(sender == ReTouchMetaAlt)
+            {
+                RunBgWorker(new Action<string>((file) =>
+                {
+                    var meta = GetMetaInfo(file);
+                    meta.Rating = CurrentMetaRating;
+                    meta.Ranking = RatingToRanking(meta.Rating);
+                    TouchMetaAlt(file, force: true, meta: meta);
+                }));
+            }
+
             else if (sender == ConvertSelectedToJpg)
             {
                 ConvertImagesTo(MagickFormat.Jpg);
