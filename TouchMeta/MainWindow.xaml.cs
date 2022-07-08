@@ -2993,7 +2993,9 @@ namespace TouchMeta
                         else
                         {
                             exif.SetTagRawData(CompactExifLib.ExifTag.XpComment, ExifTagType.Byte, Encoding.Unicode.GetByteCount(meta.Comment), Encoding.Unicode.GetBytes(meta.Comment));
+                            //exif.SetTagValue(CompactExifLib.ExifTag.XpComment, meta.Comment, StrCoding.Utf16Le_Byte);
                             exif.SetTagValue(CompactExifLib.ExifTag.UserComment, meta.Comment, StrCoding.Utf8);
+                            //exif.SetTagValue(CompactExifLib.ExifTag.UserComment, meta.Comment, StrCoding.IdCode_Utf16);
                         }
 
                         exif.SetTagRawData(CompactExifLib.ExifTag.XpRanking, ExifTagType.UShort, 1, BitConverter.GetBytes((short)(meta.Ranking ?? 0)).Reverse().ToArray());
@@ -3457,6 +3459,7 @@ namespace TouchMeta
 
         private void FilesListAction_Click(object sender, RoutedEventArgs e)
         {
+            var force = Keyboard.Modifiers == ModifierKeys.Control;
             if (sender == GetFileTimeFromSelected)
             {
                 if (FilesList.SelectedItem != null)
@@ -3497,7 +3500,6 @@ namespace TouchMeta
                 if (FilesList.SelectedItem != null)
                 {
                     #region Touching File Time
-                    var force = Keyboard.Modifiers == ModifierKeys.Control;
                     var meta = CurrentMeta;
 
                     RunBgWorker(new Action<string>((file) =>
@@ -3510,7 +3512,6 @@ namespace TouchMeta
             else if (sender == SetFileTimeFromFileName)
             {
                 #region Touching File Time
-                var force = Keyboard.Modifiers == ModifierKeys.Control;
                 var meta = CurrentMeta;
 
                 RunBgWorker(new Action<string>((file) =>
@@ -3523,7 +3524,6 @@ namespace TouchMeta
             else if (sender == SetFileTimeFromC)
             {
                 #region Touching File Time
-                var force = Keyboard.Modifiers == ModifierKeys.Control;
                 var meta = CurrentMeta;
 
                 meta.DateCreated = null;
@@ -3539,7 +3539,6 @@ namespace TouchMeta
             else if (sender == SetFileTimeFromM)
             {
                 #region Touching File Time
-                var force = Keyboard.Modifiers == ModifierKeys.Control;
                 var meta = CurrentMeta;
 
                 meta.DateCreated = null;
@@ -3555,7 +3554,6 @@ namespace TouchMeta
             else if (sender == SetFileTimeFromA)
             {
                 #region Touching File Time
-                var force = Keyboard.Modifiers == ModifierKeys.Control;
                 var meta = CurrentMeta;
 
                 meta.DateCreated = null;
@@ -3572,7 +3570,6 @@ namespace TouchMeta
             else if (sender == TouchMetaFromC)
             {
                 #region Touching File Time
-                var force = Keyboard.Modifiers == ModifierKeys.Control;
                 var meta = CurrentMeta;
 
                 meta.DateCreated = null;
@@ -3588,7 +3585,6 @@ namespace TouchMeta
             else if (sender == TouchMetaFromM)
             {
                 #region Touching File Time
-                var force = Keyboard.Modifiers == ModifierKeys.Control;
                 var meta = CurrentMeta;
 
                 meta.DateCreated = null;
@@ -3604,7 +3600,6 @@ namespace TouchMeta
             else if (sender == TouchMetaFromA)
             {
                 #region Touching File Time
-                var force = Keyboard.Modifiers == ModifierKeys.Control;
                 var meta = CurrentMeta;
 
                 meta.DateCreated = null;
@@ -3622,8 +3617,11 @@ namespace TouchMeta
                 RunBgWorker(new Action<string>((file) =>
                 {
                     var meta = GetMetaInfo(file);
-                    meta.Rating = CurrentMetaRating;
-                    meta.Ranking = RatingToRanking(meta.Rating);
+                    if (force)
+                    {
+                        meta.Rating = CurrentMetaRating;
+                        meta.Ranking = RatingToRanking(meta.Rating);
+                    }
                     TouchMeta(file, force: true, meta: meta);
                 }));
             }
@@ -3632,12 +3630,14 @@ namespace TouchMeta
                 RunBgWorker(new Action<string>((file) =>
                 {
                     var meta = GetMetaInfo(file);
-                    meta.Rating = CurrentMetaRating;
-                    meta.Ranking = RatingToRanking(meta.Rating);
+                    if (force)
+                    {
+                        meta.Rating = CurrentMetaRating;
+                        meta.Ranking = RatingToRanking(meta.Rating);
+                    }
                     TouchMetaAlt(file, force: true, meta: meta);
                 }));
             }
-
             else if (sender == ConvertSelectedToJpg)
             {
                 ConvertImagesTo(MagickFormat.Jpg);
