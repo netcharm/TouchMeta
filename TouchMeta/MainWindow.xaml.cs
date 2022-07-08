@@ -2936,15 +2936,65 @@ namespace TouchMeta
                         }
                         else exif.SetTagValue(CompactExifLib.ExifTag.SubsecTimeOriginal, dm, ExifDateFormat.DateAndTime);
 
-                        exif.SetTagRawData(CompactExifLib.ExifTag.XpTitle, ExifTagType.Byte, Encoding.Unicode.GetByteCount(meta.Title), Encoding.Unicode.GetBytes(meta.Title));
-                        exif.SetTagValue(CompactExifLib.ExifTag.ImageDescription, meta.Title, StrCoding.Utf8);
-                        exif.SetTagRawData(CompactExifLib.ExifTag.XpSubject, ExifTagType.Byte, Encoding.Unicode.GetByteCount(meta.Subject), Encoding.Unicode.GetBytes(meta.Subject));
-                        exif.SetTagRawData(CompactExifLib.ExifTag.XpKeywords, ExifTagType.Byte, Encoding.Unicode.GetByteCount(meta.Keywords), Encoding.Unicode.GetBytes(meta.Keywords));
-                        exif.SetTagRawData(CompactExifLib.ExifTag.XpAuthor, ExifTagType.Byte, Encoding.Unicode.GetByteCount(meta.Author), Encoding.Unicode.GetBytes(meta.Author));
-                        exif.SetTagValue(CompactExifLib.ExifTag.Artist, meta.Author, StrCoding.Utf8);
-                        exif.SetTagValue(CompactExifLib.ExifTag.Copyright, meta.Copyright, StrCoding.Utf8);
-                        exif.SetTagRawData(CompactExifLib.ExifTag.XpComment, ExifTagType.Byte, Encoding.Unicode.GetByteCount(meta.Comment), Encoding.Unicode.GetBytes(meta.Comment));
-                        exif.SetTagValue(CompactExifLib.ExifTag.UserComment, meta.Comment, StrCoding.Utf8);
+                        if (string.IsNullOrEmpty(meta.Title))
+                        {
+                            exif.RemoveTag(CompactExifLib.ExifTag.XpTitle);
+                            exif.RemoveTag(CompactExifLib.ExifTag.ImageDescription);
+                        }
+                        else
+                        {
+                            exif.SetTagRawData(CompactExifLib.ExifTag.XpTitle, ExifTagType.Byte, Encoding.Unicode.GetByteCount(meta.Title), Encoding.Unicode.GetBytes(meta.Title));
+                            exif.SetTagValue(CompactExifLib.ExifTag.ImageDescription, meta.Title, StrCoding.Utf8);
+                        }
+
+                        if (string.IsNullOrEmpty(meta.Subject))
+                        {
+                            exif.RemoveTag(CompactExifLib.ExifTag.XpSubject);
+                        }
+                        else
+                        {
+                            exif.SetTagRawData(CompactExifLib.ExifTag.XpSubject, ExifTagType.Byte, Encoding.Unicode.GetByteCount(meta.Subject), Encoding.Unicode.GetBytes(meta.Subject));
+                        }
+
+                        if (string.IsNullOrEmpty(meta.Keywords))
+                        {
+                            exif.RemoveTag(CompactExifLib.ExifTag.XpKeywords);
+                        }
+                        else
+                        {
+                            exif.SetTagRawData(CompactExifLib.ExifTag.XpKeywords, ExifTagType.Byte, Encoding.Unicode.GetByteCount(meta.Keywords), Encoding.Unicode.GetBytes(meta.Keywords));
+                        }
+
+                        if (string.IsNullOrEmpty(meta.Author))
+                        {
+                            exif.RemoveTag(CompactExifLib.ExifTag.XpAuthor);
+                            exif.RemoveTag(CompactExifLib.ExifTag.Artist);
+                        }
+                        else
+                        {
+                            exif.SetTagRawData(CompactExifLib.ExifTag.XpAuthor, ExifTagType.Byte, Encoding.Unicode.GetByteCount(meta.Author), Encoding.Unicode.GetBytes(meta.Author));
+                            exif.SetTagValue(CompactExifLib.ExifTag.Artist, meta.Author, StrCoding.Utf8);
+                        }
+
+                        if (string.IsNullOrEmpty(meta.Copyright))
+                        {
+                            exif.RemoveTag(CompactExifLib.ExifTag.Copyright);
+                        }
+                        else
+                        {
+                            exif.SetTagValue(CompactExifLib.ExifTag.Copyright, meta.Copyright, StrCoding.Utf8);
+                        }
+
+                        if (string.IsNullOrEmpty(meta.Comment))
+                        {
+                            exif.RemoveTag(CompactExifLib.ExifTag.XpComment);
+                            exif.RemoveTag(CompactExifLib.ExifTag.UserComment);
+                        }
+                        else
+                        {
+                            exif.SetTagRawData(CompactExifLib.ExifTag.XpComment, ExifTagType.Byte, Encoding.Unicode.GetByteCount(meta.Comment), Encoding.Unicode.GetBytes(meta.Comment));
+                            exif.SetTagValue(CompactExifLib.ExifTag.UserComment, meta.Comment, StrCoding.Utf8);
+                        }
 
                         exif.SetTagRawData(CompactExifLib.ExifTag.XpRanking, ExifTagType.UShort, 1, BitConverter.GetBytes((short)(meta.Ranking ?? 0)).Reverse().ToArray());
                         exif.SetTagRawData(CompactExifLib.ExifTag.XpRating, ExifTagType.UShort, 1, BitConverter.GetBytes((short)(meta.Rating ?? 0)).Reverse().ToArray());
