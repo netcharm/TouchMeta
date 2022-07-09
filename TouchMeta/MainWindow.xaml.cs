@@ -26,6 +26,7 @@ namespace TouchMeta
 {
     public class MetaInfo
     {
+        public bool ShowXMP { get; set; } = false;
         public bool TouchProfiles { get; set; } = true;
         public ChangePropertyType ChangeProperties { get; set; } = ChangePropertyType.All;
 
@@ -254,9 +255,9 @@ namespace TouchMeta
             if (ReportProgress is Action<double, string>) ReportProgress.Invoke(percent, tooltip);
         }
 
-        private void RunBgWorker(Action<string> action, bool showlog = true)
+        private void RunBgWorker(Action<string, bool> action, bool showlog = true)
         {
-            if (action is Action<string> && bgWorker is BackgroundWorker && !bgWorker.IsBusy)
+            if (action is Action<string, bool> && bgWorker is BackgroundWorker && !bgWorker.IsBusy)
             {
                 IList<string> files = GetFiles(FilesList);
                 if (files.Count > 0)
@@ -271,7 +272,7 @@ namespace TouchMeta
                             ProgressReport(count / files.Count, file);
                             Log($"{file}");
                             Log("-".PadRight(ExtendedMessageWidth, '-'));
-                            if (File.Exists(file)) action.Invoke(file);
+                            if (File.Exists(file)) action.Invoke(file, files.Count == 1);
                             Log("=".PadRight(ExtendedMessageWidth, '='));
                             ProgressReport(++count / files.Count, file);
                         }
@@ -3228,7 +3229,6 @@ namespace TouchMeta
 #else
                                 catch
                                 {
-
 #endif
                                     #region Title
                                     var pattern_title = @"(<dc:title>.*?<rdf:li.*?xml:lang='.*?')(>).*?(</rdf:li></rdf:Alt></dc:title>)";
@@ -3309,9 +3309,10 @@ namespace TouchMeta
                                     }
                                     #endregion
                                 }
+
                                 xmp = new XmpProfile(Encoding.UTF8.GetBytes(xml));
                                 image.SetProfile(xmp);
-                                Log($"{"XMP Profiles".PadRight(32)}= {xml}");
+                                if (meta is MetaInfo && meta.ShowXMP) Log($"{"XMP Profiles".PadRight(32)}= {xml}");
                             }
                             #endregion
                             #endregion
@@ -3556,7 +3557,7 @@ namespace TouchMeta
             }
         }
 
-        public static void ShowMeta(string file, bool xmp_merge_nodes = false)
+        public static void ShowMeta(string file, bool xmp_merge_nodes = false, bool show_xmp = true)
         {
             if (File.Exists(file))
             {
@@ -3714,7 +3715,7 @@ namespace TouchMeta
                                                 Log($"{$"    {child.Name}".PadRight(cw)}= {child.InnerText}");
                                         }
                                     }
-                                    Log($"{"  XML Contents".PadRight(cw)}= {FormatXML(xml, xmp_merge_nodes)}");
+                                    if (show_xmp) Log($"{"  XML Contents".PadRight(cw)}= {FormatXML(xml, xmp_merge_nodes)}");
                                 }
                                 #endregion
                             }
@@ -3790,7 +3791,7 @@ namespace TouchMeta
         {
             if (files is IEnumerable<string>)
             {
-                RunBgWorker(new Action<string>((file) =>
+                RunBgWorker(new Action<string, bool>((file, show_xmp) =>
                 {
                     var ret = ConvertImageTo(file, fmt);
                     if (!string.IsNullOrEmpty(ret) && File.Exists(ret)) AddFile(ret);
@@ -4043,7 +4044,7 @@ namespace TouchMeta
                     #region Touching File Time
                     var meta = CurrentMeta;
 
-                    RunBgWorker(new Action<string>((file) =>
+                    RunBgWorker(new Action<string, bool>((file, show_xmp) =>
                     {
                         SetCustomDateTime(dt: ParseDateTime(file));
                     }));
@@ -4055,7 +4056,7 @@ namespace TouchMeta
                 #region Touching File Time
                 var meta = CurrentMeta;
 
-                RunBgWorker(new Action<string>((file) =>
+                RunBgWorker(new Action<string, bool>((file, show_xmp) =>
                 {
                     TouchDate(file, force: force, dtm: ParseDateTime(file), meta: meta);
                 }));
@@ -4071,7 +4072,7 @@ namespace TouchMeta
                 meta.DateModified = null;
                 meta.DateAccesed = null;
 
-                RunBgWorker(new Action<string>((file) =>
+                RunBgWorker(new Action<string, bool>((file, show_xmp) =>
                 {
                     TouchDate(file, force: force, dtc: File.GetCreationTime(file), meta: meta);
                 }));
@@ -4086,7 +4087,7 @@ namespace TouchMeta
                 meta.DateModified = null;
                 meta.DateAccesed = null;
 
-                RunBgWorker(new Action<string>((file) =>
+                RunBgWorker(new Action<string, bool>((file, show_xmp) =>
                 {
                     TouchDate(file, force: force, dtm: File.GetLastWriteTime(file), meta: meta);
                 }));
@@ -4101,7 +4102,7 @@ namespace TouchMeta
                 meta.DateModified = null;
                 meta.DateAccesed = null;
 
-                RunBgWorker(new Action<string>((file) =>
+                RunBgWorker(new Action<string, bool>((file, show_xmp) =>
                 {
                     TouchDate(file, force: force, dta: File.GetLastAccessTime(file), meta: meta);
                 }));
@@ -4117,7 +4118,7 @@ namespace TouchMeta
                 meta.DateModified = null;
                 meta.DateAccesed = null;
 
-                RunBgWorker(new Action<string>((file) =>
+                RunBgWorker(new Action<string, bool>((file, show_xmp) =>
                 {
                     TouchMeta(file, force: force, dtc: File.GetCreationTime(file), meta: meta);
                 }));
@@ -4132,7 +4133,7 @@ namespace TouchMeta
                 meta.DateModified = null;
                 meta.DateAccesed = null;
 
-                RunBgWorker(new Action<string>((file) =>
+                RunBgWorker(new Action<string, bool>((file, show_xmp) =>
                 {
                     TouchMeta(file, force: force, dtm: File.GetLastWriteTime(file), meta: meta);
                 }));
@@ -4147,7 +4148,7 @@ namespace TouchMeta
                 meta.DateModified = null;
                 meta.DateAccesed = null;
 
-                RunBgWorker(new Action<string>((file) =>
+                RunBgWorker(new Action<string, bool>((file, show_xmp) =>
                 {
                     TouchMeta(file, force: force, dta: File.GetLastAccessTime(file), meta: meta);
                 }));
@@ -4156,7 +4157,7 @@ namespace TouchMeta
             else if(sender == ReTouchMeta)
             {
                 #region Re-Touch Metadate via MagicK.Net
-                RunBgWorker(new Action<string>((file) =>
+                RunBgWorker(new Action<string, bool>((file, show_xmp) =>
                 {
                     var meta = GetMetaInfo(file);
                     if (force)
@@ -4171,7 +4172,7 @@ namespace TouchMeta
             else if(sender == ReTouchMetaAlt)
             {
                 #region Re-Touch Metadata via CompactExifLib
-                RunBgWorker(new Action<string>((file) =>
+                RunBgWorker(new Action<string, bool>((file, show_xmp) =>
                 {
                     var meta = GetMetaInfo(file);
                     if (force)
@@ -4186,28 +4187,28 @@ namespace TouchMeta
             #region Add/Remove/Replace/Empty
             else if (sender == ChangeMetaTitleAppend)
             {
-                RunBgWorker(new Action<string>((file) =>
+                RunBgWorker(new Action<string, bool>((file, show_xmp) =>
                 {
                     ChangeProperties(file, CurrentMeta, ChangePropertyType.Title, ChangePropertyMode.Append);
                 }));
             }
             else if (sender == ChangeMetaTitleRemove)
             {
-                RunBgWorker(new Action<string>((file) =>
+                RunBgWorker(new Action<string, bool>((file, show_xmp) =>
                 {
                     ChangeProperties(file, CurrentMeta, ChangePropertyType.Title, ChangePropertyMode.Remove);
                 }));
             }
             else if (sender == ChangeMetaTitleReplace)
             {
-                RunBgWorker(new Action<string>((file) =>
+                RunBgWorker(new Action<string, bool>((file, show_xmp) =>
                 {
                     ChangeProperties(file, CurrentMeta, ChangePropertyType.Title, ChangePropertyMode.Replace);
                 }));
             }
             else if (sender == ChangeMetaTitleEmpty)
             {
-                RunBgWorker(new Action<string>((file) =>
+                RunBgWorker(new Action<string, bool>((file, show_xmp) =>
                 {
                     ChangeProperties(file, CurrentMeta, ChangePropertyType.Title, ChangePropertyMode.Empty);
                 }));
@@ -4215,28 +4216,28 @@ namespace TouchMeta
 
             else if (sender == ChangeMetaSubjectAppend)
             {
-                RunBgWorker(new Action<string>((file) =>
+                RunBgWorker(new Action<string, bool>((file, show_xmp) =>
                 {
                     ChangeProperties(file, CurrentMeta, ChangePropertyType.Subject, ChangePropertyMode.Append);
                 }));
             }
             else if (sender == ChangeMetaSubjectRemove)
             {
-                RunBgWorker(new Action<string>((file) =>
+                RunBgWorker(new Action<string, bool>((file, show_xmp) =>
                 {
                     ChangeProperties(file, CurrentMeta, ChangePropertyType.Subject, ChangePropertyMode.Remove);
                 }));
             }
             else if (sender == ChangeMetaSubjectReplace)
             {
-                RunBgWorker(new Action<string>((file) =>
+                RunBgWorker(new Action<string, bool>((file, show_xmp) =>
                 {
                     ChangeProperties(file, CurrentMeta, ChangePropertyType.Subject, ChangePropertyMode.Replace);
                 }));
             }
             else if (sender == ChangeMetaSubjectEmpty)
             {
-                RunBgWorker(new Action<string>((file) =>
+                RunBgWorker(new Action<string, bool>((file, show_xmp) =>
                 {
                     ChangeProperties(file, CurrentMeta, ChangePropertyType.Subject, ChangePropertyMode.Empty);
                 }));
@@ -4244,28 +4245,28 @@ namespace TouchMeta
 
             else if (sender == ChangeMetaKeywordsAppend)
             {
-                RunBgWorker(new Action<string>((file) =>
+                RunBgWorker(new Action<string, bool>((file, show_xmp) =>
                 {
                     ChangeProperties(file, CurrentMeta, ChangePropertyType.Keywords, ChangePropertyMode.Append);
                 }));
             }
             else if (sender == ChangeMetaKeywordsRemove)
             {
-                RunBgWorker(new Action<string>((file) =>
+                RunBgWorker(new Action<string, bool>((file, show_xmp) =>
                 {
                     ChangeProperties(file, CurrentMeta, ChangePropertyType.Keywords, ChangePropertyMode.Remove);
                 }));
             }
             else if (sender == ChangeMetaKeywordsReplace)
             {
-                RunBgWorker(new Action<string>((file) =>
+                RunBgWorker(new Action<string, bool>((file, show_xmp) =>
                 {
                     ChangeProperties(file, CurrentMeta, ChangePropertyType.Keywords, ChangePropertyMode.Replace);
                 }));
             }
             else if (sender == ChangeMetaKeywordsEmpty)
             {
-                RunBgWorker(new Action<string>((file) =>
+                RunBgWorker(new Action<string, bool>((file, show_xmp) =>
                 {
                     ChangeProperties(file, CurrentMeta, ChangePropertyType.Keywords, ChangePropertyMode.Empty);
                 }));
@@ -4273,28 +4274,28 @@ namespace TouchMeta
 
             else if (sender == ChangeMetaCommentAppend)
             {
-                RunBgWorker(new Action<string>((file) =>
+                RunBgWorker(new Action<string, bool>((file, show_xmp) =>
                 {
                     ChangeProperties(file, CurrentMeta, ChangePropertyType.Comment, ChangePropertyMode.Append);
                 }));
             }
             else if (sender == ChangeMetaCommentRemove)
             {
-                RunBgWorker(new Action<string>((file) =>
+                RunBgWorker(new Action<string, bool>((file, show_xmp) =>
                 {
                     ChangeProperties(file, CurrentMeta, ChangePropertyType.Comment, ChangePropertyMode.Remove);
                 }));
             }
             else if (sender == ChangeMetaCommentReplace)
             {
-                RunBgWorker(new Action<string>((file) =>
+                RunBgWorker(new Action<string, bool>((file, show_xmp) =>
                 {
                     ChangeProperties(file, CurrentMeta, ChangePropertyType.Comment, ChangePropertyMode.Replace);
                 }));
             }
             else if (sender == ChangeMetaCommentEmpty)
             {
-                RunBgWorker(new Action<string>((file) =>
+                RunBgWorker(new Action<string, bool>((file, show_xmp) =>
                 {
                     ChangeProperties(file, CurrentMeta, ChangePropertyType.Comment, ChangePropertyMode.Empty);
                 }));
@@ -4302,28 +4303,28 @@ namespace TouchMeta
 
             else if (sender == ChangeMetaAuthorsAppend)
             {
-                RunBgWorker(new Action<string>((file) =>
+                RunBgWorker(new Action<string, bool>((file, show_xmp) =>
                 {
                     ChangeProperties(file, CurrentMeta, ChangePropertyType.Authors, ChangePropertyMode.Append);
                 }));
             }
             else if (sender == ChangeMetaAuthorsRemove)
             {
-                RunBgWorker(new Action<string>((file) =>
+                RunBgWorker(new Action<string, bool>((file, show_xmp) =>
                 {
                     ChangeProperties(file, CurrentMeta, ChangePropertyType.Authors, ChangePropertyMode.Remove);
                 }));
             }
             else if (sender == ChangeMetaAuthorsReplace)
             {
-                RunBgWorker(new Action<string>((file) =>
+                RunBgWorker(new Action<string, bool>((file, show_xmp) =>
                 {
                     ChangeProperties(file, CurrentMeta, ChangePropertyType.Authors, ChangePropertyMode.Replace);
                 }));
             }
             else if (sender == ChangeMetaAuthorsEmpty)
             {
-                RunBgWorker(new Action<string>((file) =>
+                RunBgWorker(new Action<string, bool>((file, show_xmp) =>
                 {
                     ChangeProperties(file, CurrentMeta, ChangePropertyType.Authors, ChangePropertyMode.Empty);
                 }));
@@ -4331,28 +4332,28 @@ namespace TouchMeta
 
             else if (sender == ChangeMetaCopyrightsAppend)
             {
-                RunBgWorker(new Action<string>((file) =>
+                RunBgWorker(new Action<string, bool>((file, show_xmp) =>
                 {
                     ChangeProperties(file, CurrentMeta, ChangePropertyType.Copyrights, ChangePropertyMode.Append);
                 }));
             }
             else if (sender == ChangeMetaCopyrightsRemove)
             {
-                RunBgWorker(new Action<string>((file) =>
+                RunBgWorker(new Action<string, bool>((file, show_xmp) =>
                 {
                     ChangeProperties(file, CurrentMeta, ChangePropertyType.Copyrights, ChangePropertyMode.Remove);
                 }));
             }
             else if (sender == ChangeMetaCopyrightsReplace)
             {
-                RunBgWorker(new Action<string>((file) =>
+                RunBgWorker(new Action<string, bool>((file, show_xmp) =>
                 {
                     ChangeProperties(file, CurrentMeta, ChangePropertyType.Copyrights, ChangePropertyMode.Replace);
                 }));
             }
             else if (sender == ChangeMetaCopyrightsEmpty)
             {
-                RunBgWorker(new Action<string>((file) =>
+                RunBgWorker(new Action<string, bool>((file, show_xmp) =>
                 {
                     ChangeProperties(file, CurrentMeta, ChangePropertyType.Copyrights, ChangePropertyMode.Empty);
                 }));
@@ -4360,28 +4361,28 @@ namespace TouchMeta
 
             else if (sender == ChangeMetaRatingAppend)
             {
-                RunBgWorker(new Action<string>((file) =>
+                RunBgWorker(new Action<string, bool>((file, show_xmp) =>
                 {
                     ChangeProperties(file, CurrentMeta, ChangePropertyType.Rating, ChangePropertyMode.Append);
                 }));
             }
             else if (sender == ChangeMetaRatingRemove)
             {
-                RunBgWorker(new Action<string>((file) =>
+                RunBgWorker(new Action<string, bool>((file, show_xmp) =>
                 {
                     ChangeProperties(file, CurrentMeta, ChangePropertyType.Rating, ChangePropertyMode.Remove);
                 }));
             }
             else if (sender == ChangeMetaRatingReplace)
             {
-                RunBgWorker(new Action<string>((file) =>
+                RunBgWorker(new Action<string, bool>((file, show_xmp) =>
                 {
                     ChangeProperties(file, CurrentMeta, ChangePropertyType.Rating, ChangePropertyMode.Replace);
                 }));
             }
             else if (sender == ChangeMetaRatingEmpty)
             {
-                RunBgWorker(new Action<string>((file) =>
+                RunBgWorker(new Action<string, bool>((file, show_xmp) =>
                 {
                     ChangeProperties(file, CurrentMeta, ChangePropertyType.Rating, ChangePropertyMode.Empty);
                 }));
@@ -4389,28 +4390,28 @@ namespace TouchMeta
 
             else if (sender == ChangeMetaSmartAppend)
             {
-                RunBgWorker(new Action<string>((file) =>
+                RunBgWorker(new Action<string, bool>((file, show_xmp) =>
                 {
                     ChangeProperties(file, CurrentMeta, ChangePropertyType.Smart, ChangePropertyMode.Append);
                 }));
             }
             else if (sender == ChangeMetaSmartRemove)
             {
-                RunBgWorker(new Action<string>((file) =>
+                RunBgWorker(new Action<string, bool>((file, show_xmp) =>
                 {
                     ChangeProperties(file, CurrentMeta, ChangePropertyType.Smart, ChangePropertyMode.Remove);
                 }));
             }
             else if (sender == ChangeMetaSmartReplace)
             {
-                RunBgWorker(new Action<string>((file) =>
+                RunBgWorker(new Action<string, bool>((file, show_xmp) =>
                 {
                     ChangeProperties(file, CurrentMeta, ChangePropertyType.Smart, ChangePropertyMode.Replace);
                 }));
             }
             else if (sender == ChangeMetaSmartEmpty)
             {
-                RunBgWorker(new Action<string>((file) =>
+                RunBgWorker(new Action<string, bool>((file, show_xmp) =>
                 {
                     ChangeProperties(file, CurrentMeta, ChangePropertyType.Smart, ChangePropertyMode.Empty);
                 }));
@@ -4447,7 +4448,7 @@ namespace TouchMeta
             else if (sender == ViewSelected)
             {
                 bool openwith = Keyboard.Modifiers == ModifierKeys.Shift ? true : false;
-                RunBgWorker(new Action<string>((file) =>
+                RunBgWorker(new Action<string, bool>((file, show_xmp) =>
                 {
                     if (openwith)
                         Process.Start("OpenWith.exe", file);
@@ -4533,7 +4534,7 @@ namespace TouchMeta
                 //    meta.DateModified = null;
                 //    meta.DateAccesed = null;
                 //}
-                RunBgWorker(new Action<string>((file) =>
+                RunBgWorker(new Action<string, bool>((file, show_xmp) =>
                 {
                     TouchDate(file, force: force, meta: meta);
                 }));
@@ -4545,8 +4546,9 @@ namespace TouchMeta
                 var force = Keyboard.Modifiers == ModifierKeys.Control;
                 var meta = CurrentMeta;
 
-                RunBgWorker(new Action<string>((file) =>
+                RunBgWorker(new Action<string, bool>((file, show_xmp) =>
                 {
+                    meta.ShowXMP = show_xmp;
                     TouchMeta(file, force: force, meta: meta);
                 }));
                 #endregion
@@ -4554,7 +4556,7 @@ namespace TouchMeta
             else if (sender == BtnClearMeta)
             {
                 #region Clear Metadata
-                RunBgWorker(new Action<string>((file) =>
+                RunBgWorker(new Action<string, bool>((file, show_xmp) =>
                 {
                     ClearMeta(file);
                 }));
@@ -4564,9 +4566,9 @@ namespace TouchMeta
             {
                 #region Show Metadata
                 bool xmp_merge_nodes = Keyboard.Modifiers == ModifierKeys.Control;
-                RunBgWorker(new Action<string>((file) =>
+                RunBgWorker(new Action<string, bool>((file, show_xmp) =>
                 {
-                    ShowMeta(file, xmp_merge_nodes);
+                    ShowMeta(file, xmp_merge_nodes, show_xmp: show_xmp);
                 }));
                 #endregion
             }
