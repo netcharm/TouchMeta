@@ -507,7 +507,7 @@ namespace TouchMeta
             return (MagickColor.FromRgba(c.R, c.G, c.B, c.A));
         }
 
-        private static string BytesToString(byte[] bytes, bool ascii = false)
+        private static string BytesToString(byte[] bytes, bool ascii = false, bool msb = false)
         {
             var result = string.Empty;
             if (bytes is byte[] && bytes.Length > 0)
@@ -515,29 +515,53 @@ namespace TouchMeta
                 if (ascii) result = Encoding.ASCII.GetString(bytes);
                 else
                 {
-                    var bytes_text = bytes.Select(c => ascii ? $"{Convert.ToChar(c)}" : $"{c}");
-                    result = string.Join(", ", bytes_text);
-                    if (bytes.Length > 4)
+                    if (bytes.Length > 8)
                     {
-                        var text = BytesToUnicode(result);
-                        if (!result.StartsWith("0,") && !string.IsNullOrEmpty(text)) result = text;
+                        var idcode_bytes = bytes.Take(8).ToArray();
+                        var idcode_name = Encoding.ASCII.GetString(idcode_bytes).TrimEnd().TrimEnd('\0').TrimEnd();
+                        if ("UNICODE".Equals(idcode_name, StringComparison.CurrentCultureIgnoreCase))
+                        {
+                            if (msb)
+                                result = Encoding.BigEndianUnicode.GetString(bytes.Skip(8).ToArray());
+                            else
+                                result = Encoding.Unicode.GetString(bytes.Skip(8).ToArray());
+                        }
+                        else if ("Ascii".Equals(idcode_name, StringComparison.CurrentCultureIgnoreCase))
+                        {
+                            result = Encoding.ASCII.GetString(bytes.Skip(8).ToArray());
+                        }
+                        else if ("Default".Equals(idcode_name, StringComparison.CurrentCultureIgnoreCase))
+                        {
+                            result = Encoding.Default.GetString(bytes.Skip(8).ToArray());
+                        }
+                    }
+
+                    if (string.IsNullOrEmpty(result))
+                    {
+                        var bytes_text = bytes.Select(c => ascii ? $"{Convert.ToChar(c)}" : $"{c}");
+                        result = string.Join(", ", bytes_text);
+                        if (bytes.Length > 4)
+                        {
+                            var text = BytesToUnicode(result);
+                            if (!result.StartsWith("0,") && !string.IsNullOrEmpty(text)) result = text;
+                        }
                     }
                 }
             }
             return (result);
         }
 
-        private static string BytesToUnicode(byte[] bytes, bool ascii = false)
+        private static string BytesToUnicode(byte[] bytes, bool ascii = false, bool msb = false)
         {
             var result = string.Empty;
             if (bytes is byte[] && bytes.Length > 0)
             {
-                result = ascii ? Encoding.ASCII.GetString(bytes) : Encoding.Unicode.GetString(bytes);
+                result = ascii ? Encoding.ASCII.GetString(bytes) : (msb ? Encoding.BigEndianUnicode.GetString(bytes) : Encoding.Unicode.GetString(bytes));
             }
             return (result);
         }
 
-        private static string BytesToUnicode(string text)
+        private static string BytesToUnicode(string text, bool msb = false)
         {
             var result = text;
             if (!string.IsNullOrEmpty(text))
@@ -551,10 +575,34 @@ namespace TouchMeta
                         if (int.Parse(value) > 255) continue;
                         bytes.Add(byte.Parse(value));
                     }
-                    if (bytes.Count > 0) result = result.Replace(m.Groups[1].Value, Encoding.Unicode.GetString(bytes.ToArray()));//.TrimEnd('\0'));
+                    if (bytes.Count > 0) result = result.Replace(m.Groups[1].Value, msb ? Encoding.BigEndianUnicode.GetString(bytes.ToArray()) : Encoding.Unicode.GetString(bytes.ToArray()));//.TrimEnd('\0'));
                 }
             }
             return (result);
+        }
+
+        private static byte[] ByteStringToBytes(string text)
+        {
+            byte[] result = null;
+            if (!string.IsNullOrEmpty(text))
+            {
+                List<byte> bytes = new List<byte>();
+                foreach (Match m in Regex.Matches($"{text.TrimEnd().TrimEnd(',')},", @"((\d{1,3}) ?, ?)"))
+                {
+                    var value = m.Groups[2].Value.Trim().TrimEnd(',');
+                    if (int.Parse(value) > 255) continue;
+                    bytes.Add(byte.Parse(value));
+                }
+                result = bytes.ToArray();
+            }
+            return (result);
+        }
+
+        private static string ByteStringToString(string text, Encoding encoding = default(Encoding), bool msb = false)
+        {
+            if (encoding == null) encoding = Encoding.UTF8;
+            if (msb && encoding == Encoding.Unicode) encoding = Encoding.BigEndianUnicode;
+            return (encoding.GetString(ByteStringToBytes(text)));
         }
 
         private static string UnicodeToBytes(string text)
@@ -1515,11 +1563,11 @@ namespace TouchMeta
                 {
                     var exif = image.HasProfile("exif") ? image.GetExifProfile() : new ExifProfile();
                     var iptc = image.HasProfile("iptc") ? image.GetIptcProfile() : new IptcProfile();
+                    Type exiftag_type = typeof(ImageMagick.ExifTag);
 
                     result = attr.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(attr)) : image.GetAttribute(attr);
                     if (attr.StartsWith("exif:") && !attr.Contains("WinXP"))
                     {
-                        Type exiftag_type = typeof(ImageMagick.ExifTag);
                         var tag_name =  attr.Contains("WinXP") ? $"XP{attr.Substring(11)}" : attr.Substring(5);
                         if (tag_name.Equals("FlashPixVersion")) tag_name = "FlashpixVersion";
                         dynamic tag_property = exiftag_type.GetProperty(tag_name) ?? exiftag_type.GetProperty($"{tag_name}s") ?? exiftag_type.GetProperty(tag_name.Substring(0, tag_name.Length-1));
@@ -1570,15 +1618,23 @@ namespace TouchMeta
                                 }
                                 else if (tag_value.DataType == ExifDataType.Undefined && tag_value.IsArray)
                                 {
+                                    var is_msb = image.Endian == Endian.MSB;
                                     if (tag_value.Tag == ImageMagick.ExifTag.ExifVersion)
-                                        result = BytesToString(tag_value.GetValue() as byte[], true);
+                                        result = BytesToString(tag_value.GetValue() as byte[], true, is_msb);
                                     else
-                                        result = BytesToString(tag_value.GetValue() as byte[], false);
+                                        result = BytesToString(tag_value.GetValue() as byte[], false, is_msb);
                                 }
                                 else if (tag_value.DataType == ExifDataType.Byte && tag_value.IsArray)
-                                    result = BytesToString(tag_value.GetValue() as byte[]);
+                                {
+                                    var is_msb = image.Endian == Endian.MSB;
+                                    result = BytesToString(tag_value.GetValue() as byte[], msb: is_msb);
+                                }
                                 else if (tag_value.DataType == ExifDataType.Unknown && tag_value.IsArray)
-                                    result = BytesToString(tag_value.GetValue() as byte[], tag_value.Tag.ToString().Contains("Version"));
+                                {
+                                    var is_ascii = tag_value.Tag.ToString().Contains("Version");
+                                    var is_msb = image.Endian == Endian.MSB;
+                                    result = BytesToString(tag_value.GetValue() as byte[], is_ascii, is_msb);
+                                }
                             }
                         }
                     }
@@ -1606,6 +1662,7 @@ namespace TouchMeta
                     }
 
                     if (!string.IsNullOrEmpty(result)) result = result.Replace("\0", string.Empty).TrimEnd('\0');
+                    if (Regex.IsMatch($"{result.TrimEnd().TrimEnd(',')},", @"((\d{1,3}) ?, ?){16,}", RegexOptions.IgnoreCase)) result = ByteStringToString(result);
                 }
             }
             catch (Exception ex) { Log(ex.Message); }
@@ -1693,8 +1750,10 @@ namespace TouchMeta
                 try
                 {
                     var fi = new FileInfo(file);
+                    var exifdata = new CompactExifLib.ExifData(fi.FullName);
                     using (MagickImage image = new MagickImage(fi.FullName))
                     {
+                        if (image.Endian == Endian.Undefined) image.Endian = exifdata.ByteOrder == ExifByteOrder.BigEndian ? Endian.MSB : Endian.LSB;
                         TouchProfile(image, profiles, force);
                     }
                 }
@@ -1755,8 +1814,10 @@ namespace TouchMeta
                 try
                 {
                     var fi = new FileInfo(file);
+                    var exifdata = new CompactExifLib.ExifData(fi.FullName);
                     using (MagickImage image = new MagickImage(fi.FullName))
                     {
+                        if (image.Endian == Endian.Undefined) image.Endian = exifdata.ByteOrder == ExifByteOrder.BigEndian ? Endian.MSB : Endian.LSB;
                         TouchAttribute(image, attrs, force);
                     }
                 }
@@ -1949,8 +2010,12 @@ namespace TouchMeta
                 {
                     try
                     {
+                        var exifdata = new CompactExifLib.ExifData(ms);
+                        ms.Seek(0, SeekOrigin.Begin);
+
                         using (MagickImage image = new MagickImage(ms))
                         {
+                            if (image.Endian == Endian.Undefined) image.Endian = exifdata.ByteOrder == ExifByteOrder.BigEndian ? Endian.MSB : Endian.LSB;
                             result = GetMetaInfo(image);
                         }
                     }
@@ -2037,10 +2102,13 @@ namespace TouchMeta
                     var keyword_list = string.IsNullOrEmpty(keywords) ? new List<string>() : keywords.Split(new char[] { ';', '#' }, StringSplitOptions.RemoveEmptyEntries).Select(k => k.Trim()).Where(k => !string.IsNullOrEmpty(k)).Distinct();
                     keywords = string.Join("; ", keyword_list);
 
+                    var exifdata = new CompactExifLib.ExifData(fi.FullName);
                     using (MagickImage image = new MagickImage(fi.FullName))
                     {
                         if (image.FormatInfo.IsReadable && image.FormatInfo.IsWritable)
                         {
+                            if (image.Endian == Endian.Undefined) image.Endian = exifdata.ByteOrder == ExifByteOrder.BigEndian ? Endian.MSB : Endian.LSB;
+
                             bool is_png = image.FormatInfo.MimeType.Equals("image/png", StringComparison.CurrentCultureIgnoreCase);
                             bool is_jpg = image.FormatInfo.MimeType.Equals("image/jpeg", StringComparison.CurrentCultureIgnoreCase);
 
@@ -2994,8 +3062,8 @@ namespace TouchMeta
                         {
                             exif.SetTagRawData(CompactExifLib.ExifTag.XpComment, ExifTagType.Byte, Encoding.Unicode.GetByteCount(meta.Comment), Encoding.Unicode.GetBytes(meta.Comment));
                             //exif.SetTagValue(CompactExifLib.ExifTag.XpComment, meta.Comment, StrCoding.Utf16Le_Byte);
-                            exif.SetTagValue(CompactExifLib.ExifTag.UserComment, meta.Comment, StrCoding.Utf8);
-                            //exif.SetTagValue(CompactExifLib.ExifTag.UserComment, meta.Comment, StrCoding.IdCode_Utf16);
+                            //exif.SetTagValue(CompactExifLib.ExifTag.UserComment, meta.Comment, StrCoding.Utf8);
+                            exif.SetTagValue(CompactExifLib.ExifTag.UserComment, meta.Comment, StrCoding.IdCode_Utf16);
                         }
 
                         exif.SetTagRawData(CompactExifLib.ExifTag.XpRanking, ExifTagType.UShort, 1, BitConverter.GetBytes((short)(meta.Ranking ?? 0)).Reverse().ToArray());
@@ -3038,10 +3106,14 @@ namespace TouchMeta
                 {
                     try
                     {
+                        var exifdata = new CompactExifLib.ExifData(ms);
+                        ms.Seek(0, SeekOrigin.Begin);
                         using (MagickImage image = new MagickImage(ms))
                         {
                             if (image.FormatInfo.IsReadable)
                             {
+                                if (image.Endian == Endian.Undefined) image.Endian = exifdata.ByteOrder == ExifByteOrder.BigEndian ? Endian.MSB : Endian.LSB;
+
                                 var exif = image.HasProfile("exif") ? image.GetExifProfile() : new ExifProfile();
                                 var exif_invalid = exif.InvalidTags;
 
@@ -3211,8 +3283,13 @@ namespace TouchMeta
                 {
                     try
                     {
+                        var exifdata = new CompactExifLib.ExifData(ms);
+                        ms.Seek(0, SeekOrigin.Begin);
+
                         using (MagickImage image = new MagickImage(ms))
                         {
+                            if (image.Endian == Endian.Undefined) image.Endian = exifdata.ByteOrder == ExifByteOrder.BigEndian ? Endian.MSB : Endian.LSB;
+
                             var meta = GetMetaInfo(image);
 
                             var fmt_info = MagickNET.SupportedFormats.Where(f => f.Format == fmt).FirstOrDefault();
