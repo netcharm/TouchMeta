@@ -27,6 +27,7 @@ namespace TouchMeta
     public class MetaInfo
     {
         public bool TouchProfiles { get; set; } = true;
+        public ChangePropertyType ChangeProperties { get; set; } = ChangePropertyType.All;
 
         public DateTime? DateCreated { get; set; } = null;
         public DateTime? DateModified { get; set; } = null;
@@ -39,8 +40,8 @@ namespace TouchMeta
         public string Subject { get; set; } = null;
         public string Keywords { get; set; } = null;
         public string Comment { get; set; } = null;
-        public string Author { get; set; } = null;
-        public string Copyright { get; set; } = null;
+        public string Authors { get; set; } = null;
+        public string Copyrights { get; set; } = null;
 
         public int? Rating { get; set; } = null;
         public int? Ranking { get; set; } = null;
@@ -48,6 +49,25 @@ namespace TouchMeta
         public Dictionary<string, string> Attributes { get; set; } = null;
         public Dictionary<string, IImageProfile> Profiles { get; set; } = null;
     }
+
+    public enum ChangePropertyMode { None = 0, Append = 1, Remove = 2, Replace = 3, Empty = 4 };
+
+    [Flags]
+    public enum ChangePropertyType {
+        None       = 0x0000, //0b00000000,
+        Title      = 0x0001, //0b00000001,
+        Subject    = 0x0002, //0b00000010,
+        Keywords   = 0x0004, //0b00000100,
+        Comment    = 0x0008, //0b00001000,
+        Authors    = 0x0010, //0b00010000,
+        Copyrights = 0x0020, //0b00100000,
+        Rating     = 0x0040, //0b01000000,
+        Ranking    = 0x0080, //0b10000000,
+
+        DateTime   = 0x4000,
+        Smart      = 0x8000,
+        All        = 0xFFFF,
+    };
 
     /// <summary>
     /// MainWindow.xaml 的交互逻辑
@@ -473,22 +493,42 @@ namespace TouchMeta
         #region Text/Color Converting Helper
         private static int RatingToRanking(int rating)
         {
-            var rating_level = 0;
+            var ranking = 0;
             try
             {
-                if (rating >= 99) rating_level = 5;
-                else if (rating >= 75) rating_level = 4;
-                else if (rating >= 50) rating_level = 3;
-                else if (rating >= 25) rating_level = 2;
-                else if (rating >= 01) rating_level = 1;
+                if      (rating >= 99) ranking = 5;
+                else if (rating >= 75) ranking = 4;
+                else if (rating >= 50) ranking = 3;
+                else if (rating >= 25) ranking = 2;
+                else if (rating >= 01) ranking = 1;
             }
             catch { }
-            return (rating_level);
+            return (ranking);
         }
 
         private static int RatingToRanking(int? rating)
         {
             return (RatingToRanking(rating ?? 0));
+        }
+
+        private static int RankingToRating(int ranking)
+        {
+            var rating = 0;
+            try
+            {
+                if      (ranking >= 5) rating = 99;
+                else if (ranking >= 4) rating = 75;
+                else if (ranking >= 3) rating = 50;
+                else if (ranking >= 2) rating = 25;
+                else if (ranking >= 1) rating = 01;
+            }
+            catch { }
+            return (rating);
+        }
+
+        private static int RankingToRating(int? ranking)
+        {
+            return (RankingToRating(ranking ?? 0));
         }
 
         private static MagickColor XYZ2RGB(double x, double y, double z)
@@ -880,8 +920,8 @@ namespace TouchMeta
             {
                 var title = meta is MetaInfo ? meta.Title ?? Path.GetFileNameWithoutExtension(fi.Name) : Path.GetFileNameWithoutExtension(fi.Name);
                 var subject = meta is MetaInfo ? meta.Subject : title;
-                var authors = meta is MetaInfo ? meta.Author : string.Empty;
-                var copyright = meta is MetaInfo ? meta.Copyright : authors;
+                var authors = meta is MetaInfo ? meta.Authors : string.Empty;
+                var copyright = meta is MetaInfo ? meta.Copyrights : authors;
                 var keywords = meta is MetaInfo ? meta.Keywords : string.Empty;
                 var comment = meta is MetaInfo ? meta.Comment : string.Empty;
                 var rating = meta is MetaInfo ? meta.Rating : null;
@@ -1433,8 +1473,8 @@ namespace TouchMeta
                     _current_meta_.Subject = string.IsNullOrEmpty(MetaInputSubjectText.Text) ? null : MetaInputSubjectText.Text;
                     _current_meta_.Comment = string.IsNullOrEmpty(MetaInputCommentText.Text) ? null : MetaInputCommentText.Text;
                     _current_meta_.Keywords = string.IsNullOrEmpty(MetaInputKeywordsText.Text) ? null : MetaInputKeywordsText.Text;
-                    _current_meta_.Author = string.IsNullOrEmpty(MetaInputAuthorText.Text) ? null : MetaInputAuthorText.Text;
-                    _current_meta_.Copyright = string.IsNullOrEmpty(MetaInputCopyrightText.Text) ? null : MetaInputCopyrightText.Text;
+                    _current_meta_.Authors = string.IsNullOrEmpty(MetaInputAuthorText.Text) ? null : MetaInputAuthorText.Text;
+                    _current_meta_.Copyrights = string.IsNullOrEmpty(MetaInputCopyrightText.Text) ? null : MetaInputCopyrightText.Text;
                     _current_meta_.Rating = CurrentMetaRating;
                 });
                 return (_current_meta_);
@@ -1458,8 +1498,8 @@ namespace TouchMeta
                         MetaInputSubjectText.Text = _current_meta_.Subject;
                         MetaInputCommentText.Text = _current_meta_.Comment;
                         MetaInputKeywordsText.Text = _current_meta_.Keywords;
-                        MetaInputAuthorText.Text = _current_meta_.Author;
-                        MetaInputCopyrightText.Text = _current_meta_.Copyright;
+                        MetaInputAuthorText.Text = _current_meta_.Authors;
+                        MetaInputCopyrightText.Text = _current_meta_.Copyrights;
                         CurrentMetaRating = _current_meta_.Rating ?? 0;
                     }
                 });
@@ -1662,7 +1702,7 @@ namespace TouchMeta
                     }
 
                     if (!string.IsNullOrEmpty(result)) result = result.Replace("\0", string.Empty).TrimEnd('\0');
-                    if (Regex.IsMatch($"{result.TrimEnd().TrimEnd(',')},", @"((\d{1,3}) ?, ?){16,}", RegexOptions.IgnoreCase)) result = ByteStringToString(result);
+                    if (!string.IsNullOrEmpty(result) && Regex.IsMatch($"{result.TrimEnd().TrimEnd(',')},", @"((\d{1,3}) ?, ?){16,}", RegexOptions.IgnoreCase)) result = ByteStringToString(result);
                 }
             }
             catch (Exception ex) { Log(ex.Message); }
@@ -1742,6 +1782,386 @@ namespace TouchMeta
             }
             catch (Exception ex) { Log(ex.Message); }
         }
+
+        #region Add/Remove/Replace/Empty exif properties
+        public static MetaInfo ChangeTitle(MetaInfo meta, string title, ChangePropertyMode mode = ChangePropertyMode.None)
+        {
+            if (meta is MetaInfo && mode != ChangePropertyMode.None)
+            {
+                if (mode == ChangePropertyMode.Append)
+                {
+                    meta.Title = $"{meta.Title}; {title}";
+                }
+                else if (mode == ChangePropertyMode.Remove)
+                {
+                    meta.Title = meta.Title.Replace(title, "");
+                }
+                else if (mode == ChangePropertyMode.Replace)
+                {
+                    meta.Title = title;
+                }
+                else if (mode == ChangePropertyMode.Empty)
+                {
+                    meta.Title = string.Empty;
+                }
+            }
+            return (meta);
+        }
+
+        public static void ChangeTitle(string file, string title, ChangePropertyMode mode = ChangePropertyMode.None)
+        {
+            if (File.Exists(file) && !string.IsNullOrEmpty(title))
+            {
+                try
+                {
+                    var meta = GetMetaInfo(file);
+                    meta.TouchProfiles = false;
+                    meta.ChangeProperties = ChangePropertyType.Title;
+                    ChangeTitle(meta, title, mode);
+                    TouchMeta(file, force: true, meta: meta);
+                }
+                catch (Exception ex) { Log(ex.Message); }
+            }
+        }
+
+        public static MetaInfo ChangeSubject(MetaInfo meta, string subject, ChangePropertyMode mode = ChangePropertyMode.None)
+        {
+            if (meta is MetaInfo && mode != ChangePropertyMode.None)
+            {
+                if (mode == ChangePropertyMode.Append)
+                {
+                    meta.Subject = $"{meta.Subject}; {subject}";
+                }
+                else if (mode == ChangePropertyMode.Remove)
+                {
+                    meta.Subject = meta.Subject.Replace(subject, "");
+                }
+                else if (mode == ChangePropertyMode.Replace)
+                {
+                    meta.Subject = subject;
+                }
+                else if (mode == ChangePropertyMode.Empty)
+                {
+                    meta.Subject = string.Empty;
+                }
+            }
+            return (meta);
+        }
+
+        public static void ChangeSubject(string file, string subject, ChangePropertyMode mode = ChangePropertyMode.None)
+        {
+            if (File.Exists(file) && !string.IsNullOrEmpty(subject))
+            {
+                try
+                {
+                    var meta = GetMetaInfo(file);
+                    meta.TouchProfiles = false;
+                    meta.ChangeProperties = ChangePropertyType.Subject;
+                    ChangeSubject(meta, subject, mode);
+                    TouchMeta(file, force: true, meta: meta);
+                }
+                catch (Exception ex) { Log(ex.Message); }
+            }
+        }
+
+        public static MetaInfo ChangeKeywords(MetaInfo meta, string[] keywords, ChangePropertyMode mode = ChangePropertyMode.None)
+        {
+            if (meta is MetaInfo && mode != ChangePropertyMode.None)
+            {
+                var tags_old = meta.Keywords.Split(';');
+                if (mode == ChangePropertyMode.Append)
+                {
+                    meta.Keywords = string.Join("; ", tags_old.Select(t => t.Trim()).Union(keywords.Select(t => t.Trim())));
+                }
+                else if (mode == ChangePropertyMode.Remove)
+                {
+                    //meta.Keywords = string.Join("; ", tags_old.Select(t => t.Trim()).Where(t => !(tags.Select(k => k.Trim())).Contains(t)));
+                    meta.Keywords = string.Join("; ", tags_old.Select(t => t.Trim()).Except(keywords.Select(t => t.Trim())));
+                }
+                else if (mode == ChangePropertyMode.Replace)
+                {
+                    meta.Keywords = string.Join("; ", keywords.Select(t => t.Trim()));
+                }
+                else if (mode == ChangePropertyMode.Empty)
+                {
+                    meta.Keywords = string.Empty;
+                }
+            }
+            return (meta);
+        }
+
+        public static void ChangeKeywords(string file, string[] keywords, ChangePropertyMode mode = ChangePropertyMode.None)
+        {
+            if (File.Exists(file) && keywords is string[] && keywords.Length > 0)
+            {
+                try
+                {
+                    var meta = GetMetaInfo(file);
+                    meta.TouchProfiles = false;
+                    meta.ChangeProperties = ChangePropertyType.Keywords;
+                    ChangeKeywords(meta, keywords, mode);
+                    TouchMeta(file, force: true, meta: meta);
+                }
+                catch (Exception ex) { Log(ex.Message); }
+            }
+        }
+
+        public static MetaInfo ChangeComment(MetaInfo meta, string comment, ChangePropertyMode mode = ChangePropertyMode.None)
+        {
+            if (meta is MetaInfo && mode != ChangePropertyMode.None)
+            {
+                if (mode == ChangePropertyMode.Append)
+                {
+                    meta.Comment = $"{meta.Comment}; {comment}";
+                }
+                else if (mode == ChangePropertyMode.Remove)
+                {
+                    meta.Comment = meta.Comment.Replace(comment, "");
+                }
+                else if (mode == ChangePropertyMode.Replace)
+                {
+                    meta.Comment = comment;
+                }
+                else if (mode == ChangePropertyMode.Empty)
+                {
+                    meta.Comment = string.Empty;
+                }
+            }
+            return (meta);
+        }
+
+        public static void ChangeComment(string file, string comment, ChangePropertyMode mode = ChangePropertyMode.None)
+        {
+            if (File.Exists(file) && !string.IsNullOrEmpty(comment))
+            {
+                try
+                {
+                    var meta = GetMetaInfo(file);
+                    meta.TouchProfiles = false;
+                    meta.ChangeProperties = ChangePropertyType.Comment;
+                    ChangeSubject(meta, comment, mode);
+                    TouchMeta(file, force: true, meta: meta);
+                }
+                catch (Exception ex) { Log(ex.Message); }
+            }
+        }
+
+        public static MetaInfo ChangeAuthors(MetaInfo meta, string[] authors, ChangePropertyMode mode = ChangePropertyMode.None)
+        {
+            if (meta is MetaInfo && mode != ChangePropertyMode.None)
+            {
+                var authors_old = meta.Authors.Split(';');
+                if (mode == ChangePropertyMode.Append)
+                {
+                    meta.Authors = string.Join("; ", authors_old.Select(t => t.Trim()).Union(authors.Select(t => t.Trim())));
+                }
+                else if (mode == ChangePropertyMode.Remove)
+                {
+                    //meta.Author = string.Join("; ", authors_old.Select(t => t.Trim()).Where(t => !(authors.Select(k => k.Trim())).Contains(t)));
+                    meta.Authors = string.Join("; ", authors_old.Select(t => t.Trim()).Except(authors.Select(t => t.Trim())));
+                }
+                else if (mode == ChangePropertyMode.Replace)
+                {
+                    meta.Authors = string.Join("; ", authors.Select(t => t.Trim()));
+                }
+                else if (mode == ChangePropertyMode.Empty)
+                {
+                    meta.Authors = string.Empty;
+                }
+            }
+            return (meta);
+        }
+
+        public static void ChangeAuthors(string file, string[] authors, ChangePropertyMode mode = ChangePropertyMode.None)
+        {
+            if (File.Exists(file) && authors is string[] && authors.Length > 0)
+            {
+                try
+                {
+                    var meta = GetMetaInfo(file);
+                    meta.TouchProfiles = false;
+                    meta.ChangeProperties = ChangePropertyType.Authors;
+                    ChangeAuthors(meta, authors, mode);
+                    TouchMeta(file, force: true, meta: meta);
+                }
+                catch (Exception ex) { Log(ex.Message); }
+            }
+        }
+
+        public static MetaInfo ChangeCopyrights(MetaInfo meta, string[] copyrights, ChangePropertyMode mode = ChangePropertyMode.None)
+        {
+            if (meta is MetaInfo && mode != ChangePropertyMode.None)
+            {
+                var copyrights_old = meta.Copyrights.Split(';');
+                if (mode == ChangePropertyMode.Append)
+                {
+                    meta.Copyrights = string.Join("; ", copyrights_old.Select(t => t.Trim()).Union(copyrights.Select(t => t.Trim())));
+                }
+                else if (mode == ChangePropertyMode.Remove)
+                {
+                    //meta.Copyright = string.Join("; ", copyrights_old.Select(t => t.Trim()).Where(t => !(copyrights.Select(k => k.Trim())).Contains(t)));
+                    meta.Copyrights = string.Join("; ", copyrights_old.Select(t => t.Trim()).Except(copyrights.Select(t => t.Trim())));
+                }
+                else if (mode == ChangePropertyMode.Replace)
+                {
+                    meta.Copyrights = string.Join("; ", copyrights.Select(t => t.Trim()));
+                }
+                else if (mode == ChangePropertyMode.Empty)
+                {
+                    meta.Copyrights = string.Empty;
+                }
+            }
+            return (meta);
+        }
+
+        public static void ChangeCopyrights(string file, string[] copyrights, ChangePropertyMode mode = ChangePropertyMode.None)
+        {
+            if (File.Exists(file) && copyrights is string[] && copyrights.Length > 0)
+            {
+                try
+                {
+                    var meta = GetMetaInfo(file);
+                    meta.TouchProfiles = false;
+                    meta.ChangeProperties = ChangePropertyType.Copyrights;
+                    ChangeCopyrights(meta, copyrights, mode);
+                    TouchMeta(file, force: true, meta: meta);
+                }
+                catch (Exception ex) { Log(ex.Message); }
+            }
+        }
+
+        public static MetaInfo ChangeRanking(MetaInfo meta, int ranking, ChangePropertyMode mode = ChangePropertyMode.None)
+        {
+            if (meta is MetaInfo && mode != ChangePropertyMode.None)
+            {
+                if (mode == ChangePropertyMode.Append)
+                {
+                    meta.Rating = Math.Max(0, Math.Min(meta.Rating ?? 0 + ranking, 5));
+                }
+                else if (mode == ChangePropertyMode.Remove)
+                {
+                    meta.Rating = Math.Min(5, Math.Max(meta.Rating ?? 0 - ranking, 0));
+                }
+                else if (mode == ChangePropertyMode.Replace)
+                {
+                    meta.Rating = Math.Max(0, Math.Min(5, ranking));
+                }
+                else if (mode == ChangePropertyMode.Empty)
+                {
+                    meta.Rating = 0;
+                }
+                meta.Ranking = RatingToRanking(meta.Rating);
+            }
+            return (meta);
+        }
+
+        public static void ChangeRanking(string file, int ranking, ChangePropertyMode mode = ChangePropertyMode.None)
+        {
+            if (File.Exists(file))
+            {
+                try
+                {
+                    var meta = GetMetaInfo(file);
+                    meta.TouchProfiles = false;
+                    meta.ChangeProperties = ChangePropertyType.Ranking;
+                    ChangeRanking(meta, ranking, mode);
+                    TouchMeta(file, force: true, meta: meta);
+                }
+                catch (Exception ex) { Log(ex.Message); }
+            }
+        }
+
+        public static MetaInfo ChangeRating(MetaInfo meta, int rating, ChangePropertyMode mode = ChangePropertyMode.None)
+        {
+            if (meta is MetaInfo && mode != ChangePropertyMode.None)
+            {
+                if (mode == ChangePropertyMode.Append)
+                {
+                    meta.Rating = Math.Max(0, Math.Min(meta.Rating ?? 0 + rating, 5));
+                }
+                else if (mode == ChangePropertyMode.Remove)
+                {
+                    meta.Rating = Math.Min(5, Math.Max(meta.Rating ?? 0 - rating, 0));
+                }
+                else if (mode == ChangePropertyMode.Replace)
+                {
+                    meta.Rating = Math.Max(0, Math.Min(5, rating));
+                }
+                else if (mode == ChangePropertyMode.Empty)
+                {
+                    meta.Rating = 0;
+                }
+                meta.Ranking = RatingToRanking(meta.Rating);
+            }
+            return (meta);
+        }
+
+        public static void ChangeRating(string file, int rating, ChangePropertyMode mode = ChangePropertyMode.None)
+        {
+            if (File.Exists(file))
+            {
+                try
+                {
+                    var meta = GetMetaInfo(file);
+                    meta.TouchProfiles = false;
+                    meta.ChangeProperties = ChangePropertyType.Rating;
+                    ChangeRating(meta, rating, mode);
+                    TouchMeta(file, force: true, meta: meta);
+                }
+                catch (Exception ex) { Log(ex.Message); }
+            }
+        }
+        
+        public static void ChangeProperties(string file, MetaInfo meta_new, ChangePropertyType type = ChangePropertyType.None, ChangePropertyMode mode = ChangePropertyMode.None)
+        {
+            if (File.Exists(file))
+            {
+                try
+                {
+                    var meta = GetMetaInfo(file);
+                    meta.TouchProfiles = false;
+
+                    if (type== ChangePropertyType.Smart)
+                    {
+                        meta.ChangeProperties = ChangePropertyType.None;
+                        if (!string.IsNullOrEmpty(meta_new.Title) || mode == ChangePropertyMode.Empty)
+                            meta.ChangeProperties |= ChangePropertyType.Title;
+                        if (!string.IsNullOrEmpty(meta_new.Subject) || mode == ChangePropertyMode.Empty)
+                            meta.ChangeProperties |= ChangePropertyType.Subject;
+                        if (!string.IsNullOrEmpty(meta_new.Keywords) || mode == ChangePropertyMode.Empty)
+                            meta.ChangeProperties |= ChangePropertyType.Keywords;
+                        if (!string.IsNullOrEmpty(meta_new.Comment) || mode == ChangePropertyMode.Empty)
+                            meta.ChangeProperties |= ChangePropertyType.Comment;
+                        if (!string.IsNullOrEmpty(meta_new.Authors) || mode == ChangePropertyMode.Empty)
+                            meta.ChangeProperties |= ChangePropertyType.Authors;
+                        if (!string.IsNullOrEmpty(meta_new.Copyrights) || mode == ChangePropertyMode.Empty)
+                            meta.ChangeProperties |= ChangePropertyType.Copyrights;
+                    }
+                    else meta.ChangeProperties = type;
+
+                    if (type.HasFlag(ChangePropertyType.Title))
+                        meta = ChangeTitle(meta, meta_new.Title, mode);
+                    if (type.HasFlag(ChangePropertyType.Subject))
+                        meta = ChangeSubject(meta, meta_new.Subject, mode);
+                    if (type.HasFlag(ChangePropertyType.Keywords))
+                        meta = ChangeKeywords(meta, meta_new.Keywords.Split(';'), mode);
+                    if (type.HasFlag(ChangePropertyType.Comment))
+                        meta = ChangeComment(meta, meta_new.Comment, mode);
+                    if (type.HasFlag(ChangePropertyType.Authors))
+                        meta = ChangeAuthors(meta, meta_new.Authors.Split(';'), mode);
+                    if (type.HasFlag(ChangePropertyType.Copyrights))
+                        meta = ChangeCopyrights(meta, meta_new.Copyrights.Split(';'), mode);
+                    if (type.HasFlag(ChangePropertyType.Rating))
+                        meta = ChangeRating(meta, meta_new.Rating ?? 0, mode);
+                    if (type.HasFlag(ChangePropertyType.Ranking))
+                        meta = ChangeRanking(meta, meta_new.Ranking ?? 0, mode);
+
+                    TouchMeta(file, force: true, meta: meta);
+                }
+                catch (Exception ex) { Log(ex.Message); }
+            }
+        }
+        #endregion
 
         public static void TouchProfile(string file, Dictionary<string, IImageProfile> profiles, bool force = false)
         {
@@ -1965,8 +2385,8 @@ namespace TouchMeta
                 {
                     if (image.AttributeNames.Contains(tag))
                     {
-                        result.Author = GetAttribute(image, tag);
-                        if (!string.IsNullOrEmpty(result.Author)) break;
+                        result.Authors = GetAttribute(image, tag);
+                        if (!string.IsNullOrEmpty(result.Authors)) break;
                     }
                 }
                 #endregion
@@ -1975,8 +2395,8 @@ namespace TouchMeta
                 {
                     if (image.AttributeNames.Contains(tag))
                     {
-                        result.Copyright = GetAttribute(image, tag);
-                        if (!string.IsNullOrEmpty(result.Copyright)) break;
+                        result.Copyrights = GetAttribute(image, tag);
+                        if (!string.IsNullOrEmpty(result.Copyrights)) break;
                     }
                 }
                 #endregion
@@ -1988,7 +2408,7 @@ namespace TouchMeta
                         if (image.AttributeNames.Contains(tag))
                         {
                             result.Rating = Convert.ToInt32(GetAttribute(image, tag));
-                            if (!string.IsNullOrEmpty(result.Copyright)) break;
+                            if (!string.IsNullOrEmpty(result.Copyrights)) break;
                         }
                     }
                     catch(Exception ex) { Log(ex.Message); }
@@ -2079,6 +2499,11 @@ namespace TouchMeta
     
         public static void TouchMeta(string file, bool force = false, DateTime? dtc = null, DateTime? dtm = null, DateTime? dta = null, MetaInfo meta = null)
         {
+            if (meta.ChangeProperties == ChangePropertyType.None)
+            {
+                Log($"File \"{file}\" needn't do anything!");
+                return;
+            }
             if (File.Exists(file))
             {
                 try
@@ -2087,15 +2512,15 @@ namespace TouchMeta
 
                     var title = meta is MetaInfo ? meta.Title ?? Path.GetFileNameWithoutExtension(fi.Name) : Path.GetFileNameWithoutExtension(fi.Name);
                     var subject = meta is MetaInfo ? meta.Subject : title;
-                    var authors = meta is MetaInfo ? meta.Author : string.Empty;
-                    var copyright = meta is MetaInfo ? meta.Copyright : authors;
+                    var authors = meta is MetaInfo ? meta.Authors : string.Empty;
+                    var copyrights = meta is MetaInfo ? meta.Copyrights : authors;
                     var keywords = meta is MetaInfo ? meta.Keywords : string.Empty;
                     var comment = meta is MetaInfo ? meta.Comment : string.Empty;
                     var rating = meta is MetaInfo ? meta.Rating : null;
                     if (!string.IsNullOrEmpty(title)) title.Replace("\0", string.Empty).TrimEnd('\0');
                     if (!string.IsNullOrEmpty(subject)) subject.Replace("\0", string.Empty).TrimEnd('\0');
                     if (!string.IsNullOrEmpty(authors)) authors.Replace("\0", string.Empty).TrimEnd('\0');
-                    if (!string.IsNullOrEmpty(copyright)) copyright.Replace("\0", string.Empty).TrimEnd('\0');
+                    if (!string.IsNullOrEmpty(copyrights)) copyrights.Replace("\0", string.Empty).TrimEnd('\0');
                     if (!string.IsNullOrEmpty(keywords)) keywords.Replace("\0", string.Empty).TrimEnd('\0');
                     if (!string.IsNullOrEmpty(comment)) comment.Replace("\0", string.Empty).TrimEnd('\0');
 
@@ -2165,257 +2590,281 @@ namespace TouchMeta
                             var dm_misc = dm.ToString("yyyy:MM:dd HH:mm:sszzz");
                             var da_misc = da.ToString("yyyy:MM:dd HH:mm:sszzz");
 
-                            if (image.AttributeNames.Contains("exif:DateTime"))
+                            if (meta is MetaInfo && meta.ChangeProperties.HasFlag(ChangePropertyType.DateTime))
                             {
-                                var edt = GetAttribute(image, "exif:DateTime");
-                                if (!edt.Equals(dm_exif)) image.RemoveAttribute("exif:DateTime");
-                            }
-                            foreach (var tag in tag_date)
-                            {
-                                try
+                                if (image.AttributeNames.Contains("exif:DateTime"))
                                 {
-                                    if (force || !image.AttributeNames.Contains(tag))
-                                    {
-                                        var value_old = image.GetAttribute(tag);
-
-                                        if (tag.StartsWith("date")) SetAttribute(image, tag, dm_date);
-                                        else if (tag.StartsWith("exif")) SetAttribute(image, tag, dm_exif);
-                                        else if (tag.StartsWith("png")) { image.RemoveAttribute(tag); SetAttribute(image, tag, dm_png); }
-                                        else if (tag.StartsWith("tiff")) { image.RemoveAttribute(tag); SetAttribute(image, tag, dm_date); }
-                                        else if (tag.StartsWith("Microsoft")) { image.RemoveAttribute(tag); SetAttribute(image, tag, dm_ms); }
-                                        else if (tag.StartsWith("xmp")) SetAttribute(image, tag, dm_xmp);
-                                        else SetAttribute(image, tag, dm_misc);
-
-                                        var value_new = GetAttribute(image, tag);
-                                        Log($"{$"{tag}".PadRight(32)}= {(value_old == null ? "NULL" : value_old)} => {value_new}");
-                                    }
+                                    var edt = GetAttribute(image, "exif:DateTime");
+                                    if (!edt.Equals(dm_exif)) image.RemoveAttribute("exif:DateTime");
                                 }
-                                catch (Exception ex) { Log(ex.Message); }
+                                foreach (var tag in tag_date)
+                                {
+                                    try
+                                    {
+                                        if (force || !image.AttributeNames.Contains(tag))
+                                        {
+                                            var value_old = image.GetAttribute(tag);
+
+                                            if (tag.StartsWith("date")) SetAttribute(image, tag, dm_date);
+                                            else if (tag.StartsWith("exif")) SetAttribute(image, tag, dm_exif);
+                                            else if (tag.StartsWith("png")) { image.RemoveAttribute(tag); SetAttribute(image, tag, dm_png); }
+                                            else if (tag.StartsWith("tiff")) { image.RemoveAttribute(tag); SetAttribute(image, tag, dm_date); }
+                                            else if (tag.StartsWith("Microsoft")) { image.RemoveAttribute(tag); SetAttribute(image, tag, dm_ms); }
+                                            else if (tag.StartsWith("xmp")) SetAttribute(image, tag, dm_xmp);
+                                            else SetAttribute(image, tag, dm_misc);
+
+                                            var value_new = GetAttribute(image, tag);
+                                            Log($"{$"{tag}".PadRight(32)}= {(value_old == null ? "NULL" : value_old)} => {value_new}");
+                                        }
+                                    }
+                                    catch (Exception ex) { Log(ex.Message); }
+                                }
                             }
                             #endregion
                             #region touch title
-                            foreach (var tag in tag_title)
+                            if (meta is MetaInfo && meta.ChangeProperties.HasFlag(ChangePropertyType.Title))
                             {
-                                try
+                                foreach (var tag in tag_title)
                                 {
-                                    var value_old = GetAttribute(image, tag);
-                                    if (force || (!image.AttributeNames.Contains(tag) && !string.IsNullOrEmpty(title)))
+                                    try
                                     {
-                                        SetAttribute(image, tag, title);
-                                        var value_new = GetAttribute(image, tag);
-                                        Log($"{$"{tag}".PadRight(32)}= {(value_old == null ? "NULL" : value_old)} => {value_new}");
-                                    }
-                                    else
-                                    {
-                                        if (tag.Equals("exif:WinXP-Title"))
+                                        var value_old = GetAttribute(image, tag);
+                                        if (force || (!image.AttributeNames.Contains(tag) && !string.IsNullOrEmpty(title)))
                                         {
-                                            if (exif.GetValue(ImageMagick.ExifTag.XPTitle) == null)
-                                            {
-                                                if (!string.IsNullOrEmpty(title)) SetAttribute(image, tag, value_old);
-                                            }
-                                            else title = GetAttribute(image, tag);
+                                            SetAttribute(image, tag, title);
+                                            var value_new = GetAttribute(image, tag);
+                                            Log($"{$"{tag}".PadRight(32)}= {(value_old == null ? "NULL" : value_old)} => {value_new}");
                                         }
-                                        else if (tag.Equals("exif:ImageDescription"))
+                                        else
                                         {
-                                            if (exif.GetValue(ImageMagick.ExifTag.ImageDescription) == null)
+                                            if (tag.Equals("exif:WinXP-Title"))
                                             {
-                                                if (!string.IsNullOrEmpty(title)) SetAttribute(image, tag, value_old);
+                                                if (exif.GetValue(ImageMagick.ExifTag.XPTitle) == null)
+                                                {
+                                                    if (!string.IsNullOrEmpty(title)) SetAttribute(image, tag, value_old);
+                                                }
+                                                else title = GetAttribute(image, tag);
                                             }
-                                            else title = GetAttribute(image, tag);
-                                        }
-                                        else if (tag.Equals("iptc:Description"))
-                                        {
+                                            else if (tag.Equals("exif:ImageDescription"))
+                                            {
+                                                if (exif.GetValue(ImageMagick.ExifTag.ImageDescription) == null)
+                                                {
+                                                    if (!string.IsNullOrEmpty(title)) SetAttribute(image, tag, value_old);
+                                                }
+                                                else title = GetAttribute(image, tag);
+                                            }
+                                            else if (tag.Equals("iptc:Description"))
+                                            {
 
+                                            }
                                         }
                                     }
+                                    catch (Exception ex) { Log(ex.Message); }
                                 }
-                                catch (Exception ex) { Log(ex.Message); }
                             }
                             #endregion
                             #region touch subject
-                            foreach (var tag in tag_subject)
+                            if (meta is MetaInfo && meta.ChangeProperties.HasFlag(ChangePropertyType.Subject))
                             {
-                                try
+                                foreach (var tag in tag_subject)
                                 {
-                                    var value_old = GetAttribute(image, tag);
-                                    if (force || (!image.AttributeNames.Contains(tag) && !string.IsNullOrEmpty(subject)))
+                                    try
                                     {
-                                        SetAttribute(image, tag, subject);
-                                        var value_new = GetAttribute(image, tag);
-                                        Log($"{$"{tag}".PadRight(32)}= {(value_old == null ? "NULL" : value_old)} => {value_new}");
-                                    }
-                                    else
-                                    {
-                                        if (tag.Equals("exif:WinXP-Subject"))
+                                        var value_old = GetAttribute(image, tag);
+                                        if (force || (!image.AttributeNames.Contains(tag) && !string.IsNullOrEmpty(subject)))
                                         {
-                                            if (exif.GetValue(ImageMagick.ExifTag.XPSubject) == null)
+                                            SetAttribute(image, tag, subject);
+                                            var value_new = GetAttribute(image, tag);
+                                            Log($"{$"{tag}".PadRight(32)}= {(value_old == null ? "NULL" : value_old)} => {value_new}");
+                                        }
+                                        else
+                                        {
+                                            if (tag.Equals("exif:WinXP-Subject"))
                                             {
-                                                if (!string.IsNullOrEmpty(subject)) exif.SetValue(ImageMagick.ExifTag.XPSubject, Encoding.Unicode.GetBytes(value_old));
+                                                if (exif.GetValue(ImageMagick.ExifTag.XPSubject) == null)
+                                                {
+                                                    if (!string.IsNullOrEmpty(subject)) exif.SetValue(ImageMagick.ExifTag.XPSubject, Encoding.Unicode.GetBytes(value_old));
+                                                }
+                                                else subject = Encoding.Unicode.GetString(exif.GetValue(ImageMagick.ExifTag.XPSubject).Value);
                                             }
-                                            else subject = Encoding.Unicode.GetString(exif.GetValue(ImageMagick.ExifTag.XPSubject).Value);
                                         }
                                     }
+                                    catch (Exception ex) { Log(ex.Message); }
                                 }
-                                catch (Exception ex) { Log(ex.Message); }
                             }
                             #endregion
                             #region touch author
-                            foreach (var tag in tag_author)
+                            if (meta is MetaInfo && meta.ChangeProperties.HasFlag(ChangePropertyType.Authors))
                             {
-                                try
+                                foreach (var tag in tag_author)
                                 {
-                                    var value_old = GetAttribute(image, tag);
-                                    if (force || (!image.AttributeNames.Contains(tag) && !string.IsNullOrEmpty(authors)))
+                                    try
                                     {
-                                        SetAttribute(image, tag, authors);
-                                        var value_new = GetAttribute(image, tag);
-                                        Log($"{$"{tag}".PadRight(32)}= {(value_old == null ? "NULL" : value_old)} => {value_new}");
-                                    }
-                                    else
-                                    {
-                                        if (tag.Equals("exif:WinXP-Author"))
+                                        var value_old = GetAttribute(image, tag);
+                                        if (force || (!image.AttributeNames.Contains(tag) && !string.IsNullOrEmpty(authors)))
                                         {
-                                            if (exif.GetValue(ImageMagick.ExifTag.XPAuthor) == null)
-                                            {
-                                                if (!string.IsNullOrEmpty(authors)) SetAttribute(image, tag, value_old);
-                                            }
-                                            else authors = GetAttribute(image, tag);
+                                            SetAttribute(image, tag, authors);
+                                            var value_new = GetAttribute(image, tag);
+                                            Log($"{$"{tag}".PadRight(32)}= {(value_old == null ? "NULL" : value_old)} => {value_new}");
                                         }
-                                        else if (tag.Equals("exif:Artist"))
+                                        else
                                         {
-                                            if (exif.GetValue(ImageMagick.ExifTag.Artist) == null)
+                                            if (tag.Equals("exif:WinXP-Author"))
                                             {
-                                                if (!string.IsNullOrEmpty(authors)) SetAttribute(image, tag, value_old);
+                                                if (exif.GetValue(ImageMagick.ExifTag.XPAuthor) == null)
+                                                {
+                                                    if (!string.IsNullOrEmpty(authors)) SetAttribute(image, tag, value_old);
+                                                }
+                                                else authors = GetAttribute(image, tag);
                                             }
-                                            else authors = GetAttribute(image, tag);
+                                            else if (tag.Equals("exif:Artist"))
+                                            {
+                                                if (exif.GetValue(ImageMagick.ExifTag.Artist) == null)
+                                                {
+                                                    if (!string.IsNullOrEmpty(authors)) SetAttribute(image, tag, value_old);
+                                                }
+                                                else authors = GetAttribute(image, tag);
+                                            }
                                         }
                                     }
+                                    catch (Exception ex) { Log(ex.Message); }
                                 }
-                                catch (Exception ex) { Log(ex.Message); }
                             }
                             #endregion
                             #region touch copywright
-                            foreach (var tag in tag_copyright)
+                            if (meta is MetaInfo && meta.ChangeProperties.HasFlag(ChangePropertyType.Copyrights))
                             {
-                                try
+                                foreach (var tag in tag_copyright)
                                 {
-                                    var value_old = GetAttribute(image, tag);
-                                    if (force || (!image.AttributeNames.Contains(tag) && !string.IsNullOrEmpty(copyright)))
+                                    try
                                     {
-                                        SetAttribute(image, tag, copyright);
-                                        var value_new = GetAttribute(image, tag);
-                                        Log($"{$"{tag}".PadRight(32)}= {(value_old == null ? "NULL" : value_old)} => {value_new}");
-                                    }
-                                    else
-                                    {
-                                        if (tag.Equals("exif:Copyright"))
+                                        var value_old = GetAttribute(image, tag);
+                                        if (force || (!image.AttributeNames.Contains(tag) && !string.IsNullOrEmpty(copyrights)))
                                         {
-                                            if (exif.GetValue(ImageMagick.ExifTag.Copyright) == null)
+                                            SetAttribute(image, tag, copyrights);
+                                            var value_new = GetAttribute(image, tag);
+                                            Log($"{$"{tag}".PadRight(32)}= {(value_old == null ? "NULL" : value_old)} => {value_new}");
+                                        }
+                                        else
+                                        {
+                                            if (tag.Equals("exif:Copyright"))
                                             {
-                                                if (!string.IsNullOrEmpty(copyright)) SetAttribute(image, tag, value_old);
+                                                if (exif.GetValue(ImageMagick.ExifTag.Copyright) == null)
+                                                {
+                                                    if (!string.IsNullOrEmpty(copyrights)) SetAttribute(image, tag, value_old);
+                                                }
+                                                else copyrights = GetAttribute(image, tag);
                                             }
-                                            else copyright = GetAttribute(image, tag);
                                         }
                                     }
+                                    catch (Exception ex) { Log(ex.Message); }
                                 }
-                                catch (Exception ex) { Log(ex.Message); }
                             }
                             #endregion
                             #region touch comment
-                            foreach (var tag in tag_comments)
+                            if (meta is MetaInfo && meta.ChangeProperties.HasFlag(ChangePropertyType.Comment))
                             {
-                                try
+                                foreach (var tag in tag_comments)
                                 {
-                                    var value_old = GetAttribute(image, tag);
-                                    if (force || (!image.AttributeNames.Contains(tag) && !string.IsNullOrEmpty(comment)))
+                                    try
                                     {
-                                        SetAttribute(image, tag, comment);
-                                        var value_new = GetAttribute(image, tag);
-                                        Log($"{$"{tag}".PadRight(32)}= {(value_old == null ? "NULL" : value_old)} => {value_new}");
+                                        var value_old = GetAttribute(image, tag);
+                                        if (force || (!image.AttributeNames.Contains(tag) && !string.IsNullOrEmpty(comment)))
+                                        {
+                                            SetAttribute(image, tag, comment);
+                                            var value_new = GetAttribute(image, tag);
+                                            Log($"{$"{tag}".PadRight(32)}= {(value_old == null ? "NULL" : value_old)} => {value_new}");
+                                        }
+                                        else
+                                        {
+                                            if (tag.Equals("exif:WinXP-Comment"))
+                                            {
+                                                if (exif.GetValue(ImageMagick.ExifTag.XPComment) == null)
+                                                {
+                                                    if (!string.IsNullOrEmpty(comment)) SetAttribute(image, tag, value_old);
+                                                }
+                                                else comment = GetAttribute(image, tag);
+                                            }
+                                            else if (tag.Equals("exif:WinXP-Comments"))
+                                            {
+                                                if (exif.GetValue(ImageMagick.ExifTag.XPComment) == null)
+                                                {
+                                                    if (!string.IsNullOrEmpty(comment)) SetAttribute(image, tag, value_old);
+                                                }
+                                                else comment = GetAttribute(image, tag);
+                                            }
+                                            else if (tag.Equals("exif:UserComment"))
+                                            {
+                                                if (exif.GetValue(ImageMagick.ExifTag.UserComment) == null)
+                                                {
+                                                    if (!string.IsNullOrEmpty(comment)) SetAttribute(image, tag, value_old);
+                                                }
+                                                else comment = GetAttribute(image, tag);
+                                            }
+                                        }
                                     }
-                                    else
-                                    {
-                                        if (tag.Equals("exif:WinXP-Comment"))
-                                        {
-                                            if (exif.GetValue(ImageMagick.ExifTag.XPComment) == null)
-                                            {
-                                                if (!string.IsNullOrEmpty(comment)) SetAttribute(image, tag, value_old);
-                                            }
-                                            else comment = GetAttribute(image, tag);
-                                        }
-                                        else if (tag.Equals("exif:WinXP-Comments"))
-                                        {
-                                            if (exif.GetValue(ImageMagick.ExifTag.XPComment) == null)
-                                            {
-                                                if (!string.IsNullOrEmpty(comment)) SetAttribute(image, tag, value_old);
-                                            }
-                                            else comment = GetAttribute(image, tag);
-                                        }
-                                        else if (tag.Equals("exif:UserComment"))
-                                        {
-                                            if (exif.GetValue(ImageMagick.ExifTag.UserComment) == null)
-                                            {
-                                                if (!string.IsNullOrEmpty(comment)) SetAttribute(image, tag, value_old);
-                                            }
-                                            else comment = GetAttribute(image, tag);
-                                        }
-                                    }
+                                    catch (Exception ex) { Log(ex.Message); }
                                 }
-                                catch (Exception ex) { Log(ex.Message); }
                             }
                             #endregion
                             #region touch keywords
-                            foreach (var tag in tag_keywords)
+                            if (meta is MetaInfo && meta.ChangeProperties.HasFlag(ChangePropertyType.Keywords))
                             {
-                                try
+                                foreach (var tag in tag_keywords)
                                 {
-                                    var value_old = GetAttribute(image, tag);
-                                    if (force || (!image.AttributeNames.Contains(tag) && !string.IsNullOrEmpty(keywords)))
+                                    try
                                     {
-                                        SetAttribute(image, tag, keywords);
-                                        var value_new = GetAttribute(image, tag);
-                                        Log($"{$"{tag}".PadRight(32)}= {(value_old == null ? "NULL" : value_old)} => {value_new}");
-                                    }
-                                    else
-                                    {
-                                        if (tag.Equals("exif:WinXP-Keywords"))
+                                        var value_old = GetAttribute(image, tag);
+                                        if (force || (!image.AttributeNames.Contains(tag) && !string.IsNullOrEmpty(keywords)))
                                         {
-                                            if (exif.GetValue(ImageMagick.ExifTag.XPKeywords) == null)
+                                            SetAttribute(image, tag, keywords);
+                                            var value_new = GetAttribute(image, tag);
+                                            Log($"{$"{tag}".PadRight(32)}= {(value_old == null ? "NULL" : value_old)} => {value_new}");
+                                        }
+                                        else
+                                        {
+                                            if (tag.Equals("exif:WinXP-Keywords"))
                                             {
-                                                if (!string.IsNullOrEmpty(keywords)) SetAttribute(image, tag, value_old);
+                                                if (exif.GetValue(ImageMagick.ExifTag.XPKeywords) == null)
+                                                {
+                                                    if (!string.IsNullOrEmpty(keywords)) SetAttribute(image, tag, value_old);
+                                                }
+                                                else keywords = GetAttribute(image, tag);
                                             }
-                                            else keywords = GetAttribute(image, tag);
                                         }
                                     }
+                                    catch (Exception ex) { Log(ex.Message); }
                                 }
-                                catch (Exception ex) { Log(ex.Message); }
                             }
                             #endregion
                             #region touch rating
-                            foreach (var tag in tag_rating)
+                            if (meta is MetaInfo && (meta.ChangeProperties.HasFlag(ChangePropertyType.Rating) || meta.ChangeProperties.HasFlag(ChangePropertyType.Ranking)))
                             {
-                                try
+                                foreach (var tag in tag_rating)
                                 {
-                                    var value_old = GetAttribute(image, tag);
-                                    if (force || (!image.AttributeNames.Contains(tag) && rating.HasValue))
+                                    try
                                     {
-                                        SetAttribute(image, tag, rating);
-                                        var value_new = GetAttribute(image, tag);
-                                        Log($"{$"{tag}".PadRight(32)}= {(value_old == null ? "NULL" : value_old)} => {value_new}");
-                                    }
-                                    else
-                                    {
-                                        if (tag.Equals("MicrosoftPhoto:Rating"))
+                                        var value_old = GetAttribute(image, tag);
+                                        if (force || (!image.AttributeNames.Contains(tag) && rating.HasValue))
                                         {
-                                            if (exif.GetValue(ImageMagick.ExifTag.RatingPercent) == null)
+                                            SetAttribute(image, tag, rating);
+                                            var value_new = GetAttribute(image, tag);
+                                            Log($"{$"{tag}".PadRight(32)}= {(value_old == null ? "NULL" : value_old)} => {value_new}");
+                                        }
+                                        else
+                                        {
+                                            if (tag.Equals("MicrosoftPhoto:Rating"))
                                             {
-                                                if (!string.IsNullOrEmpty(keywords)) SetAttribute(image, tag, value_old);
+                                                if (exif.GetValue(ImageMagick.ExifTag.RatingPercent) == null)
+                                                {
+                                                    if (!string.IsNullOrEmpty(keywords)) SetAttribute(image, tag, value_old);
+                                                }
+                                                else rating = Convert.ToInt32(GetAttribute(image, tag));
                                             }
-                                            else rating = Convert.ToInt32(GetAttribute(image, tag));
                                         }
                                     }
+                                    catch (Exception ex) { Log(ex.Message); }
                                 }
-                                catch (Exception ex) { Log(ex.Message); }
                             }
                             #endregion
 
@@ -2435,6 +2884,7 @@ namespace TouchMeta
                                 image.SetProfile(xmp);
                             }
                             #endregion
+                            #region Update xmp nodes
                             if (xmp != null)
                             {
                                 var xml = Encoding.UTF8.GetString(xmp.GetData());
@@ -2719,7 +3169,7 @@ namespace TouchMeta
                                                     child.RemoveAll();
                                                     var node_rights = xml_doc.CreateElement("rdf:Bag", "rdf");
                                                     node_rights.SetAttribute(rdf_attr, rdf_value);
-                                                    add_rdf_li.Invoke(node_rights, copyright);
+                                                    add_rdf_li.Invoke(node_rights, copyrights);
                                                     child.AppendChild(node_rights);
                                                 }
                                                 else if (child.Name.Equals("dc:subject", StringComparison.CurrentCultureIgnoreCase) ||
@@ -2864,34 +3314,43 @@ namespace TouchMeta
                                 Log($"{"XMP Profiles".PadRight(32)}= {xml}");
                             }
                             #endregion
+                            #endregion
 
+                            #region save touched image
                             FixDPI(image);
                             image.Write(fi.FullName);
-
-                            var meta_new = new MetaInfo() {
-                                DateAccesed = da,
-                                DateCreated = dc,
-                                DateModified = dm,
-
-                                DateAcquired = dm,
-                                DateTaken = dm,
-
-                                Title = title,
-                                Subject = subject,
-                                Copyright = copyright,
-                                Author = authors,
-                                Keywords = keywords,
-                                Comment = comment,
-
-                                Rating = rating,
-                                Ranking = RatingToRanking(rating),
-                            };
+                            #endregion
 
                             fi.CreationTime = dc;
                             fi.LastWriteTime = dm;
                             fi.LastAccessTime = da;
 
-                            if (is_png) TouchMetaAlt(file, meta: meta_new);
+                            #region touch PNG image with CompactExifLib
+                            if (is_png)
+                            {
+                                var meta_new = new MetaInfo()
+                                {
+                                    DateAccesed = da,
+                                    DateCreated = dc,
+                                    DateModified = dm,
+
+                                    DateAcquired = dm,
+                                    DateTaken = dm,
+
+                                    Title = title,
+                                    Subject = subject,
+                                    Copyrights = copyrights,
+                                    Authors = authors,
+                                    Keywords = keywords,
+                                    Comment = comment,
+
+                                    Rating = rating,
+                                    Ranking = RatingToRanking(rating),
+                                };
+
+                                TouchMetaAlt(file, meta: meta_new);
+                            }
+                            #endregion
                         }
                         else
                         {
@@ -3033,24 +3492,24 @@ namespace TouchMeta
                             exif.SetTagRawData(CompactExifLib.ExifTag.XpKeywords, ExifTagType.Byte, Encoding.Unicode.GetByteCount(meta.Keywords), Encoding.Unicode.GetBytes(meta.Keywords));
                         }
 
-                        if (string.IsNullOrEmpty(meta.Author))
+                        if (string.IsNullOrEmpty(meta.Authors))
                         {
                             exif.RemoveTag(CompactExifLib.ExifTag.XpAuthor);
                             exif.RemoveTag(CompactExifLib.ExifTag.Artist);
                         }
                         else
                         {
-                            exif.SetTagRawData(CompactExifLib.ExifTag.XpAuthor, ExifTagType.Byte, Encoding.Unicode.GetByteCount(meta.Author), Encoding.Unicode.GetBytes(meta.Author));
-                            exif.SetTagValue(CompactExifLib.ExifTag.Artist, meta.Author, StrCoding.Utf8);
+                            exif.SetTagRawData(CompactExifLib.ExifTag.XpAuthor, ExifTagType.Byte, Encoding.Unicode.GetByteCount(meta.Authors), Encoding.Unicode.GetBytes(meta.Authors));
+                            exif.SetTagValue(CompactExifLib.ExifTag.Artist, meta.Authors, StrCoding.Utf8);
                         }
 
-                        if (string.IsNullOrEmpty(meta.Copyright))
+                        if (string.IsNullOrEmpty(meta.Copyrights))
                         {
                             exif.RemoveTag(CompactExifLib.ExifTag.Copyright);
                         }
                         else
                         {
-                            exif.SetTagValue(CompactExifLib.ExifTag.Copyright, meta.Copyright, StrCoding.Utf8);
+                            exif.SetTagValue(CompactExifLib.ExifTag.Copyright, meta.Copyrights, StrCoding.Utf8);
                         }
 
                         if (string.IsNullOrEmpty(meta.Comment))
@@ -3086,7 +3545,7 @@ namespace TouchMeta
                         fi.LastWriteTime = dm;
                         fi.LastAccessTime = da;
 
-                        Log($"File \"{file}\" touched!");
+                        Log($"File \"{file}\" touched with extra-method!");
                     }
                 }
             }
@@ -3696,6 +4155,7 @@ namespace TouchMeta
             }
             else if(sender == ReTouchMeta)
             {
+                #region Re-Touch Metadate via MagicK.Net
                 RunBgWorker(new Action<string>((file) =>
                 {
                     var meta = GetMetaInfo(file);
@@ -3706,9 +4166,11 @@ namespace TouchMeta
                     }
                     TouchMeta(file, force: true, meta: meta);
                 }));
+                #endregion
             }
             else if(sender == ReTouchMetaAlt)
             {
+                #region Re-Touch Metadata via CompactExifLib
                 RunBgWorker(new Action<string>((file) =>
                 {
                     var meta = GetMetaInfo(file);
@@ -3719,7 +4181,241 @@ namespace TouchMeta
                     }
                     TouchMetaAlt(file, force: true, meta: meta);
                 }));
+                #endregion
             }
+            #region Add/Remove/Replace/Empty
+            else if (sender == ChangeMetaTitleAppend)
+            {
+                RunBgWorker(new Action<string>((file) =>
+                {
+                    ChangeProperties(file, CurrentMeta, ChangePropertyType.Title, ChangePropertyMode.Append);
+                }));
+            }
+            else if (sender == ChangeMetaTitleRemove)
+            {
+                RunBgWorker(new Action<string>((file) =>
+                {
+                    ChangeProperties(file, CurrentMeta, ChangePropertyType.Title, ChangePropertyMode.Remove);
+                }));
+            }
+            else if (sender == ChangeMetaTitleReplace)
+            {
+                RunBgWorker(new Action<string>((file) =>
+                {
+                    ChangeProperties(file, CurrentMeta, ChangePropertyType.Title, ChangePropertyMode.Replace);
+                }));
+            }
+            else if (sender == ChangeMetaTitleEmpty)
+            {
+                RunBgWorker(new Action<string>((file) =>
+                {
+                    ChangeProperties(file, CurrentMeta, ChangePropertyType.Title, ChangePropertyMode.Empty);
+                }));
+            }
+
+            else if (sender == ChangeMetaSubjectAppend)
+            {
+                RunBgWorker(new Action<string>((file) =>
+                {
+                    ChangeProperties(file, CurrentMeta, ChangePropertyType.Subject, ChangePropertyMode.Append);
+                }));
+            }
+            else if (sender == ChangeMetaSubjectRemove)
+            {
+                RunBgWorker(new Action<string>((file) =>
+                {
+                    ChangeProperties(file, CurrentMeta, ChangePropertyType.Subject, ChangePropertyMode.Remove);
+                }));
+            }
+            else if (sender == ChangeMetaSubjectReplace)
+            {
+                RunBgWorker(new Action<string>((file) =>
+                {
+                    ChangeProperties(file, CurrentMeta, ChangePropertyType.Subject, ChangePropertyMode.Replace);
+                }));
+            }
+            else if (sender == ChangeMetaSubjectEmpty)
+            {
+                RunBgWorker(new Action<string>((file) =>
+                {
+                    ChangeProperties(file, CurrentMeta, ChangePropertyType.Subject, ChangePropertyMode.Empty);
+                }));
+            }
+
+            else if (sender == ChangeMetaKeywordsAppend)
+            {
+                RunBgWorker(new Action<string>((file) =>
+                {
+                    ChangeProperties(file, CurrentMeta, ChangePropertyType.Keywords, ChangePropertyMode.Append);
+                }));
+            }
+            else if (sender == ChangeMetaKeywordsRemove)
+            {
+                RunBgWorker(new Action<string>((file) =>
+                {
+                    ChangeProperties(file, CurrentMeta, ChangePropertyType.Keywords, ChangePropertyMode.Remove);
+                }));
+            }
+            else if (sender == ChangeMetaKeywordsReplace)
+            {
+                RunBgWorker(new Action<string>((file) =>
+                {
+                    ChangeProperties(file, CurrentMeta, ChangePropertyType.Keywords, ChangePropertyMode.Replace);
+                }));
+            }
+            else if (sender == ChangeMetaKeywordsEmpty)
+            {
+                RunBgWorker(new Action<string>((file) =>
+                {
+                    ChangeProperties(file, CurrentMeta, ChangePropertyType.Keywords, ChangePropertyMode.Empty);
+                }));
+            }
+
+            else if (sender == ChangeMetaCommentAppend)
+            {
+                RunBgWorker(new Action<string>((file) =>
+                {
+                    ChangeProperties(file, CurrentMeta, ChangePropertyType.Comment, ChangePropertyMode.Append);
+                }));
+            }
+            else if (sender == ChangeMetaCommentRemove)
+            {
+                RunBgWorker(new Action<string>((file) =>
+                {
+                    ChangeProperties(file, CurrentMeta, ChangePropertyType.Comment, ChangePropertyMode.Remove);
+                }));
+            }
+            else if (sender == ChangeMetaCommentReplace)
+            {
+                RunBgWorker(new Action<string>((file) =>
+                {
+                    ChangeProperties(file, CurrentMeta, ChangePropertyType.Comment, ChangePropertyMode.Replace);
+                }));
+            }
+            else if (sender == ChangeMetaCommentEmpty)
+            {
+                RunBgWorker(new Action<string>((file) =>
+                {
+                    ChangeProperties(file, CurrentMeta, ChangePropertyType.Comment, ChangePropertyMode.Empty);
+                }));
+            }
+
+            else if (sender == ChangeMetaAuthorsAppend)
+            {
+                RunBgWorker(new Action<string>((file) =>
+                {
+                    ChangeProperties(file, CurrentMeta, ChangePropertyType.Authors, ChangePropertyMode.Append);
+                }));
+            }
+            else if (sender == ChangeMetaAuthorsRemove)
+            {
+                RunBgWorker(new Action<string>((file) =>
+                {
+                    ChangeProperties(file, CurrentMeta, ChangePropertyType.Authors, ChangePropertyMode.Remove);
+                }));
+            }
+            else if (sender == ChangeMetaAuthorsReplace)
+            {
+                RunBgWorker(new Action<string>((file) =>
+                {
+                    ChangeProperties(file, CurrentMeta, ChangePropertyType.Authors, ChangePropertyMode.Replace);
+                }));
+            }
+            else if (sender == ChangeMetaAuthorsEmpty)
+            {
+                RunBgWorker(new Action<string>((file) =>
+                {
+                    ChangeProperties(file, CurrentMeta, ChangePropertyType.Authors, ChangePropertyMode.Empty);
+                }));
+            }
+
+            else if (sender == ChangeMetaCopyrightsAppend)
+            {
+                RunBgWorker(new Action<string>((file) =>
+                {
+                    ChangeProperties(file, CurrentMeta, ChangePropertyType.Copyrights, ChangePropertyMode.Append);
+                }));
+            }
+            else if (sender == ChangeMetaCopyrightsRemove)
+            {
+                RunBgWorker(new Action<string>((file) =>
+                {
+                    ChangeProperties(file, CurrentMeta, ChangePropertyType.Copyrights, ChangePropertyMode.Remove);
+                }));
+            }
+            else if (sender == ChangeMetaCopyrightsReplace)
+            {
+                RunBgWorker(new Action<string>((file) =>
+                {
+                    ChangeProperties(file, CurrentMeta, ChangePropertyType.Copyrights, ChangePropertyMode.Replace);
+                }));
+            }
+            else if (sender == ChangeMetaCopyrightsEmpty)
+            {
+                RunBgWorker(new Action<string>((file) =>
+                {
+                    ChangeProperties(file, CurrentMeta, ChangePropertyType.Copyrights, ChangePropertyMode.Empty);
+                }));
+            }
+
+            else if (sender == ChangeMetaRatingAppend)
+            {
+                RunBgWorker(new Action<string>((file) =>
+                {
+                    ChangeProperties(file, CurrentMeta, ChangePropertyType.Rating, ChangePropertyMode.Append);
+                }));
+            }
+            else if (sender == ChangeMetaRatingRemove)
+            {
+                RunBgWorker(new Action<string>((file) =>
+                {
+                    ChangeProperties(file, CurrentMeta, ChangePropertyType.Rating, ChangePropertyMode.Remove);
+                }));
+            }
+            else if (sender == ChangeMetaRatingReplace)
+            {
+                RunBgWorker(new Action<string>((file) =>
+                {
+                    ChangeProperties(file, CurrentMeta, ChangePropertyType.Rating, ChangePropertyMode.Replace);
+                }));
+            }
+            else if (sender == ChangeMetaRatingEmpty)
+            {
+                RunBgWorker(new Action<string>((file) =>
+                {
+                    ChangeProperties(file, CurrentMeta, ChangePropertyType.Rating, ChangePropertyMode.Empty);
+                }));
+            }
+
+            else if (sender == ChangeMetaSmartAppend)
+            {
+                RunBgWorker(new Action<string>((file) =>
+                {
+                    ChangeProperties(file, CurrentMeta, ChangePropertyType.Smart, ChangePropertyMode.Append);
+                }));
+            }
+            else if (sender == ChangeMetaSmartRemove)
+            {
+                RunBgWorker(new Action<string>((file) =>
+                {
+                    ChangeProperties(file, CurrentMeta, ChangePropertyType.Smart, ChangePropertyMode.Remove);
+                }));
+            }
+            else if (sender == ChangeMetaSmartReplace)
+            {
+                RunBgWorker(new Action<string>((file) =>
+                {
+                    ChangeProperties(file, CurrentMeta, ChangePropertyType.Smart, ChangePropertyMode.Replace);
+                }));
+            }
+            else if (sender == ChangeMetaSmartEmpty)
+            {
+                RunBgWorker(new Action<string>((file) =>
+                {
+                    ChangeProperties(file, CurrentMeta, ChangePropertyType.Smart, ChangePropertyMode.Empty);
+                }));
+            }
+            #endregion
             else if (sender == ConvertSelectedToJpg)
             {
                 ConvertImagesTo(MagickFormat.Jpg);

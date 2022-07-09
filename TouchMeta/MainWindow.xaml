@@ -98,6 +98,47 @@
                     <Separator/>
                     <MenuItem x:Name="ReTouchMeta" x:Uid="ReTouchMeta" Header="ReTouch Meta Info for Selected File" Click="FilesListAction_Click"/>
                     <MenuItem x:Name="ReTouchMetaAlt" x:Uid="ReTouchMetaAlt" Header="ReTouch Meta Info for Selected File (Alt)" Click="FilesListAction_Click"/>
+                    <MenuItem x:Name="ChangeMeta" x:Uid="ChangeMeta" Header="Add/Remove/Change/Empty Metainfo">
+                        <MenuItem x:Name="ChangeMetaTitleAppend" x:Uid="ChangeMetaTitleAppend" Header="Append Title" Click="FilesListAction_Click" />
+                        <MenuItem x:Name="ChangeMetaTitleRemove" x:Uid="ChangeMetaTitleRemove" Header="Remove Title" Click="FilesListAction_Click" />
+                        <MenuItem x:Name="ChangeMetaTitleReplace" x:Uid="ChangeMetaTitleReplace" Header="Replace Title" Click="FilesListAction_Click" />
+                        <MenuItem x:Name="ChangeMetaTitleEmpty" x:Uid="ChangeMetaTitleEmpty" Header="Empty Title" Click="FilesListAction_Click" />
+                        <Separator/>
+                        <MenuItem x:Name="ChangeMetaSubjectAppend" x:Uid="ChangeMetaSubjectAppend" Header="Append Subject" Click="FilesListAction_Click" />
+                        <MenuItem x:Name="ChangeMetaSubjectRemove" x:Uid="ChangeMetaSubjectRemove" Header="Remove Subject" Click="FilesListAction_Click" />
+                        <MenuItem x:Name="ChangeMetaSubjectReplace" x:Uid="ChangeMetaSubjectReplace" Header="Replace Subject" Click="FilesListAction_Click" />
+                        <MenuItem x:Name="ChangeMetaSubjectEmpty" x:Uid="ChangeMetaSubjectEmpty" Header="Empty Subject" Click="FilesListAction_Click" />
+                        <Separator/>
+                        <MenuItem x:Name="ChangeMetaKeywordsAppend" x:Uid="ChangeMetaKeywordsAppend" Header="Append Keywords" Click="FilesListAction_Click" />
+                        <MenuItem x:Name="ChangeMetaKeywordsRemove" x:Uid="ChangeMetaKeywordsRemove" Header="Remove Keywords" Click="FilesListAction_Click" />
+                        <MenuItem x:Name="ChangeMetaKeywordsReplace" x:Uid="ChangeMetaKeywordsReplace" Header="Replace Keywords" Click="FilesListAction_Click" />
+                        <MenuItem x:Name="ChangeMetaKeywordsEmpty" x:Uid="ChangeMetaKeywordsEmpty" Header="Empty Keywords" Click="FilesListAction_Click" />
+                        <Separator/>
+                        <MenuItem x:Name="ChangeMetaCommentAppend" x:Uid="ChangeMetaCommentAppend" Header="Append Comments" Click="FilesListAction_Click" />
+                        <MenuItem x:Name="ChangeMetaCommentRemove" x:Uid="ChangeMetaCommentsRemove" Header="Remove Comments" Click="FilesListAction_Click" />
+                        <MenuItem x:Name="ChangeMetaCommentReplace" x:Uid="ChangeMetaCommentsReplace" Header="Replace Comments" Click="FilesListAction_Click" />
+                        <MenuItem x:Name="ChangeMetaCommentEmpty" x:Uid="ChangeMetaCommentsEmpty" Header="Empty Comments" Click="FilesListAction_Click" />
+                        <Separator/>
+                        <MenuItem x:Name="ChangeMetaAuthorsAppend" x:Uid="ChangeMetaAuthorsAppend" Header="Append Authors" Click="FilesListAction_Click" />
+                        <MenuItem x:Name="ChangeMetaAuthorsRemove" x:Uid="ChangeMetaAuthorsRemove" Header="Remove Authors" Click="FilesListAction_Click" />
+                        <MenuItem x:Name="ChangeMetaAuthorsReplace" x:Uid="ChangeMetaAuthorsReplace" Header="Replace Authors" Click="FilesListAction_Click" />
+                        <MenuItem x:Name="ChangeMetaAuthorsEmpty" x:Uid="ChangeMetaAuthorsEmpty" Header="Empty Authors" Click="FilesListAction_Click" />
+                        <Separator/>
+                        <MenuItem x:Name="ChangeMetaCopyrightsAppend" x:Uid="ChangeMetaCopyrightsAppend" Header="Append Copyrights" Click="FilesListAction_Click" />
+                        <MenuItem x:Name="ChangeMetaCopyrightsRemove" x:Uid="ChangeMetaCopyrightsRemove" Header="Remove Copyrights" Click="FilesListAction_Click" />
+                        <MenuItem x:Name="ChangeMetaCopyrightsReplace" x:Uid="ChangeMetaCopyrightsReplace" Header="Replace Copyrights" Click="FilesListAction_Click" />
+                        <MenuItem x:Name="ChangeMetaCopyrightsEmpty" x:Uid="ChangeMetaCopyrightsEmpty" Header="Empty Copyrights" Click="FilesListAction_Click" />
+                        <Separator/>
+                        <MenuItem x:Name="ChangeMetaRatingAppend" x:Uid="ChangeMetaRatingAppend" Header="Append Rating" Click="FilesListAction_Click" />
+                        <MenuItem x:Name="ChangeMetaRatingRemove" x:Uid="ChangeMetaRatingRemove" Header="Remove Rating" Click="FilesListAction_Click" />
+                        <MenuItem x:Name="ChangeMetaRatingReplace" x:Uid="ChangeMetaRatingReplace" Header="Replace Rating" Click="FilesListAction_Click" />
+                        <MenuItem x:Name="ChangeMetaRatingEmpty" x:Uid="ChangeMetaRatingEmpty" Header="Empty Rating" Click="FilesListAction_Click" />
+                        <Separator/>
+                        <MenuItem x:Name="ChangeMetaSmartAppend" x:Uid="ChangeMetaSmartAppend" Header="Smart Append" Click="FilesListAction_Click" />
+                        <MenuItem x:Name="ChangeMetaSmartRemove" x:Uid="ChangeMetaSmartgRemove" Header="Smart Remove" Click="FilesListAction_Click" />
+                        <MenuItem x:Name="ChangeMetaSmartReplace" x:Uid="ChangeMetaSmartgReplace" Header="Smart Replace" Click="FilesListAction_Click" />
+                        <MenuItem x:Name="ChangeMetaSmartEmpty" x:Uid="ChangeMetaSmartgEmpty" Header="Smart Empty" Click="FilesListAction_Click" />
+                    </MenuItem>
                     <Separator/>                    
                     <MenuItem x:Name="ConvertSelectedToJpg" x:Uid="ConvertSelectedToJpg" Header="Convert Selected Files to JPG" Click="FilesListAction_Click"/>
                     <MenuItem x:Name="ConvertSelectedToPng" x:Uid="ConvertSelectedToPng" Header="Convert Selected Files to PNG" Click="FilesListAction_Click"/>
