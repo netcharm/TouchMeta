@@ -3638,6 +3638,12 @@ namespace TouchMeta
                                             value = $"R:{cr.ToString()}, G:{cg.ToString()}, B:{cb.ToString()}{Environment.NewLine}XYZ-R: {r}{Environment.NewLine}XYZ-G: {g}{Environment.NewLine}XYZ-B: {b}";
                                         }
                                         var values = value.Split(new string[] { Environment.NewLine }, StringSplitOptions.RemoveEmptyEntries);
+                                        if (attr.Equals("exif:ExtensibleMetadataPlatform", StringComparison.CurrentCultureIgnoreCase) && !show_xmp)
+                                        {
+                                            var text = $"{attr.PadRight(cw)}= { values.FirstOrDefault() } ...";
+                                            Log(text);
+                                            continue;
+                                        }
                                         foreach (var v in values)
                                         {
                                             if (v.Length > 64) value = $"{v.Substring(0, 64)} ...";
@@ -3901,6 +3907,16 @@ namespace TouchMeta
 
             var args = Environment.GetCommandLineArgs();
             LoadFiles(args.Skip(1).ToArray());
+        }
+
+        private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.Escape)
+            {
+                if (FileRenameInputPopup.IsOpen) FileRenameInputPopup.IsOpen = false;
+                if (MetaInputPopup.IsOpen) MetaInputPopup.IsOpen = false;
+                //if (show)
+            }
         }
 
         private void Window_DragOver(object sender, DragEventArgs e)

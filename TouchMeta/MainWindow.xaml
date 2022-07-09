@@ -10,7 +10,7 @@
         Height="512" Width="512" MinHeight="512" MinWidth="512" MaxHeight="512" MaxWidth="512" 
         SnapsToDevicePixels="True" ResizeMode="CanMinimize" Topmost="True" 
         WindowStartupLocation="CenterScreen" AllowDrop="True"
-        Loaded="Window_Loaded" DragOver="Window_DragOver" Drop="Window_Drop">
+        Loaded="Window_Loaded" DragOver="Window_DragOver" Drop="Window_Drop" PreviewKeyDown="Window_PreviewKeyDown">
     <Grid x:Name="WindowContainer">
         <Grid.RowDefinitions>
             <RowDefinition Height="auto"/>
