@@ -2457,14 +2457,17 @@ namespace TouchMeta
                 var id = xml.GetElementsByTagName("id").Count > 0 ? xml.GetElementsByTagName("id")[0].InnerText : string.Empty;
                 var date = xml.GetElementsByTagName("date").Count > 0 ? xml.GetElementsByTagName("date")[0].InnerText : string.Empty;
                 var title = xml.GetElementsByTagName("title").Count > 0 ? xml.GetElementsByTagName("title")[0].InnerText : string.Empty;
+                var subject = xml.GetElementsByTagName("subject").Count > 0 ? xml.GetElementsByTagName("subject")[0].InnerText : string.Empty;
                 var desc = xml.GetElementsByTagName("description").Count > 0 ? xml.GetElementsByTagName("description")[0].InnerText : string.Empty;
                 var tags = xml.GetElementsByTagName("tags").Count > 0 ? xml.GetElementsByTagName("tags")[0].InnerText : string.Empty;
                 var favor = xml.GetElementsByTagName("favorited").Count > 0 ? xml.GetElementsByTagName("favorited")[0].InnerText : string.Empty;
                 var down = xml.GetElementsByTagName("downloaded").Count > 0 ? xml.GetElementsByTagName("downloaded")[0].InnerText : string.Empty;
-                var link = xml.GetElementsByTagName("weblink").Count > 0 ? xml.GetElementsByTagName("weblink")[0].InnerText : string.Empty;
+                var link = xml.GetElementsByTagName("weblink").Count > 0 ? xml.GetElementsByTagName("weblink")[0].InnerText : $"https://www.pixiv.net/artworks/{id}";
                 var user = xml.GetElementsByTagName("user").Count > 0 ? xml.GetElementsByTagName("user")[0].InnerText : string.Empty;
                 var uid = xml.GetElementsByTagName("userid").Count > 0 ? xml.GetElementsByTagName("userid")[0].InnerText : string.Empty;
                 var ulink = xml.GetElementsByTagName("userlink").Count > 0 ? xml.GetElementsByTagName("userlink")[0].InnerText : string.Empty;
+                var author = xml.GetElementsByTagName("author").Count > 0 ? xml.GetElementsByTagName("author")[0].InnerText : string.Empty;
+                var copyright = xml.GetElementsByTagName("copyright").Count > 0 ? xml.GetElementsByTagName("copyright")[0].InnerText : string.Empty;
 
                 DateTime dt = result.DateAcquired ?? result.DateTaken ?? result.DateModified ?? result.DateCreated ?? result.DateAccesed ?? DateTime.Now;
                 if (DateTime.TryParse(date, out dt))
@@ -2477,11 +2480,11 @@ namespace TouchMeta
                     result.DateTaken = dt;
                 }
                 result.Title = title;
-                result.Subject = string.IsNullOrEmpty(link) ? $"https://www.pixiv.net/artworks/{id}" : link;
+                result.Subject = string.IsNullOrEmpty(subject) ? link : subject;
                 result.Keywords = tags;
-                result.Comment = desc;
-                result.Authors = $"{user}; uid:{uid}";
-                result.Copyrights = $"{user}; uid:{uid}";
+                result.Comment = string.IsNullOrEmpty(subject) ? desc : $"{desc}{Environment.NewLine}{Environment.NewLine}{link}";
+                result.Authors = string.IsNullOrEmpty(author) ? string.IsNullOrEmpty(uid) ? $"{user}" : $"{user}; uid:{uid}" : author;
+                result.Copyrights = string.IsNullOrEmpty(copyright) ? result.Authors : copyright;
 
                 bool fav = false;
                 if (bool.TryParse(favor, out fav)) result.Rating = fav ? 75 : 0;

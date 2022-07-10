@@ -277,7 +277,7 @@
                     <TextBox x:Name="MetaInputCommentText" x:Uid="MetaInputCommentText" Margin="2" Height="72" TextWrapping="Wrap" VerticalAlignment="Stretch" AcceptsTab="True" AcceptsReturn="True" ScrollViewer.VerticalScrollBarVisibility="Auto" />
                     <TextBlock x:Name="MetaInputAuthorLabel" x:Uid="MetaInputAuthorLabel" Text="Author:" Margin="2" />
                     <TextBox x:Name="MetaInputAuthorText" x:Uid="MetaInputAuthorText" Margin="2" MaxHeight="64" TextWrapping="Wrap" VerticalAlignment="Stretch" ScrollViewer.VerticalScrollBarVisibility="Auto"/>
-                    <TextBlock x:Name="MetaInputCopyrightLabel" x:Uid="MetaInputCopyrightLabel" Text="Copywright:" Margin="2" />
+                    <TextBlock x:Name="MetaInputCopyrightLabel" x:Uid="MetaInputCopyrightLabel" Text="Copyright:" Margin="2" />
                     <TextBox x:Name="MetaInputCopyrightText" x:Uid="MetaInputCopyrightText" Margin="2" MaxHeight="64" TextWrapping="Wrap" VerticalAlignment="Stretch" ScrollViewer.VerticalScrollBarVisibility="Auto"/>
                 </StackPanel>
             </Grid>
