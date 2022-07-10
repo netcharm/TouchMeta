@@ -212,10 +212,12 @@ namespace TouchMeta
             Xceed.Wpf.Toolkit.MessageBox.Show(Application.Current.MainWindow, text);
         }
 
-        private static void ShowMessage(string text, string title)
+        private static void ShowMessage(string text, string title, double? width = null)
         {
             var style = new Style(typeof(Xceed.Wpf.Toolkit.MessageBox));
             style.Setters.Add(new Setter(FontFamilyProperty, Application.Current.FindResource("MonoSpaceFamily") as FontFamily));
+            style.Setters.Add(new Setter(FontSizeProperty, Application.Current.FindResource("MonoSpaceSize") as double?));
+            if (width.HasValue) style.Setters.Add(new Setter(MaxWidthProperty, width));
             Xceed.Wpf.Toolkit.MessageBox.Show(Application.Current.MainWindow, text, title, messageBoxStyle: style);
         }
 
@@ -2447,6 +2449,96 @@ namespace TouchMeta
             return (result);
         }
 
+        private static MetaInfo XmlToMeta(XmlDocument xml, MetaInfo meta = null)
+        {
+            MetaInfo result = meta is MetaInfo ? meta : new MetaInfo();
+            if (xml is XmlDocument)
+            {
+                var id = xml.GetElementsByTagName("id").Count > 0 ? xml.GetElementsByTagName("id")[0].InnerText : string.Empty;
+                var date = xml.GetElementsByTagName("date").Count > 0 ? xml.GetElementsByTagName("date")[0].InnerText : string.Empty;
+                var title = xml.GetElementsByTagName("title").Count > 0 ? xml.GetElementsByTagName("title")[0].InnerText : string.Empty;
+                var desc = xml.GetElementsByTagName("description").Count > 0 ? xml.GetElementsByTagName("description")[0].InnerText : string.Empty;
+                var tags = xml.GetElementsByTagName("tags").Count > 0 ? xml.GetElementsByTagName("tags")[0].InnerText : string.Empty;
+                var favor = xml.GetElementsByTagName("favorited").Count > 0 ? xml.GetElementsByTagName("favorited")[0].InnerText : string.Empty;
+                var down = xml.GetElementsByTagName("downloaded").Count > 0 ? xml.GetElementsByTagName("downloaded")[0].InnerText : string.Empty;
+                var link = xml.GetElementsByTagName("weblink").Count > 0 ? xml.GetElementsByTagName("weblink")[0].InnerText : string.Empty;
+                var user = xml.GetElementsByTagName("user").Count > 0 ? xml.GetElementsByTagName("user")[0].InnerText : string.Empty;
+                var uid = xml.GetElementsByTagName("userid").Count > 0 ? xml.GetElementsByTagName("userid")[0].InnerText : string.Empty;
+                var ulink = xml.GetElementsByTagName("userlink").Count > 0 ? xml.GetElementsByTagName("userlink")[0].InnerText : string.Empty;
+
+                DateTime dt = result.DateAcquired ?? result.DateTaken ?? result.DateModified ?? result.DateCreated ?? result.DateAccesed ?? DateTime.Now;
+                if (DateTime.TryParse(date, out dt))
+                {
+                    result.DateCreated = dt;
+                    result.DateModified = dt;
+                    result.DateAccesed = dt;
+
+                    result.DateAcquired = dt;
+                    result.DateTaken = dt;
+                }
+                result.Title = title;
+                result.Subject = string.IsNullOrEmpty(link) ? $"https://www.pixiv.net/artworks/{id}" : link;
+                result.Keywords = tags;
+                result.Comment = desc;
+                result.Authors = $"{user}; uid:{uid}";
+                result.Copyrights = $"{user}; uid:{uid}";
+
+                bool fav = false;
+                if (bool.TryParse(favor, out fav)) result.Rating = fav ? 75 : 0;
+            }
+            return (result);
+        }
+
+        public static MetaInfo GetClipboardMetaInfo(MetaInfo meta)
+        {
+            var result = meta;
+            try
+            {
+                var log = new List<string>();
+                var dp = Clipboard.GetDataObject();
+                var fmts = dp.GetFormats();
+                foreach (var fmt in fmts)
+                {
+                    try
+                    {
+                        if (fmt.Equals("xmldocument", StringComparison.CurrentCultureIgnoreCase) && dp.GetDataPresent(fmt, true))
+                        {
+                            var xmldoc = dp.GetData(fmt, true);
+                            if (xmldoc is XmlDocument)
+                            {
+                                result = XmlToMeta(xmldoc as XmlDocument, result);
+                                log.Add($"{fmt.PadRight(16)} : Get Metadata Successed!");
+                                break;
+                            }
+                        }
+                        else if (fmt.Equals("xml", StringComparison.CurrentCultureIgnoreCase) && dp.GetDataPresent(fmt, true))
+                        {
+                            var xmldoc = dp.GetData(fmt, true);
+                            if (xmldoc is string && !string.IsNullOrEmpty(xmldoc as string))
+                            {
+                                var xml = new XmlDocument();
+                                xml.LoadXml(xmldoc as string);
+                                result = XmlToMeta(xml, result);
+                                log.Add($"{fmt.PadRight(16)} : Get Metadata Successed!");
+                                break;
+                            }
+                        }
+                        else if (new string[] { "PixivIllustJson", "PixivIllustJSON", "JSON", "Text" }.Contains(fmt) && dp.GetDataPresent(fmt, true))
+                        {
+                            var json = dp.GetData(fmt, true);
+
+                            log.Add($"{fmt.PadRight(16)} : Get Metadata Successed!");
+                            //break;
+                        }
+                    }
+                    catch (Exception ex) { log.Add($"{fmt.PadRight(16)} : {ex.Message}"); }
+                }
+                if (log.Count > 0) ShowMessage(string.Join(Environment.NewLine, log), "Get Metadata From Clipboard");
+            }
+            catch(Exception ex) { ShowMessage(ex.Message); }
+            return (result);
+        }
+
         public static void ClearMeta(string file)
         {
             if (File.Exists(file))
@@ -4053,6 +4145,12 @@ namespace TouchMeta
                     #endregion
                 }
             }
+            else if (sender == GetMetaInfoFromClipboard)
+            {
+                #region Get Metadata Infomation From Clipboard
+                CurrentMeta = GetClipboardMetaInfo(CurrentMeta);
+                #endregion
+            }
             else if (sender == GetFileTimeFromFilaName)
             {
                 if (FilesList.SelectedItem != null)
@@ -4170,7 +4268,7 @@ namespace TouchMeta
                 }));
                 #endregion
             }
-            else if(sender == ReTouchMeta)
+            else if (sender == ReTouchMeta)
             {
                 #region Re-Touch Metadate via MagicK.Net
                 RunBgWorker(new Action<string, bool>((file, show_xmp) =>
@@ -4185,7 +4283,7 @@ namespace TouchMeta
                 }));
                 #endregion
             }
-            else if(sender == ReTouchMetaAlt)
+            else if (sender == ReTouchMetaAlt)
             {
                 #region Re-Touch Metadata via CompactExifLib
                 RunBgWorker(new Action<string, bool>((file, show_xmp) =>

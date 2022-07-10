@@ -9,10 +9,10 @@
         <FontFamily x:Uid="MonoSpaceFamily" x:Key="MonoSpaceFamily">
             "Sarasa Mono J, 等距更纱黑体 SC, FontAwesome, Iosevka, Consolas, Segoe UI Emoji, Segoe MDL2 Assets, 更纱黑体 SC, Segoe UI, Monospace"
         </FontFamily>
+        <sys:Double x:Key="MonoSpaceSize">14</sys:Double>
         <FontFamily x:Uid="MDL2Family" x:Key="MDL2Family">
             "Segoe MDL2 Assets"
         </FontFamily>
-        <sys:Double x:Uid="MonoSpaceSize" x:Key="MonoSpaceSize">14</sys:Double>
         <Style x:Uid="ToolTipStyle" x:Key="{x:Type ToolTip}" TargetType="{x:Type ToolTip}">
             <Setter x:Uid="ToolTipStyleFontFamily" Property="FontFamily" Value="{StaticResource MonoSpaceFamily}"/>
             <Setter x:Uid="ToolTipStyleFontSize" Property="FontSize" Value="{StaticResource MonoSpaceSize}"/>
@@ -44,7 +44,7 @@
         <Style x:Uid="TimePickerBoxStyle" x:Key="{x:Type xctk:TimePicker}" TargetType="{x:Type xctk:TimePicker}">
             <Setter x:Uid="TimePickerStyleFontFamily" Property="FontFamily" Value="{StaticResource MonoSpaceFamily}"/>
             <Setter x:Uid="TimePickerStyleFontSize" Property="FontSize" Value="{StaticResource MonoSpaceSize}"/>
-        </Style>        
+        </Style>
         <!--Fixed Bug:[System.Windows.Data Error: 4 : Cannot find source for binding with reference...] When Dynamic add MenuItem to UI-->
         <Style TargetType="MenuItem">
             <Setter Property="HorizontalContentAlignment" Value="Left"/>
