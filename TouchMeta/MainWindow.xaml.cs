@@ -2943,7 +2943,12 @@ namespace TouchMeta
                                         var value_old = GetAttribute(image, tag);
                                         if (force || (!image.AttributeNames.Contains(tag) && rating.HasValue))
                                         {
-                                            SetAttribute(image, tag, rating);
+                                            if(tag.Equals("Rating", StringComparison.CurrentCultureIgnoreCase))
+                                                SetAttribute(image, tag, rating);
+                                            else if(tag.Equals("RatingPercent", StringComparison.CurrentCultureIgnoreCase))
+                                                SetAttribute(image, tag, RatingToRanking(rating));
+                                            else
+                                                SetAttribute(image, tag, rating);
                                             var value_new = GetAttribute(image, tag);
                                             Log($"{$"{tag}".PadRight(32)}= {(value_old == null ? "NULL" : value_old)} => {value_new}");
                                         }
