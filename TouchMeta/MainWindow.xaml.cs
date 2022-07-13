@@ -2943,9 +2943,11 @@ namespace TouchMeta
                                         var value_old = GetAttribute(image, tag);
                                         if (force || (!image.AttributeNames.Contains(tag) && rating.HasValue))
                                         {
-                                            if(tag.Equals("Rating", StringComparison.CurrentCultureIgnoreCase))
+                                            if(tag.Equals("RatingPercent", StringComparison.CurrentCultureIgnoreCase))
                                                 SetAttribute(image, tag, rating);
-                                            else if(tag.Equals("RatingPercent", StringComparison.CurrentCultureIgnoreCase))
+                                            else if(tag.Equals("Rating", StringComparison.CurrentCultureIgnoreCase))
+                                                SetAttribute(image, tag, RatingToRanking(rating));
+                                            else if (tag.Equals("xmp:Rating", StringComparison.CurrentCultureIgnoreCase))
                                                 SetAttribute(image, tag, RatingToRanking(rating));
                                             else
                                                 SetAttribute(image, tag, rating);
