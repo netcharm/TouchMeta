@@ -97,9 +97,9 @@
                     <MenuItem x:Name="TouchMetaFromM" x:Uid="TouchMetaFromM" Header="Touch Meta Time From Modified Name" Click="FilesListAction_Click"/>
                     <MenuItem x:Name="TouchMetaFromA" x:Uid="TouchMetaFromA" Header="Touch Meta Time From Accessed Name" Click="FilesListAction_Click"/>
                     <Separator/>
-                    <MenuItem x:Name="ReTouchMeta" x:Uid="ReTouchMeta" Header="ReTouch Meta Info for Selected File" Click="FilesListAction_Click"/>
-                    <MenuItem x:Name="ReTouchMetaAlt" x:Uid="ReTouchMetaAlt" Header="ReTouch Meta Info for Selected File (Alt)" Click="FilesListAction_Click"/>
-                    <MenuItem x:Name="ChangeMeta" x:Uid="ChangeMeta" Header="Add/Remove/Change/Empty Metainfo">
+                    <MenuItem x:Name="ReTouchMeta" x:Uid="ReTouchMeta" Header="Re-Touch Meta Info for Selected File" Click="FilesListAction_Click"/>
+                    <MenuItem x:Name="ReTouchMetaAlt" x:Uid="ReTouchMetaAlt" Header="Re-Touch Meta Info for Selected File (Alt)" Click="FilesListAction_Click"/>
+                    <MenuItem x:Name="ChangeMeta" x:Uid="ChangeMeta" Header="Append/Remove/Change/Empty Meta Info">
                         <MenuItem x:Name="ChangeMetaTitleAppend" x:Uid="ChangeMetaTitleAppend" Header="Append Title" Click="FilesListAction_Click" />
                         <MenuItem x:Name="ChangeMetaTitleRemove" x:Uid="ChangeMetaTitleRemove" Header="Remove Title" Click="FilesListAction_Click" />
                         <MenuItem x:Name="ChangeMetaTitleReplace" x:Uid="ChangeMetaTitleReplace" Header="Replace Title" Click="FilesListAction_Click" />

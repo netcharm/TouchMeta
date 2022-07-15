@@ -2166,6 +2166,100 @@ namespace TouchMeta
         }
         #endregion
 
+        //public static Dictionary<string, string> GetPngMetaInfo(FileInfo fileinfo, Encoding encoding = default(Encoding))
+        //{
+        //    var result = new Dictionary<string, string>();
+        //    try
+        //    {
+        //        if (fileinfo.Exists && fileinfo.Length > 0)
+        //        {
+        //            if (encoding == default(Encoding)) encoding = Encoding.UTF8;
+        //
+        //            string[] png_meta_chunk_text = new string[]{ "iTXt", "tEXt", "zTXt" };
+        //            var png_r  = Hjg.Pngcs.FileHelper.CreatePngReader(fileinfo.FullName);
+        //            if (png_r is Hjg.Pngcs.PngReader)
+        //            {
+        //                png_r.ChunkLoadBehaviour = Hjg.Pngcs.Chunks.ChunkLoadBehaviour.LOAD_CHUNK_IF_SAFE;
+        //                var png_chunks = png_r.GetChunksList();
+        //                foreach (var chunk in png_chunks.GetChunks())
+        //                {
+        //                    if (png_meta_chunk_text.Contains(chunk.Id))
+        //                    {
+        //                        //var value = new byte[chunk.Length];
+        //                        var raw = chunk.CreateRawChunk();
+        //                        chunk.ParseFromRaw(raw);
+        //                        var data = encoding.GetString(raw.Data).Split('\0');
+        //                        var key = data.FirstOrDefault();
+        //                        var value = data.LastOrDefault();
+        //                        result[key] = value;
+        //                    }
+        //                }
+        //                png_r.End();
+        //            }
+        //        }
+        //    }
+        //    catch (Exception ex) { Log(ex.Message); }
+        //    return (result);
+        //}
+
+        //public static bool UpdatePngMetaInfo(FileInfo fileinfo, DateTime? dt = null, MetaInfo meta = null, Encoding encoding = default(Encoding))
+        //{
+        //    var result = false;
+        //    try
+        //    {
+        //        if (encoding == default(Encoding)) encoding = Encoding.UTF8;
+        //
+        //        if (fileinfo.Exists && fileinfo.Length > 0)
+        //        {
+        //            if (meta == null) meta = MakeMetaInfo(fileinfo, dt, id);
+        //            if (meta is MetaInfo)
+        //            {
+        //                var png_r  = Hjg.Pngcs.FileHelper.CreatePngReader(fileinfo.FullName);
+        //                if (png_r is Hjg.Pngcs.PngReader)
+        //                {
+        //                    //png_r.ChunkLoadBehaviour = Hjg.Pngcs.Chunks.ChunkLoadBehaviour.LOAD_CHUNK_IF_SAFE;
+        //                    var imageinfo = png_r.ImgInfo;
+        //
+        //                    var png_f = $"{fileinfo.FullName}~";
+        //                    var png_w = Hjg.Pngcs.FileHelper.CreatePngWriter(png_f, png_r.ImgInfo, true);
+        //                    if (png_w is Hjg.Pngcs.PngWriter)
+        //                    {
+        //                        png_w.CopyChunksFirst(png_r, Hjg.Pngcs.Chunks.ChunkCopyBehaviour.COPY_ALL);
+        //                        for (int row = 0; row < png_r.ImgInfo.Rows; row++)
+        //                        {
+        //                            Hjg.Pngcs.ImageLine il = png_r.ReadRow(row);
+        //                            png_w.WriteRow(il, row);
+        //                        }
+        //
+        //                        var metainfo = new Dictionary<string, string>();
+        //                        metainfo["Creation Time"] = (meta.DateTaken ?? dt).ToString("yyyy:MM:dd HH:mm:sszzz");
+        //                        metainfo["Title"] = meta.Title;
+        //                        metainfo["Source"] = meta.Subject;
+        //                        metainfo["Comment"] = meta.Keywords;
+        //                        metainfo["Description"] = meta.Comment;
+        //                        metainfo["Author"] = meta.Author;
+        //                        metainfo["Copyright"] = meta.Author;
+        //
+        //                        var meta_png = png_w.GetMetadata();
+        //                        foreach (var kv in metainfo)
+        //                        {
+        //                            meta_png.SetText(kv.Key, kv.Value);
+        //                        }
+        //
+        //                        png_r.End();
+        //                        png_w.End();
+        //                        fileinfo.Delete();
+        //                        File.Move(png_f, fileinfo.FullName);
+        //                        return (true);
+        //                    }
+        //                }
+        //            }
+        //        }
+        //    }
+        //    catch (Exception ex) { ex.ERROR("GetMetaInfoPng"); }
+        //    return (result);
+        //}
+
         public static void TouchProfile(string file, Dictionary<string, IImageProfile> profiles, bool force = false)
         {
             if (force && File.Exists(file) && profiles is Dictionary<string, IImageProfile>)
@@ -3838,7 +3932,7 @@ namespace TouchMeta
         #endregion
 
         #region Converting Image Format Helper
-        public string ConvertImageTo(string file, MagickFormat fmt)
+        public string ConvertImageTo(string file, MagickFormat fmt, bool keep_name = false)
         {
             var result = file;
             if (File.Exists(file))
@@ -3862,7 +3956,7 @@ namespace TouchMeta
 
                             var fmt_info = MagickNET.SupportedFormats.Where(f => f.Format == fmt).FirstOrDefault();
                             var ext = fmt_info is MagickFormatInfo ? fmt_info.Format.ToString() : fmt.ToString();
-                            var name = Path.ChangeExtension(fi.FullName, $".{ext.ToLower()}");
+                            var name = keep_name ? fi.FullName : Path.ChangeExtension(fi.FullName, $".{ext.ToLower()}");
 
                             FixDPI(image);
 
@@ -3874,15 +3968,27 @@ namespace TouchMeta
                             //}
 
                             image.Write(name, fmt);
-                            var nfi = new FileInfo(name);
-                            nfi.CreationTime = dc;
-                            nfi.LastWriteTime = dm;
-                            nfi.LastAccessTime = da;
 
-                            Log($"Convert {file} => {name}");
-                            Log("~".PadRight(ExtendedMessageWidth, '~'));
-                            TouchMeta(name, dtc: dc, dtm: dm, dta: da, meta: meta);
+                            if (!keep_name)
+                            {
+                                var nfi = new FileInfo(name);
+                                nfi.CreationTime = dc;
+                                nfi.LastWriteTime = dm;
+                                nfi.LastAccessTime = da;
+
+                                Log($"Convert {file} => {name}");
+
+                                if (meta is MetaInfo)
+                                {
+                                    Log("~".PadRight(ExtendedMessageWidth, '~'));
+                                    TouchMeta(name, dtc: dc, dtm: dm, dta: da, meta: meta);
+                                }
+                            }
+                            else
+                                Log($"Convert {file} to {fmt_info.MimeType.ToString()}");
+
                             result = name;
+
                         }
                     }
                     catch (Exception ex) { Log(ex.Message); }
@@ -3895,25 +4001,25 @@ namespace TouchMeta
             return (result);
         }
 
-        public void ConvertImagesTo(IEnumerable<string> files, MagickFormat fmt)
+        public void ConvertImagesTo(IEnumerable<string> files, MagickFormat fmt, bool keep_name = false)
         {
             if (files is IEnumerable<string>)
             {
                 RunBgWorker(new Action<string, bool>((file, show_xmp) =>
                 {
-                    var ret = ConvertImageTo(file, fmt);
+                    var ret = ConvertImageTo(file, fmt, keep_name);
                     if (!string.IsNullOrEmpty(ret) && File.Exists(ret)) AddFile(ret);
                 }));
             }
         }
 
-        public void ConvertImagesTo(MagickFormat fmt)
+        public void ConvertImagesTo(MagickFormat fmt, bool keep_name = false)
         {
             if (FilesList.Items.Count >= 1)
             {
                 List<string> files = new List<string>();
                 foreach (var item in FilesList.SelectedItems.Count > 0 ? FilesList.SelectedItems : FilesList.Items) files.Add(item as string);
-                ConvertImagesTo(files, fmt);
+                ConvertImagesTo(files, fmt, keep_name);
             }
         }
         #endregion
@@ -4120,6 +4226,8 @@ namespace TouchMeta
         private void FilesListAction_Click(object sender, RoutedEventArgs e)
         {
             var force = Keyboard.Modifiers == ModifierKeys.Control;
+            var alt = Keyboard.Modifiers == ModifierKeys.Shift;
+            #region Get Image File(s) Time
             if (sender == GetFileTimeFromSelected)
             {
                 if (FilesList.SelectedItem != null)
@@ -4145,6 +4253,22 @@ namespace TouchMeta
                     #endregion
                 }
             }
+            else if (sender == GetFileTimeFromFilaName)
+            {
+                if (FilesList.SelectedItem != null)
+                {
+                    #region Touching File Time
+                    var meta = CurrentMeta;
+
+                    RunBgWorker(new Action<string, bool>((file, show_xmp) =>
+                    {
+                        SetCustomDateTime(dt: ParseDateTime(file));
+                    }));
+                    #endregion
+                }
+            }
+            #endregion
+            #region Get Image File(s) Metadata
             else if (sender == GetMetaInfoFromSelected)
             {
                 if (FilesList.SelectedItem != null)
@@ -4161,20 +4285,8 @@ namespace TouchMeta
                 CurrentMeta = GetClipboardMetaInfo(CurrentMeta);
                 #endregion
             }
-            else if (sender == GetFileTimeFromFilaName)
-            {
-                if (FilesList.SelectedItem != null)
-                {
-                    #region Touching File Time
-                    var meta = CurrentMeta;
-
-                    RunBgWorker(new Action<string, bool>((file, show_xmp) =>
-                    {
-                        SetCustomDateTime(dt: ParseDateTime(file));
-                    }));
-                    #endregion
-                }
-            }
+            #endregion
+            #region Set Image File(s) Time
             else if (sender == SetFileTimeFromFileName)
             {
                 #region Touching File Time
@@ -4186,7 +4298,6 @@ namespace TouchMeta
                 }));
                 #endregion
             }
-
             else if (sender == SetFileTimeFromC)
             {
                 #region Touching File Time
@@ -4232,7 +4343,8 @@ namespace TouchMeta
                 }));
                 #endregion
             }
-
+            #endregion
+            #region Set Image File(s) Metadata
             else if (sender == TouchMetaFromC)
             {
                 #region Touching File Time
@@ -4308,7 +4420,8 @@ namespace TouchMeta
                 }));
                 #endregion
             }
-            #region Add/Remove/Replace/Empty
+            #endregion
+            #region Add/Remove/Replace/Empty Image File(s) Metadata
             else if (sender == ChangeMetaTitleAppend)
             {
                 RunBgWorker(new Action<string, bool>((file, show_xmp) =>
@@ -4541,34 +4654,37 @@ namespace TouchMeta
                 }));
             }
             #endregion
+            #region Convert Image File Format
             else if (sender == ConvertSelectedToJpg)
             {
-                ConvertImagesTo(MagickFormat.Jpg);
+                ConvertImagesTo(MagickFormat.Jpg, keep_name: alt);
             }
             else if (sender == ConvertSelectedToPng)
             {
-                ConvertImagesTo(MagickFormat.Png);
+                ConvertImagesTo(MagickFormat.Png, keep_name: alt);
             }
             else if (sender == ConvertSelectedToGif)
             {
-                ConvertImagesTo(MagickFormat.Gif);
+                ConvertImagesTo(MagickFormat.Gif, keep_name: alt);
             }
             else if (sender == ConvertSelectedToPdf)
             {
-                ConvertImagesTo(MagickFormat.Pdf);
+                ConvertImagesTo(MagickFormat.Pdf, keep_name: alt);
             }
             else if (sender == ConvertSelectedToTif)
             {
-                ConvertImagesTo(MagickFormat.Tiff);
+                ConvertImagesTo(MagickFormat.Tiff, keep_name: alt);
             }
             else if (sender == ConvertSelectedToAvif)
             {
-                ConvertImagesTo(MagickFormat.Avif);
+                ConvertImagesTo(MagickFormat.Avif, keep_name: alt);
             }
             else if (sender == ConvertSelectedToWebp)
             {
-                ConvertImagesTo(MagickFormat.WebP);
+                ConvertImagesTo(MagickFormat.WebP, keep_name: alt);
             }
+            #endregion
+            #region View/Rename Image File(s)
             else if (sender == ViewSelected)
             {
                 bool openwith = Keyboard.Modifiers == ModifierKeys.Shift ? true : false;
@@ -4591,6 +4707,8 @@ namespace TouchMeta
                     FileRenameInputPopup.IsOpen = true;
                 }
             }
+            #endregion
+            #region Remove Image File(s) From List
             else if (sender == RemoveSelected)
             {
                 #region From Files List Remove Selected Files
@@ -4606,6 +4724,7 @@ namespace TouchMeta
             {
                 FilesList.Items.Clear();
             }
+            #endregion
         }
 
         private void BtnAction_Click(object sender, RoutedEventArgs e)
