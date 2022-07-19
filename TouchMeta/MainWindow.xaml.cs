@@ -2166,99 +2166,196 @@ namespace TouchMeta
         }
         #endregion
 
-        //public static Dictionary<string, string> GetPngMetaInfo(FileInfo fileinfo, Encoding encoding = default(Encoding))
-        //{
-        //    var result = new Dictionary<string, string>();
-        //    try
-        //    {
-        //        if (fileinfo.Exists && fileinfo.Length > 0)
-        //        {
-        //            if (encoding == default(Encoding)) encoding = Encoding.UTF8;
-        //
-        //            string[] png_meta_chunk_text = new string[]{ "iTXt", "tEXt", "zTXt" };
-        //            var png_r  = Hjg.Pngcs.FileHelper.CreatePngReader(fileinfo.FullName);
-        //            if (png_r is Hjg.Pngcs.PngReader)
-        //            {
-        //                png_r.ChunkLoadBehaviour = Hjg.Pngcs.Chunks.ChunkLoadBehaviour.LOAD_CHUNK_IF_SAFE;
-        //                var png_chunks = png_r.GetChunksList();
-        //                foreach (var chunk in png_chunks.GetChunks())
-        //                {
-        //                    if (png_meta_chunk_text.Contains(chunk.Id))
-        //                    {
-        //                        //var value = new byte[chunk.Length];
-        //                        var raw = chunk.CreateRawChunk();
-        //                        chunk.ParseFromRaw(raw);
-        //                        var data = encoding.GetString(raw.Data).Split('\0');
-        //                        var key = data.FirstOrDefault();
-        //                        var value = data.LastOrDefault();
-        //                        result[key] = value;
-        //                    }
-        //                }
-        //                png_r.End();
-        //            }
-        //        }
-        //    }
-        //    catch (Exception ex) { Log(ex.Message); }
-        //    return (result);
-        //}
+        #region PngCs Routines for Update PNG Image Metadata
+        private static string DecompressGzipBytesToText(byte[] bytes, Encoding encoding = default(Encoding), int skip = 2)
+        {
+            var result = string.Empty;
+            try
+            {
+                if (encoding == default(Encoding)) encoding = Encoding.UTF8;
+                using (var msi = new MemoryStream(bytes))
+                {
+                    using (var mso = new MemoryStream())
+                    {
+                        using (var ds = new System.IO.Compression.GZipStream(msi, System.IO.Compression.CompressionMode.Decompress))
+                        {
+                            ds.CopyTo(mso);
+                            ds.Close();
+                        }
+                        var ret = mso.ToArray();
+                        try
+                        {
+                            var text = string.Join("", encoding.GetString(ret).Split().Skip(2));
+                            var buff = new byte[text.Length/2];
+                            for (var i = 0; i < text.Length / 2; i++)
+                            {
+                                buff[i] = Convert.ToByte($"0x{text[2 * i]}{text[2 * i + 1]}", 16);
+                            }
+                            result = encoding.GetString(buff.Skip(skip).ToArray());
+                        }
+                        catch (Exception ex) { MessageBox.Show(ex.Message); };
+                    }
+                }
+            }
+            catch (Exception ex) { MessageBox.Show(ex.Message); }
+            return (result);
+        }
 
-        //public static bool UpdatePngMetaInfo(FileInfo fileinfo, DateTime? dt = null, MetaInfo meta = null, Encoding encoding = default(Encoding))
-        //{
-        //    var result = false;
-        //    try
-        //    {
-        //        if (encoding == default(Encoding)) encoding = Encoding.UTF8;
-        //
-        //        if (fileinfo.Exists && fileinfo.Length > 0)
-        //        {
-        //            if (meta == null) meta = MakeMetaInfo(fileinfo, dt, id);
-        //            if (meta is MetaInfo)
-        //            {
-        //                var png_r  = Hjg.Pngcs.FileHelper.CreatePngReader(fileinfo.FullName);
-        //                if (png_r is Hjg.Pngcs.PngReader)
-        //                {
-        //                    //png_r.ChunkLoadBehaviour = Hjg.Pngcs.Chunks.ChunkLoadBehaviour.LOAD_CHUNK_IF_SAFE;
-        //                    var imageinfo = png_r.ImgInfo;
-        //
-        //                    var png_f = $"{fileinfo.FullName}~";
-        //                    var png_w = Hjg.Pngcs.FileHelper.CreatePngWriter(png_f, png_r.ImgInfo, true);
-        //                    if (png_w is Hjg.Pngcs.PngWriter)
-        //                    {
-        //                        png_w.CopyChunksFirst(png_r, Hjg.Pngcs.Chunks.ChunkCopyBehaviour.COPY_ALL);
-        //                        for (int row = 0; row < png_r.ImgInfo.Rows; row++)
-        //                        {
-        //                            Hjg.Pngcs.ImageLine il = png_r.ReadRow(row);
-        //                            png_w.WriteRow(il, row);
-        //                        }
-        //
-        //                        var metainfo = new Dictionary<string, string>();
-        //                        metainfo["Creation Time"] = (meta.DateTaken ?? dt).ToString("yyyy:MM:dd HH:mm:sszzz");
-        //                        metainfo["Title"] = meta.Title;
-        //                        metainfo["Source"] = meta.Subject;
-        //                        metainfo["Comment"] = meta.Keywords;
-        //                        metainfo["Description"] = meta.Comment;
-        //                        metainfo["Author"] = meta.Author;
-        //                        metainfo["Copyright"] = meta.Author;
-        //
-        //                        var meta_png = png_w.GetMetadata();
-        //                        foreach (var kv in metainfo)
-        //                        {
-        //                            meta_png.SetText(kv.Key, kv.Value);
-        //                        }
-        //
-        //                        png_r.End();
-        //                        png_w.End();
-        //                        fileinfo.Delete();
-        //                        File.Move(png_f, fileinfo.FullName);
-        //                        return (true);
-        //                    }
-        //                }
-        //            }
-        //        }
-        //    }
-        //    catch (Exception ex) { ex.ERROR("GetMetaInfoPng"); }
-        //    return (result);
-        //}
+        public static Dictionary<string, string> GetPngMetaInfo(FileInfo fileinfo, Encoding encoding = default(Encoding))
+        {
+            var result = new Dictionary<string, string>();
+            try
+            {
+                string[] png_meta_chunk_text = new string[]{ "iTXt", "tEXt", "zTXt" };
+                if (fileinfo.Exists && fileinfo.Length > 0)
+                {
+                    if (encoding == default(Encoding)) encoding = Encoding.UTF8;
+                    var png_r  = Hjg.Pngcs.FileHelper.CreatePngReader(fileinfo.FullName);
+                    if (png_r is Hjg.Pngcs.PngReader)
+                    {
+                        png_r.ChunkLoadBehaviour = Hjg.Pngcs.Chunks.ChunkLoadBehaviour.LOAD_CHUNK_ALWAYS;
+                        var png_chunks = png_r.GetChunksList();
+                        foreach (var chunk in png_chunks.GetChunks())
+                        {
+                            if (png_meta_chunk_text.Contains(chunk.Id))
+                            {
+                                var raw = chunk.CreateRawChunk();
+                                chunk.ParseFromRaw(raw);
+
+                                var data = encoding.GetString(raw.Data).Split('\0');
+                                var key = data.FirstOrDefault();
+                                var value = string.Empty;
+                                if (chunk.Id.Equals("zTXt"))
+                                {
+                                    value = DecompressGzipBytesToText(raw.Data.Skip(key.Length + 2).ToArray());
+                                    if ((raw.Data.Length > key.Length + 2) && string.IsNullOrEmpty(value)) value = "(Decodeing Error)";
+                                }
+                                else if (chunk.Id.Equals("iTXt"))
+                                {
+                                    var vs = raw.Data.Skip(key.Length+1).ToArray();
+                                    var compress_flag = vs[0];
+                                    var compress_method = vs[1];
+                                    var language_tag = string.Empty;
+                                    var translate_tag = string.Empty;
+                                    var text = string.Empty;
+
+                                    if (vs[2] == 0 && vs[3] == 0)
+                                        text = compress_flag == 1 ? DecompressGzipBytesToText(vs.Skip(4).ToArray()) : encoding.GetString(vs.Skip(4).ToArray());
+                                    else if (vs[2] == 0 && vs[3] != 0)
+                                    {
+                                        var trans = vs.Skip(3).TakeWhile(c => c != 0);
+                                        translate_tag = encoding.GetString(trans.ToArray());
+
+                                        var txt = vs.Skip(3).Skip(trans.Count()).SkipWhile(c => c==0);
+                                        text = compress_flag == 1 ? DecompressGzipBytesToText(txt.ToArray()) : encoding.GetString(txt.ToArray());
+                                    }
+
+                                    value = $"{(int)compress_flag}, {(int)compress_method}, {language_tag}, {translate_tag}, {text}";
+                                }
+                                else
+                                    value = string.Join(", ", data.Skip(1));
+
+                                result[key] = value;
+                            }
+                        }
+                        png_r.End();
+                    }
+                }
+            }
+            catch (Exception ex) { Log(ex.Message); }
+            return (result);
+        }
+
+        private static bool PngUpdateTextMetadata(string fileName, Dictionary<string, string> metainfo, bool keeptime = false)
+        {
+            var result = false;
+            if (File.Exists(fileName) && metainfo is Dictionary<string, string>)
+            {
+                var fileinfo = new FileInfo(fileName);
+                var dtc = fileinfo.CreationTime;
+                var dtm = fileinfo.LastWriteTime;
+                var dta = fileinfo.LastAccessTime;
+                using (var mso = new MemoryStream())
+                {
+                    //using (var msi = Hjg.Pngcs.FileHelper.OpenFileForReading(fileName))
+                    using (var msi = new MemoryStream(File.ReadAllBytes(fileName)))
+                    {
+                        if (msi.Length > 0)
+                        {
+                            var png_r = new Hjg.Pngcs.PngReader(msi);
+                            if (png_r is Hjg.Pngcs.PngReader)
+                            {
+                                png_r.SetCrcCheckDisabled();
+                                png_r.ChunkLoadBehaviour = Hjg.Pngcs.Chunks.ChunkLoadBehaviour.LOAD_CHUNK_ALWAYS;
+                                var png_w = new Hjg.Pngcs.PngWriter(mso, png_r.ImgInfo);
+                                if (png_w is Hjg.Pngcs.PngWriter)
+                                {
+                                    png_w.ShouldCloseStream = false;
+                                    png_w.CopyChunksFirst(png_r, Hjg.Pngcs.Chunks.ChunkCopyBehaviour.COPY_ALL);
+                                    //for (int row = 0; row < png_r.ImgInfo.Rows; row++)
+                                    //{
+                                    //    Hjg.Pngcs.ImageLine il = png_r.ReadRow(row);
+                                    //    png_w.WriteRow(il, row);
+                                    //}
+                                    //png_w.CopyChunksLast(png_r, Hjg.Pngcs.Chunks.ChunkCopyBehaviour.COPY_ALL);
+                                    var meta = png_w.GetMetadata();
+                                    foreach (var kv in metainfo)
+                                    {
+                                        var chunk = meta.SetText(kv.Key, kv.Value);
+                                        chunk.Priority = true;
+                                    }
+                                    for (int row = 0; row < png_r.ImgInfo.Rows; row++)
+                                    {
+                                        Hjg.Pngcs.ImageLine il = png_r.ReadRow(row);
+                                        png_w.WriteRow(il, row);
+                                    }
+                                    png_w.End();
+                                }
+                                png_r.End();
+                            }
+                        }
+                    }
+                    File.WriteAllBytes(fileName, mso.ToArray());
+                }
+                if (keeptime)
+                {
+                    fileinfo.CreationTime = dtc;
+                    fileinfo.LastWriteTime = dtm;
+                    fileinfo.LastAccessTime = dta;
+                }
+                result = true;
+            }
+            return (result);
+        }
+
+        public static bool UpdatePngMetaInfo(FileInfo fileinfo, DateTime? dt = null, MetaInfo meta = null)
+        {
+            var result = false;
+            try
+            {
+                if (fileinfo.Exists && fileinfo.Length > 0 && meta is MetaInfo)
+                {
+                    var metainfo = new Dictionary<string, string>();
+                    
+                    metainfo[Hjg.Pngcs.Chunks.PngChunkTextVar.KEY_Creation_Time] = (meta.DateTaken ?? dt ?? DateTime.Now).ToString("yyyy:MM:dd HH:mm:sszzz");
+                    metainfo[Hjg.Pngcs.Chunks.PngChunkTextVar.KEY_Title] = meta.Title;
+                    metainfo[Hjg.Pngcs.Chunks.PngChunkTextVar.KEY_Source] = meta.Subject;
+                    metainfo[Hjg.Pngcs.Chunks.PngChunkTextVar.KEY_Comment] = meta.Keywords;
+                    metainfo[Hjg.Pngcs.Chunks.PngChunkTextVar.KEY_Description] = meta.Comment;
+                    metainfo[Hjg.Pngcs.Chunks.PngChunkTextVar.KEY_Author] = meta.Authors;
+                    metainfo[Hjg.Pngcs.Chunks.PngChunkTextVar.KEY_Copyright] = meta.Authors;
+                    //Hjg.Pngcs.Chunks.PngChunkTextVar.KEY_Software
+                    //Hjg.Pngcs.Chunks.PngChunkTextVar.KEY_Disclaimer
+                    //Hjg.Pngcs.Chunks.PngChunkTextVar.KEY_Warning
+
+                    //result  = Hjg.Pngcs.FileHelper.PngUpdateTextMetadata(fileinfo.FullName, metainfo, keeptime: true);
+                    result = PngUpdateTextMetadata(fileinfo.FullName, metainfo, keeptime: true);
+                }
+            }
+            catch (Exception ex) { Log(ex.Message); }
+            return (result);
+        }
+        #endregion
 
         public static void TouchProfile(string file, Dictionary<string, IImageProfile> profiles, bool force = false)
         {
@@ -3633,6 +3730,7 @@ namespace TouchMeta
                     var exif = new ExifData(file);
                     if (exif is ExifData)
                     {
+                        #region CompactExifLib Update EXIF Metadata
                         DateTime date = dm;
                         if (!force || exif.GetTagValue(CompactExifLib.ExifTag.DateTime, out date))
                         {
@@ -3724,6 +3822,7 @@ namespace TouchMeta
 
                         exif.SetTagRawData(CompactExifLib.ExifTag.XpRanking, ExifTagType.UShort, 1, BitConverter.GetBytes((short)(meta.Ranking ?? 0)).Reverse().ToArray());
                         exif.SetTagRawData(CompactExifLib.ExifTag.XpRating, ExifTagType.UShort, 1, BitConverter.GetBytes((short)(meta.Rating ?? 0)).Reverse().ToArray());
+                        #endregion
 
                         var xmp = string.Empty;
                         exif.GetTagValue(CompactExifLib.ExifTag.XmpMetadata, out xmp, StrCoding.Utf8);
@@ -3731,17 +3830,43 @@ namespace TouchMeta
                         //exif.SetTagValue(CompactExifLib.ExifTag.XmpMetadata, xmp, StrCoding.Utf8);
                         exif.SetTagRawData(CompactExifLib.ExifTag.XmpMetadata, ExifTagType.Byte, Encoding.UTF8.GetByteCount(xmp), Encoding.UTF8.GetBytes(xmp));
                         exif.Save(file);
+#if DEBUG
+                        // if using PngCs update metadata, so some XMP and Microsoft.Photo Date will lost,
+                        // but, if using magick append XMP profile, PNG meta will lost.
+                        UpdatePngMetaInfo(fi, dm, meta);
 
                         using (MagickImage image = new MagickImage(fi.FullName))
                         {
-                            var xmp_profile = new XmpProfile(Encoding.UTF8.GetBytes(xmp));
-                            image.SetProfile(xmp_profile);
+                            if (image.FormatInfo.IsWritable)
+                            {
+                                var dm_png = dm.ToString("yyyy-MM-ddTHH:mm:ssZ");
+                                var dm_xmp = dm.ToString("yyyy:MM:dd HH:mm:ss");
+                                var dm_msxmp = dm.ToString("yyyy-MM-ddTHH:mm:ss.fff");
+                                var dm_ms = dm.ToString("yyyy-MM-ddTHH:mm:sszzz");
+                                var dm_misc = dm.ToString("yyyy:MM:dd HH:mm:sszzz");
+                                foreach (var tag in tag_date)
+                                {
+                                    try
+                                    {
+                                        var value_old = image.GetAttribute(tag);
+                                        if (tag.StartsWith("Microsoft")) { image.RemoveAttribute(tag); SetAttribute(image, tag, dm_ms); }
+                                        //else if (tag.StartsWith("xmp")) SetAttribute(image, tag, dm_xmp);
+                                        else if (tag.StartsWith("exif")) continue;
+                                        else SetAttribute(image, tag, dm_misc);
+                                    }
+                                    catch (Exception ex) { Log(ex.Message); }
+                                }
+                                //var xmp_profile = new XmpProfile(Encoding.UTF8.GetBytes(xmp));
+                                //image.SetProfile(xmp_profile);
+                                image.Write(fi.FullName);
+                            }
                         }
-
+#endif
                         fi.CreationTime = dc;
                         fi.LastWriteTime = dm;
                         fi.LastAccessTime = da;
 
+                        //UpdatePngMetaInfo(fi, dm, meta);
                         Log($"File \"{file}\" touched with extra-method!");
                     }
                 }
@@ -3762,13 +3887,14 @@ namespace TouchMeta
                 {
                     try
                     {
-                        var exifdata = new CompactExifLib.ExifData(ms);
+                        ExifData exifdata = null;
+                        try { exifdata = new ExifData(ms); } catch { }
                         ms.Seek(0, SeekOrigin.Begin);
                         using (MagickImage image = new MagickImage(ms))
                         {
                             if (image.FormatInfo.IsReadable)
                             {
-                                if (image.Endian == Endian.Undefined) image.Endian = exifdata.ByteOrder == ExifByteOrder.BigEndian ? Endian.MSB : Endian.LSB;
+                                if (exifdata is ExifData && image.Endian == Endian.Undefined) image.Endian = exifdata.ByteOrder == ExifByteOrder.BigEndian ? Endian.MSB : Endian.LSB;
 
                                 var exif = image.HasProfile("exif") ? image.GetExifProfile() : new ExifProfile();
                                 var exif_invalid = exif.InvalidTags;
@@ -3969,7 +4095,7 @@ namespace TouchMeta
 
                             image.Write(name, fmt);
 
-                            if (!keep_name)
+                            if (!keep_name && !name.Equals(fi.FullName, StringComparison.CurrentCultureIgnoreCase))
                             {
                                 var nfi = new FileInfo(name);
                                 nfi.CreationTime = dc;
@@ -3988,7 +4114,6 @@ namespace TouchMeta
                                 Log($"Convert {file} to {fmt_info.MimeType.ToString()}");
 
                             result = name;
-
                         }
                     }
                     catch (Exception ex) { Log(ex.Message); }
@@ -4008,7 +4133,7 @@ namespace TouchMeta
                 RunBgWorker(new Action<string, bool>((file, show_xmp) =>
                 {
                     var ret = ConvertImageTo(file, fmt, keep_name);
-                    if (!string.IsNullOrEmpty(ret) && File.Exists(ret)) AddFile(ret);
+                    if (!string.IsNullOrEmpty(ret) && File.Exists(ret) && !keep_name) AddFile(ret);
                 }));
             }
         }
@@ -4040,6 +4165,7 @@ namespace TouchMeta
                 if (Directory.Exists(magick_cache)) OpenCL.SetCacheDirectory(magick_cache);
 
                 SupportedFormats = ((MagickFormat[])Enum.GetValues(typeof(MagickFormat))).Select(e => $".{e.ToString().ToLower()}").ToList();
+                SupportedFormats.AddRange(new string[] { ".spa", ".sph" });
             }
             catch (Exception ex) { Log(ex.Message); }
         }
