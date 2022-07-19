@@ -398,7 +398,13 @@ namespace TouchMeta
             var result = false;
             try
             {
+                var flist = new List<string>();
                 foreach (var file in files)
+                {
+                    flist.AddRange(Directory.GetFileSystemEntries(Path.IsPathRooted(file) ? Path.GetDirectoryName(file) : Directory.GetCurrentDirectory(), Path.GetFileName(file), SearchOption.TopDirectoryOnly));
+                }
+
+                foreach (var file in flist)
                 {
                     if (Directory.Exists(file))
                     {
@@ -2292,23 +2298,30 @@ namespace TouchMeta
                                 {
                                     png_w.ShouldCloseStream = false;
                                     png_w.CopyChunksFirst(png_r, Hjg.Pngcs.Chunks.ChunkCopyBehaviour.COPY_ALL);
-                                    //for (int row = 0; row < png_r.ImgInfo.Rows; row++)
-                                    //{
-                                    //    Hjg.Pngcs.ImageLine il = png_r.ReadRow(row);
-                                    //    png_w.WriteRow(il, row);
-                                    //}
-                                    //png_w.CopyChunksLast(png_r, Hjg.Pngcs.Chunks.ChunkCopyBehaviour.COPY_ALL);
+
                                     var meta = png_w.GetMetadata();
                                     foreach (var kv in metainfo)
                                     {
-                                        var chunk = meta.SetText(kv.Key, kv.Value);
-                                        chunk.Priority = true;
+                                        if (kv.Key.Equals(Hjg.Pngcs.Chunks.PngChunkTextVar.KEY_Creation_Time))
+                                        {
+                                            var chunk_ct = new Hjg.Pngcs.Chunks.PngChunkTEXT(png_r.ImgInfo);
+                                            chunk_ct.SetKeyVal(kv.Key, kv.Value);
+                                            chunk_ct.Priority = true;
+                                            meta.QueueChunk(chunk_ct);
+                                        }
+                                        else
+                                        {
+                                            var chunk = meta.SetText(kv.Key, kv.Value);
+                                            chunk.Priority = true;
+                                        }
                                     }
+
                                     for (int row = 0; row < png_r.ImgInfo.Rows; row++)
                                     {
                                         Hjg.Pngcs.ImageLine il = png_r.ReadRow(row);
                                         png_w.WriteRow(il, row);
                                     }
+
                                     png_w.End();
                                 }
                                 png_r.End();
@@ -2338,12 +2351,12 @@ namespace TouchMeta
                     var metainfo = new Dictionary<string, string>();
                     
                     metainfo[Hjg.Pngcs.Chunks.PngChunkTextVar.KEY_Creation_Time] = (meta.DateTaken ?? dt ?? DateTime.Now).ToString("yyyy:MM:dd HH:mm:sszzz");
-                    metainfo[Hjg.Pngcs.Chunks.PngChunkTextVar.KEY_Title] = meta.Title;
-                    metainfo[Hjg.Pngcs.Chunks.PngChunkTextVar.KEY_Source] = meta.Subject;
-                    metainfo[Hjg.Pngcs.Chunks.PngChunkTextVar.KEY_Comment] = meta.Keywords;
-                    metainfo[Hjg.Pngcs.Chunks.PngChunkTextVar.KEY_Description] = meta.Comment;
-                    metainfo[Hjg.Pngcs.Chunks.PngChunkTextVar.KEY_Author] = meta.Authors;
-                    metainfo[Hjg.Pngcs.Chunks.PngChunkTextVar.KEY_Copyright] = meta.Authors;
+                    metainfo[Hjg.Pngcs.Chunks.PngChunkTextVar.KEY_Title] = string.IsNullOrEmpty(meta.Title) ? "" : meta.Title;
+                    metainfo[Hjg.Pngcs.Chunks.PngChunkTextVar.KEY_Source] = string.IsNullOrEmpty(meta.Subject) ? "" : meta.Subject;
+                    metainfo[Hjg.Pngcs.Chunks.PngChunkTextVar.KEY_Comment] = string.IsNullOrEmpty(meta.Keywords) ? "" : meta.Keywords;
+                    metainfo[Hjg.Pngcs.Chunks.PngChunkTextVar.KEY_Description] = string.IsNullOrEmpty(meta.Comment) ? "" : meta.Comment;
+                    metainfo[Hjg.Pngcs.Chunks.PngChunkTextVar.KEY_Author] = string.IsNullOrEmpty(meta.Authors) ? "" : meta.Authors;
+                    metainfo[Hjg.Pngcs.Chunks.PngChunkTextVar.KEY_Copyright] = string.IsNullOrEmpty(meta.Authors) ? "" : meta.Authors;
                     //Hjg.Pngcs.Chunks.PngChunkTextVar.KEY_Software
                     //Hjg.Pngcs.Chunks.PngChunkTextVar.KEY_Disclaimer
                     //Hjg.Pngcs.Chunks.PngChunkTextVar.KEY_Warning
@@ -2601,8 +2614,26 @@ namespace TouchMeta
                     {
                         if (image.AttributeNames.Contains(tag))
                         {
-                            result.Rating = Convert.ToInt32(GetAttribute(image, tag));
-                            if (!string.IsNullOrEmpty(result.Copyrights)) break;
+                            if (tag.Equals("Rating"))
+                            {
+                                result.Ranking = Convert.ToInt32(GetAttribute(image, tag));
+                                result.Rating = RankingToRating(result.Ranking);
+                            }
+                            else if (tag.Equals("RatingPercent"))
+                            {
+                                result.Rating = Convert.ToInt32(GetAttribute(image, tag));
+                                result.Ranking = RatingToRanking(result.Rating);
+                            }
+                            else if (tag.Equals("xmp:Rating"))
+                            {
+                                result.Ranking = Convert.ToInt32(GetAttribute(image, tag));
+                                result.Rating = RankingToRating(result.Ranking);
+                            }
+                            else if (tag.Equals("MicrosoftPhoto:Rating"))
+                            {
+                                result.Rating = Convert.ToInt32(GetAttribute(image, tag));
+                                result.Ranking = RatingToRanking(result.Rating);
+                            }
                         }
                     }
                     catch(Exception ex) { Log(ex.Message); }
@@ -3716,7 +3747,7 @@ namespace TouchMeta
             else Log($"File \"{file}\" not exists!");
         }
 
-        public static void TouchMetaAlt(string file, bool force = false, DateTime? dtc = null, DateTime? dtm = null, DateTime? dta = null, MetaInfo meta = null)
+        public static void TouchMetaAlt(string file, bool force = false, DateTime? dtc = null, DateTime? dtm = null, DateTime? dta = null, MetaInfo meta = null, bool pngcs = false)
         {
             try
             {
@@ -3730,6 +3761,8 @@ namespace TouchMeta
                     var exif = new ExifData(file);
                     if (exif is ExifData)
                     {
+                        if (pngcs) UpdatePngMetaInfo(fi, dm, meta);
+
                         #region CompactExifLib Update EXIF Metadata
                         DateTime date = dm;
                         if (!force || exif.GetTagValue(CompactExifLib.ExifTag.DateTime, out date))
@@ -3820,47 +3853,52 @@ namespace TouchMeta
                             exif.SetTagValue(CompactExifLib.ExifTag.UserComment, meta.Comment, StrCoding.IdCode_Utf16);
                         }
 
-                        exif.SetTagRawData(CompactExifLib.ExifTag.XpRanking, ExifTagType.UShort, 1, BitConverter.GetBytes((short)(meta.Ranking ?? 0)).Reverse().ToArray());
-                        exif.SetTagRawData(CompactExifLib.ExifTag.XpRating, ExifTagType.UShort, 1, BitConverter.GetBytes((short)(meta.Rating ?? 0)).Reverse().ToArray());
+                        exif.SetTagValue(CompactExifLib.ExifTag.XpRanking, meta.Ranking ?? 0, TagType: ExifTagType.UShort);
+                        exif.SetTagValue(CompactExifLib.ExifTag.XpRating, meta.Rating ?? 0, TagType: ExifTagType.UShort);
+                        //exif.SetTagRawData(CompactExifLib.ExifTag.XpRanking, ExifTagType.UShort, 1, BitConverter.GetBytes((short)(meta.Ranking ?? 0)).Reverse().ToArray());
+                        //exif.SetTagRawData(CompactExifLib.ExifTag.XpRating, ExifTagType.UShort, 1, BitConverter.GetBytes((short)(meta.Rating ?? 0)).Reverse().ToArray());
                         #endregion
 
+                        #region CompactExifLib Update XMP RAW data, not profile
                         var xmp = string.Empty;
                         exif.GetTagValue(CompactExifLib.ExifTag.XmpMetadata, out xmp, StrCoding.Utf8);
                         xmp = TouchXMP(fi, xmp, meta);
                         //exif.SetTagValue(CompactExifLib.ExifTag.XmpMetadata, xmp, StrCoding.Utf8);
                         exif.SetTagRawData(CompactExifLib.ExifTag.XmpMetadata, ExifTagType.Byte, Encoding.UTF8.GetByteCount(xmp), Encoding.UTF8.GetBytes(xmp));
+                        #endregion
+
                         exif.Save(file);
 #if DEBUG
                         // if using PngCs update metadata, so some XMP and Microsoft.Photo Date will lost,
                         // but, if using magick append XMP profile, PNG meta will lost.
-                        UpdatePngMetaInfo(fi, dm, meta);
+                        //UpdatePngMetaInfo(fi, dm, meta);
 
-                        using (MagickImage image = new MagickImage(fi.FullName))
-                        {
-                            if (image.FormatInfo.IsWritable)
-                            {
-                                var dm_png = dm.ToString("yyyy-MM-ddTHH:mm:ssZ");
-                                var dm_xmp = dm.ToString("yyyy:MM:dd HH:mm:ss");
-                                var dm_msxmp = dm.ToString("yyyy-MM-ddTHH:mm:ss.fff");
-                                var dm_ms = dm.ToString("yyyy-MM-ddTHH:mm:sszzz");
-                                var dm_misc = dm.ToString("yyyy:MM:dd HH:mm:sszzz");
-                                foreach (var tag in tag_date)
-                                {
-                                    try
-                                    {
-                                        var value_old = image.GetAttribute(tag);
-                                        if (tag.StartsWith("Microsoft")) { image.RemoveAttribute(tag); SetAttribute(image, tag, dm_ms); }
-                                        //else if (tag.StartsWith("xmp")) SetAttribute(image, tag, dm_xmp);
-                                        else if (tag.StartsWith("exif")) continue;
-                                        else SetAttribute(image, tag, dm_misc);
-                                    }
-                                    catch (Exception ex) { Log(ex.Message); }
-                                }
-                                //var xmp_profile = new XmpProfile(Encoding.UTF8.GetBytes(xmp));
-                                //image.SetProfile(xmp_profile);
-                                image.Write(fi.FullName);
-                            }
-                        }
+                        //using (MagickImage image = new MagickImage(fi.FullName))
+                        //{
+                        //    if (image.FormatInfo.IsWritable)
+                        //    {
+                        //        var dm_png = dm.ToString("yyyy-MM-ddTHH:mm:ssZ");
+                        //        var dm_xmp = dm.ToString("yyyy:MM:dd HH:mm:ss");
+                        //        var dm_msxmp = dm.ToString("yyyy-MM-ddTHH:mm:ss.fff");
+                        //        var dm_ms = dm.ToString("yyyy-MM-ddTHH:mm:sszzz");
+                        //        var dm_misc = dm.ToString("yyyy:MM:dd HH:mm:sszzz");
+                        //        foreach (var tag in tag_date)
+                        //        {
+                        //            try
+                        //            {
+                        //                var value_old = image.GetAttribute(tag);
+                        //                if (tag.StartsWith("Microsoft")) { image.RemoveAttribute(tag); SetAttribute(image, tag, dm_ms); }
+                        //                //else if (tag.StartsWith("xmp")) SetAttribute(image, tag, dm_xmp);
+                        //                else if (tag.StartsWith("exif")) continue;
+                        //                else SetAttribute(image, tag, dm_misc);
+                        //            }
+                        //            catch (Exception ex) { Log(ex.Message); }
+                        //        }
+                        //        //var xmp_profile = new XmpProfile(Encoding.UTF8.GetBytes(xmp));
+                        //        //image.SetProfile(xmp_profile);
+                        //        image.Write(fi.FullName);
+                        //    }
+                        //}
 #endif
                         fi.CreationTime = dc;
                         fi.LastWriteTime = dm;
@@ -4542,7 +4580,7 @@ namespace TouchMeta
                         meta.Rating = CurrentMetaRating;
                         meta.Ranking = RatingToRanking(meta.Rating);
                     }
-                    TouchMetaAlt(file, force: true, meta: meta);
+                    TouchMetaAlt(file, force: true, meta: meta, pngcs: alt);
                 }));
                 #endregion
             }
