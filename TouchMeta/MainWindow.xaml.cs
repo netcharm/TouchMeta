@@ -3192,7 +3192,13 @@ namespace TouchMeta
                                 }
                             }
                             #endregion
-
+                            #region touch software
+                            var tag_software = "Software";
+                            if (image.AttributeNames.Contains(tag_software) && !image.AttributeNames.Contains($"exif:{tag_software}"))
+                                SetAttribute(image, $"exif:{tag_software}", GetAttribute(image, tag_software));
+                            if (!image.AttributeNames.Contains(tag_software) && image.AttributeNames.Contains($"exif:{tag_software}"))
+                                SetAttribute(image, tag_software, GetAttribute(image, $"exif:{tag_software}"));
+                            #endregion
                             Log($"{"Profiles".PadRight(32)}= {string.Join(", ", image.ProfileNames)}");
 
                             //if (exif != null) image.SetProfile(exif);
@@ -3848,15 +3854,11 @@ namespace TouchMeta
                         else
                         {
                             exif.SetTagRawData(CompactExifLib.ExifTag.XpComment, ExifTagType.Byte, Encoding.Unicode.GetByteCount(meta.Comment), Encoding.Unicode.GetBytes(meta.Comment));
-                            //exif.SetTagValue(CompactExifLib.ExifTag.XpComment, meta.Comment, StrCoding.Utf16Le_Byte);
-                            //exif.SetTagValue(CompactExifLib.ExifTag.UserComment, meta.Comment, StrCoding.Utf8);
                             exif.SetTagValue(CompactExifLib.ExifTag.UserComment, meta.Comment, StrCoding.IdCode_Utf16);
                         }
 
-                        exif.SetTagValue(CompactExifLib.ExifTag.XpRanking, meta.Ranking ?? 0, TagType: ExifTagType.UShort);
-                        exif.SetTagValue(CompactExifLib.ExifTag.XpRating, meta.Rating ?? 0, TagType: ExifTagType.UShort);
-                        //exif.SetTagRawData(CompactExifLib.ExifTag.XpRanking, ExifTagType.UShort, 1, BitConverter.GetBytes((short)(meta.Ranking ?? 0)).Reverse().ToArray());
-                        //exif.SetTagRawData(CompactExifLib.ExifTag.XpRating, ExifTagType.UShort, 1, BitConverter.GetBytes((short)(meta.Rating ?? 0)).Reverse().ToArray());
+                        exif.SetTagValue(CompactExifLib.ExifTag.Rating, meta.Ranking ?? 0, TagType: ExifTagType.UShort);
+                        exif.SetTagValue(CompactExifLib.ExifTag.RatingPercent, meta.Rating ?? 0, TagType: ExifTagType.UShort);
                         #endregion
 
                         #region CompactExifLib Update XMP RAW data, not profile
@@ -4105,7 +4107,8 @@ namespace TouchMeta
                 var dc = fi.CreationTime;
                 var dm = fi.LastWriteTime;
                 var da = fi.LastAccessTime;
-                using (var ms = new FileStream(fi.FullName, FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite))
+                //using (var ms = new FileStream(fi.FullName, FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite))
+                using (var ms = new MemoryStream(File.ReadAllBytes(fi.FullName)))
                 {
                     try
                     {
@@ -4142,11 +4145,21 @@ namespace TouchMeta
 
                                 Log($"Convert {file} => {name}");
 
-                                if (meta is MetaInfo)
-                                {
-                                    Log("~".PadRight(ExtendedMessageWidth, '~'));
-                                    TouchMeta(name, dtc: dc, dtm: dm, dta: da, meta: meta);
-                                }
+                                //try
+                                //{
+                                //    var exifdata_n = new ExifData(name);
+                                //    exifdata_n.ReplaceAllTagsBy(exifdata);
+                                //    if (meta.Attributes.ContainsKey("Software"))
+                                //        exifdata_n.SetTagValue(CompactExifLib.ExifTag.Software, meta.Attributes["Software"], StrCoding.Utf8);
+                                //    exifdata_n.Save(name);                                    
+                                //}
+                                //catch (Exception ex) { Log(ex.Message); }
+
+                                //if (meta is MetaInfo)
+                                //{
+                                //    Log("~".PadRight(ExtendedMessageWidth, '~'));
+                                //    TouchMeta(name, dtc: dc, dtm: dm, dta: da, meta: meta);
+                                //}
                             }
                             else
                                 Log($"Convert {file} to {fmt_info.MimeType.ToString()}");
