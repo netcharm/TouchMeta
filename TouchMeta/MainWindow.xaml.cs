@@ -615,16 +615,16 @@ namespace TouchMeta
             var result = text;
             if (!string.IsNullOrEmpty(text))
             {
-                foreach (Match m in Regex.Matches(text, @"((\d{1,3}, ?){2,}\d{1,3})"))
+                foreach (Match m in Regex.Matches($"{text},", @"((\d{1,3}, ?){2,})"))
                 {
                     List<byte> bytes = new List<byte>();
                     var values = m.Groups[1].Value.Split(',').Select(s => s.Trim()).ToList();
                     foreach (var value in values)
                     {
-                        if (int.Parse(value) > 255) continue;
+                        if (string.IsNullOrEmpty(value) || int.Parse(value) > 255) continue;
                         bytes.Add(byte.Parse(value));
                     }
-                    if (bytes.Count > 0) result = result.Replace(m.Groups[1].Value, msb ? Encoding.BigEndianUnicode.GetString(bytes.ToArray()) : Encoding.Unicode.GetString(bytes.ToArray()));//.TrimEnd('\0'));
+                    if (bytes.Count > 0) result = result.Replace(m.Groups[1].Value.Trim(','), msb ? Encoding.BigEndianUnicode.GetString(bytes.ToArray()) : Encoding.Unicode.GetString(bytes.ToArray()));//.TrimEnd('\0'));
                 }
             }
             return (result);
@@ -1747,6 +1747,7 @@ namespace TouchMeta
                                 byte[] v = Encoding.Unicode.GetBytes(value);
                                 byte[] bom = Encoding.Unicode.GetPreamble();
                                 //exif.SetValue(tag_property.GetValue(exif), bom.Concat(v).ToArray());
+                                if (tag_name.Equals("UserComment")) v = Encoding.ASCII.GetBytes("UNICODE\0").Concat(v).ToArray();
                                 exif.SetValue(tag_property.GetValue(exif), v);
                             }
                             else if (tag_type == typeof(ushort) || tag_type == typeof(ushort))
@@ -3649,7 +3650,7 @@ namespace TouchMeta
 
                             #region save touched image
                             FixDPI(image);
-                            image.Write(fi.FullName);
+                            image.Write(fi.FullName, image.FormatInfo.Format);
                             #endregion
 
                             fi.CreationTime = dc;
@@ -3898,7 +3899,7 @@ namespace TouchMeta
                         //        }
                         //        //var xmp_profile = new XmpProfile(Encoding.UTF8.GetBytes(xmp));
                         //        //image.SetProfile(xmp_profile);
-                        //        image.Write(fi.FullName);
+                        //        image.Write(fi.FullName, image.FormatInfo.Format);
                         //    }
                         //}
 #endif
@@ -4125,6 +4126,14 @@ namespace TouchMeta
                             var ext = fmt_info is MagickFormatInfo ? fmt_info.Format.ToString() : fmt.ToString();
                             var name = keep_name ? fi.FullName : Path.ChangeExtension(fi.FullName, $".{ext.ToLower()}");
 
+                            #region touch software
+                            var tag_software = "Software";
+                            if (image.AttributeNames.Contains(tag_software) && !image.AttributeNames.Contains($"exif:{tag_software}"))
+                                SetAttribute(image, $"exif:{tag_software}", GetAttribute(image, tag_software));
+                            if (!image.AttributeNames.Contains(tag_software) && image.AttributeNames.Contains($"exif:{tag_software}"))
+                                SetAttribute(image, tag_software, GetAttribute(image, $"exif:{tag_software}"));
+                            #endregion
+
                             FixDPI(image);
 
                             //if (fmt == MagickFormat.Tif || fmt == MagickFormat.Tiff || fmt == MagickFormat.Tiff64)
@@ -4310,19 +4319,27 @@ namespace TouchMeta
 #if DEBUG
             Debug.WriteLine(string.Join(", ", fmts));
 #endif
-            if (new List<string>(fmts).Contains("FileDrop"))
+            if (fmts.Contains("FileDrop") || fmts.Contains("Text"))
             {
-                e.Effects = DragDropEffects.Link;
+                e.Effects = DragDropEffects.Copy;
             }
         }
 
         private void Window_Drop(object sender, DragEventArgs e)
         {
             var fmts = e.Data.GetFormats(true);
-            if (new List<string>(fmts).Contains("FileDrop"))
+            if (fmts.Contains("FileDrop"))
             {
                 var files = e.Data.GetData("FileDrop");
-                if (files is IEnumerable<string>)
+                if (files is IEnumerable<string> && (files as IEnumerable<string>).Count() > 0)
+                {
+                    LoadFiles((files as IEnumerable<string>).ToArray());
+                }
+            }
+            else if (fmts.Contains("Text"))
+            {
+                var files = (e.Data.GetData("Text") as string).Split();
+                if (files is IEnumerable<string> && files.Count() > 0)
                 {
                     LoadFiles((files as IEnumerable<string>).ToArray());
                 }
