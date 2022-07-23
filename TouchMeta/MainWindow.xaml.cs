@@ -567,7 +567,7 @@ namespace TouchMeta
                     if (bytes.Length > 8)
                     {
                         var idcode_bytes = bytes.Take(8).ToArray();
-                        var idcode_name = Encoding.ASCII.GetString(idcode_bytes).TrimEnd().TrimEnd('\0').TrimEnd();
+                        var idcode_name = Encoding.ASCII.GetString(idcode_bytes).TrimEnd().TrimEnd('\0').TrimEnd();                        
                         if ("UNICODE".Equals(idcode_name, StringComparison.CurrentCultureIgnoreCase))
                         {
                             if (msb)
@@ -580,6 +580,10 @@ namespace TouchMeta
                             result = Encoding.ASCII.GetString(bytes.Skip(8).ToArray());
                         }
                         else if ("Default".Equals(idcode_name, StringComparison.CurrentCultureIgnoreCase))
+                        {
+                            result = Encoding.Default.GetString(bytes.Skip(8).ToArray());
+                        }
+                        else if (idcode_bytes.Where(b => b == 0).Count() == 8)
                         {
                             result = Encoding.Default.GetString(bytes.Skip(8).ToArray());
                         }
@@ -1686,6 +1690,15 @@ namespace TouchMeta
                                 }
                             }
                         }
+                        else if (attr.Equals("exif:ExtensibleMetadataPlatform"))
+                        {
+                            var xmp_tag = exif.Values.Where(t => t.Tag == ImageMagick.ExifTag.XMP);
+                            if (xmp_tag.Count() > 0)
+                            {
+                                var bytes = xmp_tag.First().GetValue() as byte[];
+                                result = Encoding.UTF8.GetString(bytes);
+                            }
+                        }
                     }
                     else if (attr.StartsWith("iptc:"))
                     {
@@ -1744,9 +1757,7 @@ namespace TouchMeta
                             }
                             else if (tag_type == typeof(byte[]) && value is string)
                             {
-                                byte[] v = Encoding.Unicode.GetBytes(value);
-                                byte[] bom = Encoding.Unicode.GetPreamble();
-                                //exif.SetValue(tag_property.GetValue(exif), bom.Concat(v).ToArray());
+                                byte[] v = image.Endian == Endian.MSB ? Encoding.BigEndianUnicode.GetBytes(value) : Encoding.Unicode.GetBytes(value);
                                 if (tag_name.Equals("UserComment")) v = Encoding.ASCII.GetBytes("UNICODE\0").Concat(v).ToArray();
                                 exif.SetValue(tag_property.GetValue(exif), v);
                             }
@@ -3212,6 +3223,11 @@ namespace TouchMeta
 
                                 var xml = $"<?xpacket begin='?' id='W5M0MpCehiHzreSzNTczkc9d'?><x:xmpmeta xmlns:x=\"adobe:ns:meta/\"><rdf:RDF xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\"></rdf:RDF></x:xmpmeta><?xpacket end='w'?>";
 
+                                if (image.AttributeNames.Contains("exif:ExtensibleMetadataPlatform"))
+                                    xml = GetAttribute(image, "exif:ExtensibleMetadataPlatform");
+                                else if (image.AttributeNames.Contains("exif:XmpMetadata"))
+                                    xml = GetAttribute(image, "exif:XmpMetadata");
+
                                 xmp = new XmpProfile(Encoding.UTF8.GetBytes(xml));
                                 image.SetProfile(xmp);
                             }
@@ -3641,8 +3657,11 @@ namespace TouchMeta
                                     #endregion
                                 }
 
+                                exif.SetValue<byte[]>(ImageMagick.ExifTag.XMP, Encoding.UTF8.GetBytes(xml));
+#if DEBUG
+                                var x = Encoding.UTF8.GetString(exif.GetValue<byte[]>(ImageMagick.ExifTag.XMP).Value);
+#endif
                                 xmp = new XmpProfile(Encoding.UTF8.GetBytes(xml));
-                                image.SetProfile(xmp);
                                 if (meta is MetaInfo && meta.ShowXMP) Log($"{"XMP Profiles".PadRight(32)}= {xml}");
                             }
                             #endregion
@@ -3650,6 +3669,8 @@ namespace TouchMeta
 
                             #region save touched image
                             FixDPI(image);
+                            if (exif is ExifProfile) image.SetProfile(exif);
+                            if (xmp is XmpProfile) image.SetProfile(xmp);
                             image.Write(fi.FullName, image.FormatInfo.Format);
                             #endregion
 
@@ -3865,6 +3886,14 @@ namespace TouchMeta
                         #region CompactExifLib Update XMP RAW data, not profile
                         var xmp = string.Empty;
                         exif.GetTagValue(CompactExifLib.ExifTag.XmpMetadata, out xmp, StrCoding.Utf8);
+                        if (string.IsNullOrEmpty(xmp))
+                        {
+                            ExifTagType type;
+                            int bytecount;
+                            byte[] bytes;
+                            exif.GetTagRawData(CompactExifLib.ExifTag.XmpMetadata, out type, out bytecount, out bytes);
+                            if (bytes is byte[] && bytecount > 0) xmp = Encoding.UTF8.GetString(bytes);
+                        }
                         xmp = TouchXMP(fi, xmp, meta);
                         //exif.SetTagValue(CompactExifLib.ExifTag.XmpMetadata, xmp, StrCoding.Utf8);
                         exif.SetTagRawData(CompactExifLib.ExifTag.XmpMetadata, ExifTagType.Byte, Encoding.UTF8.GetByteCount(xmp), Encoding.UTF8.GetBytes(xmp));
