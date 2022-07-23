@@ -3657,11 +3657,14 @@ namespace TouchMeta
                                     #endregion
                                 }
 
+                                exif = image.HasProfile("exif") ? image.GetExifProfile() : new ExifProfile();
                                 exif.SetValue<byte[]>(ImageMagick.ExifTag.XMP, Encoding.UTF8.GetBytes(xml));
+                                if (exif is ExifProfile) image.SetProfile(exif);
 #if DEBUG
                                 var x = Encoding.UTF8.GetString(exif.GetValue<byte[]>(ImageMagick.ExifTag.XMP).Value);
 #endif
                                 xmp = new XmpProfile(Encoding.UTF8.GetBytes(xml));
+                                if (xmp is XmpProfile) image.SetProfile(xmp);
                                 if (meta is MetaInfo && meta.ShowXMP) Log($"{"XMP Profiles".PadRight(32)}= {xml}");
                             }
                             #endregion
@@ -3669,8 +3672,6 @@ namespace TouchMeta
 
                             #region save touched image
                             FixDPI(image);
-                            if (exif is ExifProfile) image.SetProfile(exif);
-                            if (xmp is XmpProfile) image.SetProfile(xmp);
                             image.Write(fi.FullName, image.FormatInfo.Format);
                             #endregion
 
