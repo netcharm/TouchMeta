@@ -1745,7 +1745,8 @@ namespace TouchMeta
                     if (attr.StartsWith("exif:"))
                     {
                         Type exiftag_type = typeof(ImageMagick.ExifTag);
-                        var tag_name =  attr.Contains("WinXP") ? $"XP{attr.Substring(11)}" : attr.Substring(5);
+                        var IsWinXP = attr.Contains("WinXP");// || attr.StartsWith("Xp");
+                        var tag_name =  IsWinXP ? $"XP{attr.Substring(11)}" : attr.Substring(5);
                         dynamic tag_property = exiftag_type.GetProperty(tag_name) ?? exiftag_type.GetProperty($"{tag_name}s") ?? exiftag_type.GetProperty(tag_name.Substring(0, tag_name.Length-1));
                         if (tag_property != null)
                         {
@@ -1757,7 +1758,7 @@ namespace TouchMeta
                             }
                             else if (tag_type == typeof(byte[]) && value is string)
                             {
-                                byte[] v = image.Endian == Endian.MSB ? Encoding.BigEndianUnicode.GetBytes(value) : Encoding.Unicode.GetBytes(value);
+                                byte[] v = !IsWinXP && image.Endian == Endian.MSB ? Encoding.BigEndianUnicode.GetBytes(value) : Encoding.Unicode.GetBytes(value);
                                 if (tag_name.Equals("UserComment")) v = Encoding.ASCII.GetBytes("UNICODE\0").Concat(v).ToArray();
                                 exif.SetValue(tag_property.GetValue(exif), v);
                             }
