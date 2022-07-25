@@ -44,8 +44,8 @@ namespace TouchMeta
         public string Authors { get; set; } = null;
         public string Copyrights { get; set; } = null;
 
+        public int? RatingPercent { get; set; } = null;
         public int? Rating { get; set; } = null;
-        public int? Ranking { get; set; } = null;
 
         public Dictionary<string, string> Attributes { get; set; } = null;
         public Dictionary<string, IImageProfile> Profiles { get; set; } = null;
@@ -54,7 +54,8 @@ namespace TouchMeta
     public enum ChangePropertyMode { None = 0, Append = 1, Remove = 2, Replace = 3, Empty = 4 };
 
     [Flags]
-    public enum ChangePropertyType {
+    public enum ChangePropertyType
+    {
         None       = 0x0000, //0b00000000,
         Title      = 0x0001, //0b00000001,
         Subject    = 0x0002, //0b00000010,
@@ -79,7 +80,11 @@ namespace TouchMeta
         private static string AppPath = Path.GetDirectoryName(AppExec);
         private static string AppName = Path.GetFileNameWithoutExtension(AppPath);
         private static string CachePath =  "cache";
+
+        private static bool SystemEndianLSB = BitConverter.IsLittleEndian ? true : false;
+
         private string DefaultTitle = null;
+        private string[] LineBreak = new string[] { Environment.NewLine, "\r\n", "\n\r", "\n", "\r" };
 
         //private static string Symbol_Rating_Star_Empty = "\uE8D9";
         private static string Symbol_Rating_Star_Outline = "\uE1CE";
@@ -525,7 +530,7 @@ namespace TouchMeta
             var rating = 0;
             try
             {
-                if      (ranking >= 5) rating = 99;
+                if (ranking >= 5) rating = 99;
                 else if (ranking >= 4) rating = 75;
                 else if (ranking >= 3) rating = 50;
                 else if (ranking >= 2) rating = 25;
@@ -567,7 +572,7 @@ namespace TouchMeta
                     if (bytes.Length > 8)
                     {
                         var idcode_bytes = bytes.Take(8).ToArray();
-                        var idcode_name = Encoding.ASCII.GetString(idcode_bytes).TrimEnd().TrimEnd('\0').TrimEnd();                        
+                        var idcode_name = Encoding.ASCII.GetString(idcode_bytes).TrimEnd().TrimEnd('\0').TrimEnd();
                         if ("UNICODE".Equals(idcode_name, StringComparison.CurrentCultureIgnoreCase))
                         {
                             if (msb)
@@ -937,7 +942,7 @@ namespace TouchMeta
                 var copyright = meta is MetaInfo ? meta.Copyrights : authors;
                 var keywords = meta is MetaInfo ? meta.Keywords : string.Empty;
                 var comment = meta is MetaInfo ? meta.Comment : string.Empty;
-                var rating = meta is MetaInfo ? meta.Rating : null;
+                var rating = meta is MetaInfo ? meta.RatingPercent : null;
                 if (!string.IsNullOrEmpty(title)) title.Replace("\0", string.Empty).TrimEnd('\0');
                 if (!string.IsNullOrEmpty(subject)) subject.Replace("\0", string.Empty).TrimEnd('\0');
                 if (!string.IsNullOrEmpty(authors)) authors.Replace("\0", string.Empty).TrimEnd('\0');
@@ -1485,10 +1490,11 @@ namespace TouchMeta
                     _current_meta_.Title = string.IsNullOrEmpty(MetaInputTitleText.Text) ? null : MetaInputTitleText.Text;
                     _current_meta_.Subject = string.IsNullOrEmpty(MetaInputSubjectText.Text) ? null : MetaInputSubjectText.Text;
                     _current_meta_.Comment = string.IsNullOrEmpty(MetaInputCommentText.Text) ? null : MetaInputCommentText.Text;
-                    _current_meta_.Keywords = string.IsNullOrEmpty(MetaInputKeywordsText.Text) ? null : MetaInputKeywordsText.Text;
-                    _current_meta_.Authors = string.IsNullOrEmpty(MetaInputAuthorText.Text) ? null : MetaInputAuthorText.Text;
-                    _current_meta_.Copyrights = string.IsNullOrEmpty(MetaInputCopyrightText.Text) ? null : MetaInputCopyrightText.Text;
-                    _current_meta_.Rating = CurrentMetaRating;
+                    _current_meta_.Keywords = string.IsNullOrEmpty(MetaInputKeywordsText.Text) ? null : string.Join("; ", MetaInputKeywordsText.Text.Split(LineBreak, StringSplitOptions.RemoveEmptyEntries).Distinct());
+                    _current_meta_.Authors = string.IsNullOrEmpty(MetaInputAuthorText.Text) ? null : string.Join("; ", MetaInputAuthorText.Text.Split(LineBreak, StringSplitOptions.RemoveEmptyEntries).Distinct());
+                    _current_meta_.Copyrights = string.IsNullOrEmpty(MetaInputCopyrightText.Text) ? null : string.Join("; ", MetaInputCopyrightText.Text.Split(LineBreak, StringSplitOptions.RemoveEmptyEntries).Distinct());
+                    _current_meta_.RatingPercent = CurrentMetaRating;
+                    _current_meta_.Rating = RatingToRanking(CurrentMetaRating);
                 });
                 return (_current_meta_);
             }
@@ -1513,7 +1519,7 @@ namespace TouchMeta
                         MetaInputKeywordsText.Text = _current_meta_.Keywords;
                         MetaInputAuthorText.Text = _current_meta_.Authors;
                         MetaInputCopyrightText.Text = _current_meta_.Copyrights;
-                        CurrentMetaRating = _current_meta_.Rating ?? 0;
+                        CurrentMetaRating = _current_meta_.RatingPercent ?? RankingToRating(_current_meta_.Rating);
                     }
                 });
             }
@@ -1614,6 +1620,8 @@ namespace TouchMeta
             {
                 if (image is MagickImage && image.FormatInfo.IsReadable)
                 {
+                    var is_msb = image.Endian == Endian.MSB;
+
                     var exif = image.HasProfile("exif") ? image.GetExifProfile() : new ExifProfile();
                     var iptc = image.HasProfile("iptc") ? image.GetIptcProfile() : new IptcProfile();
                     Type exiftag_type = typeof(ImageMagick.ExifTag);
@@ -1671,7 +1679,6 @@ namespace TouchMeta
                                 }
                                 else if (tag_value.DataType == ExifDataType.Undefined && tag_value.IsArray)
                                 {
-                                    var is_msb = image.Endian == Endian.MSB;
                                     if (tag_value.Tag == ImageMagick.ExifTag.ExifVersion)
                                         result = BytesToString(tag_value.GetValue() as byte[], true, is_msb);
                                     else
@@ -1679,13 +1686,11 @@ namespace TouchMeta
                                 }
                                 else if (tag_value.DataType == ExifDataType.Byte && tag_value.IsArray)
                                 {
-                                    var is_msb = image.Endian == Endian.MSB;
                                     result = BytesToString(tag_value.GetValue() as byte[], msb: is_msb);
                                 }
                                 else if (tag_value.DataType == ExifDataType.Unknown && tag_value.IsArray)
                                 {
                                     var is_ascii = tag_value.Tag.ToString().Contains("Version");
-                                    var is_msb = image.Endian == Endian.MSB;
                                     result = BytesToString(tag_value.GetValue() as byte[], is_ascii, is_msb);
                                 }
                             }
@@ -1782,6 +1787,9 @@ namespace TouchMeta
                             else
                                 exif.SetValue(tag_property.GetValue(exif), value);
                         }
+                        //if (!image.HasProfile("exif"))
+                        if (exif is ExifProfile && exif.Values.Count() > 0)
+                            image.SetProfile(exif);
                     }
                     else if (attr.StartsWith("iptc:"))
                     {
@@ -1792,14 +1800,10 @@ namespace TouchMeta
                         {
                             iptc.SetValue(tag_property, value);
                         }
+                        //if (!image.HasProfile("iptc"))
+                        if (iptc is IptcProfile && iptc.Values.Count() > 0)
+                            image.SetProfile(iptc);
                     }
-
-                    //if (!image.HasProfile("exif"))
-                    if (exif is ExifProfile)
-                        image.SetProfile(exif);
-                    //if (!image.HasProfile("iptc"))
-                    if (iptc is IptcProfile)
-                        image.SetProfile(iptc);
                 }
             }
             catch (Exception ex) { Log(ex.Message); }
@@ -2058,21 +2062,21 @@ namespace TouchMeta
             {
                 if (mode == ChangePropertyMode.Append)
                 {
-                    meta.Rating = Math.Max(0, Math.Min(meta.Rating ?? 0 + ranking, 5));
+                    meta.RatingPercent = Math.Max(0, Math.Min(meta.RatingPercent ?? 0 + ranking, 5));
                 }
                 else if (mode == ChangePropertyMode.Remove)
                 {
-                    meta.Rating = Math.Min(5, Math.Max(meta.Rating ?? 0 - ranking, 0));
+                    meta.RatingPercent = Math.Min(5, Math.Max(meta.RatingPercent ?? 0 - ranking, 0));
                 }
                 else if (mode == ChangePropertyMode.Replace)
                 {
-                    meta.Rating = Math.Max(0, Math.Min(5, ranking));
+                    meta.RatingPercent = Math.Max(0, Math.Min(5, ranking));
                 }
                 else if (mode == ChangePropertyMode.Empty)
                 {
-                    meta.Rating = 0;
+                    meta.RatingPercent = 0;
                 }
-                meta.Ranking = RatingToRanking(meta.Rating);
+                meta.Rating = RatingToRanking(meta.RatingPercent);
             }
             return (meta);
         }
@@ -2099,21 +2103,21 @@ namespace TouchMeta
             {
                 if (mode == ChangePropertyMode.Append)
                 {
-                    meta.Rating = Math.Max(0, Math.Min(meta.Rating ?? 0 + rating, 5));
+                    meta.RatingPercent = Math.Max(0, Math.Min(meta.RatingPercent ?? 0 + rating, 5));
                 }
                 else if (mode == ChangePropertyMode.Remove)
                 {
-                    meta.Rating = Math.Min(5, Math.Max(meta.Rating ?? 0 - rating, 0));
+                    meta.RatingPercent = Math.Min(5, Math.Max(meta.RatingPercent ?? 0 - rating, 0));
                 }
                 else if (mode == ChangePropertyMode.Replace)
                 {
-                    meta.Rating = Math.Max(0, Math.Min(5, rating));
+                    meta.RatingPercent = Math.Max(0, Math.Min(5, rating));
                 }
                 else if (mode == ChangePropertyMode.Empty)
                 {
-                    meta.Rating = 0;
+                    meta.RatingPercent = 0;
                 }
-                meta.Ranking = RatingToRanking(meta.Rating);
+                meta.Rating = RatingToRanking(meta.RatingPercent);
             }
             return (meta);
         }
@@ -2133,7 +2137,7 @@ namespace TouchMeta
                 catch (Exception ex) { Log(ex.Message); }
             }
         }
-        
+
         public static void ChangeProperties(string file, MetaInfo meta_new, ChangePropertyType type = ChangePropertyType.None, ChangePropertyMode mode = ChangePropertyMode.None)
         {
             if (File.Exists(file))
@@ -2143,7 +2147,7 @@ namespace TouchMeta
                     var meta = GetMetaInfo(file);
                     meta.TouchProfiles = false;
 
-                    if (type== ChangePropertyType.Smart)
+                    if (type == ChangePropertyType.Smart)
                     {
                         meta.ChangeProperties = ChangePropertyType.None;
                         if (!string.IsNullOrEmpty(meta_new.Title) || mode == ChangePropertyMode.Empty)
@@ -2174,9 +2178,9 @@ namespace TouchMeta
                     if (type.HasFlag(ChangePropertyType.Copyrights))
                         meta = ChangeCopyrights(meta, meta_new.Copyrights.Split(';'), mode);
                     if (type.HasFlag(ChangePropertyType.Rating))
-                        meta = ChangeRating(meta, meta_new.Rating ?? 0, mode);
+                        meta = ChangeRating(meta, meta_new.RatingPercent ?? 0, mode);
                     if (type.HasFlag(ChangePropertyType.Ranking))
-                        meta = ChangeRanking(meta, meta_new.Ranking ?? 0, mode);
+                        meta = ChangeRanking(meta, meta_new.Rating ?? 0, mode);
 
                     TouchMeta(file, force: true, meta: meta);
                 }
@@ -2362,7 +2366,7 @@ namespace TouchMeta
                 if (fileinfo.Exists && fileinfo.Length > 0 && meta is MetaInfo)
                 {
                     var metainfo = new Dictionary<string, string>();
-                    
+
                     metainfo[Hjg.Pngcs.Chunks.PngChunkTextVar.KEY_Creation_Time] = (meta.DateTaken ?? dt ?? DateTime.Now).ToString("yyyy:MM:dd HH:mm:sszzz");
                     metainfo[Hjg.Pngcs.Chunks.PngChunkTextVar.KEY_Title] = string.IsNullOrEmpty(meta.Title) ? "" : meta.Title;
                     metainfo[Hjg.Pngcs.Chunks.PngChunkTextVar.KEY_Source] = string.IsNullOrEmpty(meta.Subject) ? "" : meta.Subject;
@@ -2629,27 +2633,27 @@ namespace TouchMeta
                         {
                             if (tag.Equals("Rating"))
                             {
-                                result.Ranking = Convert.ToInt32(GetAttribute(image, tag));
-                                result.Rating = RankingToRating(result.Ranking);
+                                result.Rating = Convert.ToInt32(GetAttribute(image, tag));
+                                result.RatingPercent = RankingToRating(result.Rating);
                             }
                             else if (tag.Equals("RatingPercent"))
                             {
-                                result.Rating = Convert.ToInt32(GetAttribute(image, tag));
-                                result.Ranking = RatingToRanking(result.Rating);
+                                result.RatingPercent = Convert.ToInt32(GetAttribute(image, tag));
+                                result.Rating = RatingToRanking(result.RatingPercent);
                             }
                             else if (tag.Equals("xmp:Rating"))
                             {
-                                result.Ranking = Convert.ToInt32(GetAttribute(image, tag));
-                                result.Rating = RankingToRating(result.Ranking);
+                                result.Rating = Convert.ToInt32(GetAttribute(image, tag));
+                                result.RatingPercent = RankingToRating(result.Rating);
                             }
                             else if (tag.Equals("MicrosoftPhoto:Rating"))
                             {
-                                result.Rating = Convert.ToInt32(GetAttribute(image, tag));
-                                result.Ranking = RatingToRanking(result.Rating);
+                                result.RatingPercent = Convert.ToInt32(GetAttribute(image, tag));
+                                result.Rating = RatingToRanking(result.RatingPercent);
                             }
                         }
                     }
-                    catch(Exception ex) { Log(ex.Message); }
+                    catch (Exception ex) { Log(ex.Message); }
                 }
                 #endregion
             }
@@ -2676,6 +2680,30 @@ namespace TouchMeta
                             if (image.Endian == Endian.Undefined) image.Endian = exifdata.ByteOrder == ExifByteOrder.BigEndian ? Endian.MSB : Endian.LSB;
                             result = GetMetaInfo(image);
                         }
+
+                        if (exifdata.TagExists(CompactExifLib.ExifTag.Rating))
+                        {
+                            int ranking;
+                            if (exifdata.GetTagValue(CompactExifLib.ExifTag.Rating, out ranking) && ranking != result.Rating)
+                                result.Rating = ranking;
+                            result.RatingPercent = RankingToRating(result.Rating);
+                            int rating;
+                            if (exifdata.GetTagValue(CompactExifLib.ExifTag.RatingPercent, out rating) && rating != result.RatingPercent)
+                                result.RatingPercent = rating;
+                            result.Rating = RatingToRanking(result.RatingPercent);
+                        }
+                        if (exifdata.TagExists(CompactExifLib.ExifTag.XmpMetadata))
+                        {
+                            CompactExifLib.ExifTagType type;
+                            int bytecounts;
+                            byte[] bytes;
+                            if (exifdata.GetTagRawData(CompactExifLib.ExifTag.XmpMetadata, out type, out bytecounts, out bytes))
+                            {
+                                if (!result.Profiles.ContainsKey("xmp"))
+                                    result.Profiles["xmp"] = new XmpProfile(bytes);
+                            }
+                        }
+
                     }
                     catch (Exception ex) { Log(ex.Message); }
                 }
@@ -2722,7 +2750,7 @@ namespace TouchMeta
                 result.Copyrights = string.IsNullOrEmpty(copyright) ? result.Authors : copyright;
 
                 bool fav = false;
-                if (bool.TryParse(favor, out fav)) result.Rating = fav ? 75 : 0;
+                if (bool.TryParse(favor, out fav)) result.RatingPercent = fav ? 75 : 0;
             }
             return (result);
         }
@@ -2773,7 +2801,7 @@ namespace TouchMeta
                 }
                 if (log.Count > 0) ShowMessage(string.Join(Environment.NewLine, log), "Get Metadata From Clipboard");
             }
-            catch(Exception ex) { ShowMessage(ex.Message); }
+            catch (Exception ex) { ShowMessage(ex.Message); }
             return (result);
         }
 
@@ -2785,11 +2813,16 @@ namespace TouchMeta
                 var dc = fi.CreationTime;
                 var dm = fi.LastWriteTime;
                 var da = fi.LastAccessTime;
-
+#if DEBUG
+                var exifdata = new CompactExifLib.ExifData(fi.FullName);
+#endif
                 using (MagickImage image = new MagickImage(fi.FullName))
                 {
                     if (image.FormatInfo.IsReadable && image.FormatInfo.IsWritable)
                     {
+#if DEBUG
+                        if (image.Endian == Endian.Undefined) image.Endian = exifdata.ByteOrder == ExifByteOrder.BigEndian ? Endian.MSB : Endian.LSB;
+#endif
                         foreach (var attr in image.AttributeNames)
                         {
                             try
@@ -2810,7 +2843,7 @@ namespace TouchMeta
                         }
 
                         FixDPI(image);
-                        image.Write(fi.FullName);
+                        image.Write(fi.FullName, image.FormatInfo.Format);
                     }
                     else
                     {
@@ -2827,7 +2860,7 @@ namespace TouchMeta
             }
             else Log($"File \"{file}\" not exists!");
         }
-    
+
         public static void TouchMeta(string file, bool force = false, DateTime? dtc = null, DateTime? dtm = null, DateTime? dta = null, MetaInfo meta = null)
         {
             if (meta.ChangeProperties == ChangePropertyType.None)
@@ -2847,7 +2880,7 @@ namespace TouchMeta
                     var copyrights = meta is MetaInfo ? meta.Copyrights : authors;
                     var keywords = meta is MetaInfo ? meta.Keywords : string.Empty;
                     var comment = meta is MetaInfo ? meta.Comment : string.Empty;
-                    var rating = meta is MetaInfo ? meta.Rating : null;
+                    var rating = meta is MetaInfo ? meta.RatingPercent : null;
                     if (!string.IsNullOrEmpty(title)) title.Replace("\0", string.Empty).TrimEnd('\0');
                     if (!string.IsNullOrEmpty(subject)) subject.Replace("\0", string.Empty).TrimEnd('\0');
                     if (!string.IsNullOrEmpty(authors)) authors.Replace("\0", string.Empty).TrimEnd('\0');
@@ -3178,9 +3211,9 @@ namespace TouchMeta
                                         var value_old = GetAttribute(image, tag);
                                         if (force || (!image.AttributeNames.Contains(tag) && rating.HasValue))
                                         {
-                                            if(tag.Equals("RatingPercent", StringComparison.CurrentCultureIgnoreCase))
+                                            if (tag.Equals("RatingPercent", StringComparison.CurrentCultureIgnoreCase))
                                                 SetAttribute(image, tag, rating);
-                                            else if(tag.Equals("Rating", StringComparison.CurrentCultureIgnoreCase))
+                                            else if (tag.Equals("Rating", StringComparison.CurrentCultureIgnoreCase))
                                                 SetAttribute(image, tag, RatingToRanking(rating));
                                             else if (tag.Equals("xmp:Rating", StringComparison.CurrentCultureIgnoreCase))
                                                 SetAttribute(image, tag, RatingToRanking(rating));
@@ -3673,7 +3706,26 @@ namespace TouchMeta
 
                             #region save touched image
                             FixDPI(image);
+                            image.Endian = image.Endian;
+#if DEBUG
+                            using (var ms = new MemoryStream())
+                            {                               
+                                image.Write(ms, image.FormatInfo.Format);
+                                File.WriteAllBytes(fi.FullName, ms.ToArray());
+                            }
+#else
                             image.Write(fi.FullName, image.FormatInfo.Format);
+#endif
+
+                            var exifdata_n = new ExifData(fi.FullName);
+                            if (exifdata.ByteOrder != exifdata_n.ByteOrder)
+                            {
+                                if (image.Endian == Endian.Undefined) image.Endian = exifdata_n.ByteOrder == ExifByteOrder.BigEndian ? Endian.MSB : Endian.LSB;
+                                SetAttribute(image, "exif:UserComment", comment);
+                                SetAttribute(image, "Rating", RatingToRanking(rating));
+                                SetAttribute(image, "RatingPercent", rating);
+                                image.Write(fi.FullName, image.FormatInfo.Format);
+                            }
                             #endregion
 
                             fi.CreationTime = dc;
@@ -3699,8 +3751,8 @@ namespace TouchMeta
                                     Keywords = keywords,
                                     Comment = comment,
 
-                                    Rating = rating,
-                                    Ranking = RatingToRanking(rating),
+                                    RatingPercent = rating,
+                                    Rating = RatingToRanking(rating),
                                 };
 
                                 TouchMetaAlt(file, meta: meta_new);
@@ -3881,8 +3933,8 @@ namespace TouchMeta
                             exif.SetTagValue(CompactExifLib.ExifTag.UserComment, meta.Comment, StrCoding.IdCode_Utf16);
                         }
 
-                        exif.SetTagValue(CompactExifLib.ExifTag.Rating, meta.Ranking ?? 0, TagType: ExifTagType.UShort);
-                        exif.SetTagValue(CompactExifLib.ExifTag.RatingPercent, meta.Rating ?? 0, TagType: ExifTagType.UShort);
+                        exif.SetTagValue(CompactExifLib.ExifTag.Rating, meta.Rating ?? 0, TagType: ExifTagType.UShort);
+                        exif.SetTagValue(CompactExifLib.ExifTag.RatingPercent, meta.RatingPercent ?? 0, TagType: ExifTagType.UShort);
                         #endregion
 
                         #region CompactExifLib Update XMP RAW data, not profile
@@ -4173,7 +4225,6 @@ namespace TouchMeta
                             //    image.SetAttribute("tiff:photometric", "min-is-black");
                             //    image.SetAttribute("tiff:rows-per-strip", "512");
                             //}
-
                             image.Write(name, fmt);
 
                             if (!keep_name && !name.Equals(fi.FullName, StringComparison.CurrentCultureIgnoreCase))
@@ -4246,7 +4297,8 @@ namespace TouchMeta
             {
                 var magick_cache = Path.IsPathRooted(CachePath) ? CachePath : Path.Combine(AppPath, CachePath);
                 //if (!Directory.Exists(magick_cache)) Directory.CreateDirectory(magick_cache);
-                if (Directory.Exists(magick_cache)) MagickAnyCPU.CacheDirectory = magick_cache;
+                //if (Directory.Exists(magick_cache)) MagickAnyCPU.CacheDirectory = magick_cache;
+                if (Directory.Exists(magick_cache)) MagickNET.SetNativeLibraryDirectory(magick_cache);
                 ResourceLimits.Memory = 256 * 1024 * 1024;
                 ResourceLimits.LimitMemory(new Percentage(5));
                 ResourceLimits.Thread = 4;
@@ -4254,7 +4306,8 @@ namespace TouchMeta
                 //ResourceLimits.Throttle = 
                 OpenCL.IsEnabled = true;
                 if (Directory.Exists(magick_cache)) OpenCL.SetCacheDirectory(magick_cache);
-
+                //MagickNET.Initialize();
+                //MagickNET.SupportedFormats
                 SupportedFormats = ((MagickFormat[])Enum.GetValues(typeof(MagickFormat))).Select(e => $".{e.ToString().ToLower()}").ToList();
                 SupportedFormats.AddRange(new string[] { ".spa", ".sph" });
             }
@@ -4623,8 +4676,8 @@ namespace TouchMeta
                     var meta = GetMetaInfo(file);
                     if (force)
                     {
-                        meta.Rating = CurrentMetaRating;
-                        meta.Ranking = RatingToRanking(meta.Rating);
+                        meta.RatingPercent = CurrentMetaRating;
+                        meta.Rating = RatingToRanking(meta.RatingPercent);
                     }
                     TouchMeta(file, force: true, meta: meta);
                 }));
@@ -4638,8 +4691,8 @@ namespace TouchMeta
                     var meta = GetMetaInfo(file);
                     if (force)
                     {
-                        meta.Rating = CurrentMetaRating;
-                        meta.Ranking = RatingToRanking(meta.Rating);
+                        meta.RatingPercent = CurrentMetaRating;
+                        meta.Rating = RatingToRanking(meta.RatingPercent);
                     }
                     TouchMetaAlt(file, force: true, meta: meta, pngcs: alt);
                 }));
@@ -5078,7 +5131,7 @@ namespace TouchMeta
             {
                 CurrentMetaRating = 0;
             }
-            else if(sender == MetaInputRanking1)
+            else if (sender == MetaInputRanking1)
             {
                 CurrentMetaRating = 1;
             }
