@@ -22,5 +22,23 @@ namespace TouchMeta.Properties {
                 return defaultInstance;
             }
         }
+        
+        [global::System.Configuration.ApplicationScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("85")]
+        public int ConvertQuality {
+            get {
+                return ((int)(this["ConvertQuality"]));
+            }
+        }
+        
+        [global::System.Configuration.ApplicationScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("85")]
+        public int ReduceQuality {
+            get {
+                return ((int)(this["ReduceQuality"]));
+            }
+        }
     }
 }

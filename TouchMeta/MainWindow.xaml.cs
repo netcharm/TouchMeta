@@ -21,6 +21,7 @@ using System.Xml;
 
 using ImageMagick;
 using CompactExifLib;
+using System.Configuration;
 
 namespace TouchMeta
 {
@@ -81,6 +82,14 @@ namespace TouchMeta
         private static string AppName = Path.GetFileNameWithoutExtension(AppPath);
         private static string CachePath =  "cache";
 
+        private const string ConvertQualityKey = "ConvertQuality";
+        private const string ReduceQualityKey = "ReduceQuality";
+        private int ConvertQuality = Properties.Settings.Default.ConvertQuality;
+        private int ReduceQuality = Properties.Settings.Default.ReduceQuality;
+
+        private static Configuration config = ConfigurationManager.OpenExeConfiguration(AppExec);
+        private static AppSettingsSection appSection = config.AppSettings;
+
         private static bool SystemEndianLSB = BitConverter.IsLittleEndian ? true : false;
 
         private string DefaultTitle = null;
@@ -109,6 +118,30 @@ namespace TouchMeta
         private static Encoding UNICODE = Encoding.Unicode;
 
         private static List<string> SupportedFormats { get; set; } = null;
+
+        #region Config Helper
+        private string GetConfigValue(string key, object value = null)
+        {
+            string result = string.Empty;
+            if (appSection is AppSettingsSection)
+            {
+                try
+                {
+                    result = appSection.Settings[key].Value;
+                }
+                catch
+                {
+                    if (value != null)
+                        appSection.Settings.Add(key, value.ToString());
+                    else
+                        appSection.Settings.Add(key, string.Empty);
+
+                    config.Save();
+                }
+            }
+            return (result);
+        }
+        #endregion
 
         #region DoEvent Helper
         private static object ExitFrame(object state)
@@ -240,6 +273,7 @@ namespace TouchMeta
                 dlg.MaxHeight = 480;
                 dlg.HorizontalContentAlignment = HorizontalAlignment.Stretch;
                 dlg.MouseDoubleClick += (o, e) => { Clipboard.SetText(dlg.Text.Replace("\0", string.Empty).TrimEnd('\0')); };
+                //dlg.PreviewMouseUp += (o, e) => { if (e.ButtonState == MouseButtonState.Released && e.ChangedButton == MouseButton.Middle) t };
                 Application.Current.MainWindow.Activate();
             }));
             return (result);
@@ -248,7 +282,7 @@ namespace TouchMeta
 
         #region Background Worker Helper
         private IProgress<KeyValuePair<double, string>> progress = null;
-        private Action<double, string> ReportProgress = null;
+        private Action<double, double, string> ReportProgress = null;
         private BackgroundWorker bgWorker = null;
         private int ExtendedMessageWidth = 106;
         private int NormallyMessageWidth = 75;
@@ -257,9 +291,9 @@ namespace TouchMeta
             Dispatcher.Invoke(() => { Progress.Value = 0; });
         }
 
-        private void ProgressReport(double percent, string tooltip)
+        private void ProgressReport(double count, double total, string tooltip)
         {
-            if (ReportProgress is Action<double, string>) ReportProgress.Invoke(percent, tooltip);
+            if (ReportProgress is Action<double, double, string>) ReportProgress.Invoke(count, total, tooltip);
         }
 
         private void RunBgWorker(Action<string, bool> action, bool showlog = true)
@@ -267,6 +301,7 @@ namespace TouchMeta
             if (action is Action<string, bool> && bgWorker is BackgroundWorker && !bgWorker.IsBusy)
             {
                 IList<string> files = GetFiles(FilesList);
+                var selected_file = FilesList.SelectedItem != null ? FilesList.SelectedItem as string : string.Empty;
                 if (files.Count > 0)
                 {
                     bgWorker.RunWorkerAsync(new Action(() =>
@@ -276,12 +311,16 @@ namespace TouchMeta
                         double count = 0;
                         foreach (var file in files)
                         {
-                            ProgressReport(count / files.Count, file);
+                            ProgressReport(count, files.Count, file);
                             Log($"{file}");
                             Log("-".PadRight(ExtendedMessageWidth, '-'));
                             if (File.Exists(file)) action.Invoke(file, files.Count == 1);
+                            if (file.Equals(selected_file, StringComparison.CurrentCultureIgnoreCase))
+                            {
+                                UpdateFileTimeInfo(file);
+                            }
                             Log("=".PadRight(ExtendedMessageWidth, '='));
-                            ProgressReport(++count / files.Count, file);
+                            ProgressReport(++count, files.Count, file);
                         }
                         if (showlog) ShowLog();
                     }));
@@ -291,7 +330,7 @@ namespace TouchMeta
 
         private void BgWorker_ProgressChanged(object sender, ProgressChangedEventArgs e)
         {
-            if (ReportProgress is Action<double, string>) ReportProgress.Invoke(e.ProgressPercentage, "");
+            if (ReportProgress is Action<double, double, string>) ReportProgress.Invoke(e.ProgressPercentage, 0, "");
         }
 
         private void BgWorker_RunWorkerCompleted(object sender, RunWorkerCompletedEventArgs e)
@@ -338,23 +377,22 @@ namespace TouchMeta
                 Progress.Minimum = 0;
                 Progress.Maximum = 100;
                 Progress.Value = 0;
-                ReportProgress = new Action<double, string>((percent, tooltip) =>
+                ReportProgress = new Action<double, double, string>((count, total, tooltip) =>
                 {
                     Dispatcher.Invoke(async () =>
                     {
-                        //if (progress is IProgress<KeyValuePair<double, string>>)
-                        //    progress.Report(new KeyValuePair<double, string>(percent, tooltip));
                         try
                         {
+                            var percent = total <= 0 ? count : count / total;
                             Progress.Value = percent * 100;
                             if (percent >= 1) Progress.ToolTip = $"100% : {tooltip}";
                             else if (percent <= 0) Progress.ToolTip = $"0% : {tooltip}";
                             else Progress.ToolTip = $"{percent:P1} : {tooltip}";
+
+                            if (percent >= 1 || percent <= 0) Title = DefaultTitle;
+                            else Title = $"{DefaultTitle} [{percent:P1} - {count}/{total}]";
                         }
                         catch { }
-
-                        if (percent >= 1 || percent <= 0) Title = DefaultTitle;
-                        else Title = $"{DefaultTitle} [{percent:P1}]";
 
                         await Task.Delay(1);
                         DoEvents();
@@ -398,6 +436,16 @@ namespace TouchMeta
         #endregion
 
         #region Files List Opration Helper
+        private static string SmartFileSize(long size)
+        {
+            var result = size.ToString("#,0 B");
+            if (size >= 100000000) result = (size / 1000000D).ToString("0.# MB");
+            else if (size >= 1000000) result = (size / 1000000D).ToString("0.## MB");
+            else if (size >= 100000) result = (size / 1000D).ToString("0.# kB");
+            else if (size >= 10000) result = (size / 1000D).ToString("0.## kB");
+            return (result);
+        }
+
         private bool LoadFiles(IEnumerable<string> files)
         {
             var result = false;
@@ -443,28 +491,32 @@ namespace TouchMeta
 
         private void UpdateFileTimeInfo(string file = null)
         {
-            try
+            Dispatcher.BeginInvoke(new Action(() =>
             {
-                if (string.IsNullOrEmpty(file))
+                try
                 {
-                    if (FilesList.SelectedItem != null)
+                    if (string.IsNullOrEmpty(file))
                     {
-                        file = FilesList.SelectedItem as string;
-                        UpdateFileTimeInfo(file);
+                        if (FilesList.SelectedItem != null)
+                        {
+                            file = FilesList.SelectedItem as string;
+                            UpdateFileTimeInfo(file);
+                        }
                     }
-                }
-                else if (File.Exists(file))
-                {
-                    var fi = new FileInfo(file);
+                    else if (File.Exists(file))
+                    {
+                        var fi = new FileInfo(file);
 
-                    List<string> info = new List<string>();
-                    info.Add($"Created  Time : {fi.CreationTime.ToString()} => {DateCreated.SelectedDate}");
-                    info.Add($"Modified Time : {fi.LastWriteTime.ToString()} => {DateModified.SelectedDate}");
-                    info.Add($"Accessed Time : {fi.LastAccessTime.ToString()} => {DateAccessed.SelectedDate}");
-                    FileTimeInfo.Text = string.Join(Environment.NewLine, info);
+                        List<string> info = new List<string>();
+                        info.Add($"Created  Time : {fi.CreationTime.ToString()} => {DateCreated.SelectedDate}");
+                        info.Add($"Modified Time : {fi.LastWriteTime.ToString()} => {DateModified.SelectedDate}");
+                        info.Add($"Accessed Time : {fi.LastAccessTime.ToString()} => {DateAccessed.SelectedDate}");
+                        FileTimeInfo.Text = string.Join(Environment.NewLine, info);
+                    }
+
                 }
-            }
-            catch (Exception ex) { ShowMessage(ex.Message, "ERROR"); }
+                catch (Exception ex) { ShowMessage(ex.Message, "ERROR"); }
+            }));
         }
 
         private void AddFile(string file)
@@ -510,7 +562,7 @@ namespace TouchMeta
             var ranking = 0;
             try
             {
-                if      (rating >= 99) ranking = 5;
+                if (rating >= 99) ranking = 5;
                 else if (rating >= 75) ranking = 4;
                 else if (rating >= 50) ranking = 3;
                 else if (rating >= 25) ranking = 2;
@@ -561,7 +613,7 @@ namespace TouchMeta
             return (MagickColor.FromRgba(c.R, c.G, c.B, c.A));
         }
 
-        private static string BytesToString(byte[] bytes, bool ascii = false, bool msb = false)
+        private static string BytesToString(byte[] bytes, bool ascii = false, bool msb = false, Encoding encoding = null)
         {
             var result = string.Empty;
             if (bytes is byte[] && bytes.Length > 0)
@@ -597,12 +649,16 @@ namespace TouchMeta
                     if (string.IsNullOrEmpty(result))
                     {
                         var bytes_text = bytes.Select(c => ascii ? $"{Convert.ToChar(c)}" : $"{c}");
-                        result = string.Join(", ", bytes_text);
-                        if (bytes.Length > 4)
+                        if (encoding == null)
                         {
-                            var text = BytesToUnicode(result);
-                            if (!result.StartsWith("0,") && !string.IsNullOrEmpty(text)) result = text;
+                            result = string.Join(", ", bytes_text);
+                            if (bytes.Length > 4)
+                            {
+                                var text = BytesToUnicode(result);
+                                if (!result.StartsWith("0,") && !string.IsNullOrEmpty(text)) result = text;
+                            }
                         }
+                        else result = encoding.GetString(bytes);
                     }
                 }
             }
@@ -2190,6 +2246,8 @@ namespace TouchMeta
         #endregion
 
         #region PngCs Routines for Update PNG Image Metadata
+        private static string[] png_meta_chunk_text = new string[]{ "iTXt", "tEXt", "zTXt" };
+
         private static string DecompressGzipBytesToText(byte[] bytes, Encoding encoding = default(Encoding), int skip = 2)
         {
             var result = string.Empty;
@@ -2221,6 +2279,87 @@ namespace TouchMeta
                 }
             }
             catch (Exception ex) { MessageBox.Show(ex.Message); }
+            return (result);
+        }
+
+        private static Dictionary<string, string> GetPngMetaInfo(Stream src, Encoding encoding = default(Encoding), bool full_field = true)
+        {
+            var result = new Dictionary<string, string>();
+            try
+            {
+                if (src is Stream && src.CanRead && src.Length > 0)
+                {
+                    if (encoding == default(Encoding)) encoding = Encoding.UTF8;
+                    var png_r  = new Hjg.Pngcs.PngReader(src);
+                    if (png_r is Hjg.Pngcs.PngReader)
+                    {
+                        png_r.ChunkLoadBehaviour = Hjg.Pngcs.Chunks.ChunkLoadBehaviour.LOAD_CHUNK_ALWAYS;
+                        var png_chunks = png_r.GetChunksList();
+                        foreach (var chunk in png_chunks.GetChunks())
+                        {
+                            if (png_meta_chunk_text.Contains(chunk.Id))
+                            {
+                                var raw = chunk.CreateRawChunk();
+                                chunk.ParseFromRaw(raw);
+
+                                var data = encoding.GetString(raw.Data).Split('\0');
+                                var key = data.FirstOrDefault();
+                                var value = string.Empty;
+                                if (chunk.Id.Equals("zTXt"))
+                                {
+                                    value = DecompressGzipBytesToText(raw.Data.Skip(key.Length + 2).SkipWhile(c => c == 0).ToArray());
+                                    if ((raw.Data.Length > key.Length + 2) && string.IsNullOrEmpty(value)) value = "(Decodeing Error)";
+                                }
+                                else if (chunk.Id.Equals("iTXt"))
+                                {
+                                    var vs = raw.Data.Skip(key.Length + 1).ToArray();
+                                    var compress_flag = vs[0];
+                                    var compress_method = vs[1];
+                                    var language_tag = string.Empty;
+                                    var translate_tag = string.Empty;
+                                    var text = string.Empty;
+
+                                    if (vs[2] == 0 && vs[3] == 0)
+                                        text = compress_flag == 1 ? DecompressGzipBytesToText(vs.SkipWhile(c => c == 0).ToArray()) : encoding.GetString(vs.SkipWhile(c => c == 0).ToArray());
+                                    else if (vs[2] == 0 && vs[3] != 0)
+                                    {
+                                        var trans = vs.Skip(3).TakeWhile(c => c != 0);
+                                        translate_tag = encoding.GetString(trans.ToArray());
+
+                                        var txt = vs.Skip(3).Skip(trans.Count()).SkipWhile(c => c == 0);
+                                        text = compress_flag == 1 ? DecompressGzipBytesToText(txt.SkipWhile(c => c == 0).ToArray()) : encoding.GetString(txt.ToArray());
+                                    }
+
+                                    value = full_field ? $"{(int)compress_flag}, {(int)compress_method}, {language_tag}, {translate_tag}, {text}" : text.Trim().Trim('\0');
+                                }
+                                else
+                                    value = full_field ? string.Join(", ", data.Skip(1)) : data.Last().Trim().Trim('\0');
+
+                                result[key] = value;
+                            }
+                        }
+                        png_r.End();
+                    }
+                }
+            }
+            catch (Exception ex) { Log(ex.Message); }
+            return (result);
+        }
+
+        private static Dictionary<string, string> GetPngMetaInfo(FileInfo fileinfo, Encoding encoding = default(Encoding), bool full_field = true)
+        {
+            var result = new Dictionary<string, string>();
+            try
+            {
+                if (fileinfo.Exists && fileinfo.Length > 0)
+                {
+                    using (var msi = new MemoryStream(File.ReadAllBytes(fileinfo.FullName)))
+                    {
+                        result = GetPngMetaInfo(msi, encoding, full_field);
+                    }
+                }
+            }
+            catch (Exception ex) { Log(ex.Message); }
             return (result);
         }
 
@@ -2804,7 +2943,9 @@ namespace TouchMeta
             catch (Exception ex) { ShowMessage(ex.Message); }
             return (result);
         }
+        #endregion
 
+        #region Metadata Oprating
         public static void ClearMeta(string file)
         {
             if (File.Exists(file))
@@ -2843,7 +2984,7 @@ namespace TouchMeta
                         }
 
                         FixDPI(image);
-                        image.Write(fi.FullName, image.FormatInfo.Format);
+                        image.Write(fi.FullName, image.Format);
                     }
                     else
                     {
@@ -3695,7 +3836,7 @@ namespace TouchMeta
                                 exif.SetValue<byte[]>(ImageMagick.ExifTag.XMP, Encoding.UTF8.GetBytes(xml));
                                 if (exif is ExifProfile) image.SetProfile(exif);
 #if DEBUG
-                                var x = Encoding.UTF8.GetString(exif.GetValue<byte[]>(ImageMagick.ExifTag.XMP).Value);
+                                //var x = Encoding.UTF8.GetString(exif.GetValue<byte[]>(ImageMagick.ExifTag.XMP).Value);
 #endif
                                 xmp = new XmpProfile(Encoding.UTF8.GetBytes(xml));
                                 if (xmp is XmpProfile) image.SetProfile(xmp);
@@ -3706,15 +3847,15 @@ namespace TouchMeta
 
                             #region save touched image
                             FixDPI(image);
-                            image.Endian = image.Endian;
 #if DEBUG
+                            image.Endian = Endian.Undefined;
                             using (var ms = new MemoryStream())
                             {                               
-                                image.Write(ms, image.FormatInfo.Format);
+                                image.Write(ms, image.Format);
                                 File.WriteAllBytes(fi.FullName, ms.ToArray());
                             }
 #else
-                            image.Write(fi.FullName, image.FormatInfo.Format);
+                            image.Write(fi.FullName, image.Format);
 #endif
 
                             var exifdata_n = new ExifData(fi.FullName);
@@ -3724,7 +3865,7 @@ namespace TouchMeta
                                 SetAttribute(image, "exif:UserComment", comment);
                                 SetAttribute(image, "Rating", RatingToRanking(rating));
                                 SetAttribute(image, "RatingPercent", rating);
-                                image.Write(fi.FullName, image.FormatInfo.Format);
+                                image.Write(fi.FullName, image.Format);
                             }
                             #endregion
 
@@ -3829,6 +3970,77 @@ namespace TouchMeta
             else Log($"File \"{file}\" not exists!");
         }
 
+        public static void TouchMetaDate(string file, DateTime? dt = null)
+        {
+            ///
+            /// Test Codes for MagicK.Net will change image byte-order after write image,
+            /// if not set profile, image maybe will not change endian, but after set profile,
+            /// like exif profile, it will change endian to system endian, windows will to lsb
+            ///
+            try
+            {
+                if (dt.HasValue)
+                {
+                    var fi = new FileInfo(file);
+                    using (var image = new MagickImage(fi.FullName))
+                    {
+                        foreach (var tag in tag_date)
+                        {
+                            if (tag.StartsWith("exif"))
+                                image.SetAttribute(tag, dt.Value.ToString("yyyy:MM:dd HH:mm:ss"));
+                            else if (tag.StartsWith("MicrosoftPhoto"))
+                                image.SetAttribute(tag, dt.Value.ToString("yyyy-MM-ddTHH:mm:ss.fff"));
+                        }
+                        var meta_new = GetMetaInfo(image);
+                        var xml = image.HasProfile("xmp") ? Encoding.UTF8.GetString(image.GetXmpProfile().GetData()) : string.Empty;
+                        xml = TouchXMP(fi, xml, meta_new);
+                        image.SetProfile(new XmpProfile(Encoding.UTF8.GetBytes(xml)));
+                        image.Write(fi.FullName, image.Format);
+                        fi.CreationTime = dt.Value;
+                        fi.LastWriteTime = dt.Value;
+                        fi.LastAccessTime = dt.Value;
+                    }
+                }
+            }
+            catch (Exception ex) { Log(ex.Message); }
+        }
+
+        public static Stream TouchMetaDate(Stream src, FileInfo fi, DateTime? dt = null)
+        {
+            ///
+            /// Test Codes for MagicK.Net will change image byte-order after write image,
+            /// if not set profile, image maybe will not change endian, but after set profile,
+            /// like exif profile, it will change endian to system endian, windows will to lsb
+            ///
+            Stream result = null;
+            try
+            {
+                if (dt.HasValue && src is Stream && src.CanRead)
+                {
+                    using (var image = new MagickImage(src))
+                    {
+                        foreach (var tag in tag_date)
+                        {
+                            if (tag.StartsWith("exif"))
+                                image.SetAttribute(tag, dt.Value.ToString("yyyy:MM:dd HH:mm:ss"));
+                            else if (tag.StartsWith("MicrosoftPhoto"))
+                                image.SetAttribute(tag, dt.Value.ToString("yyyy-MM-ddTHH:mm:ss.fff"));
+                        }
+                        var meta_new = GetMetaInfo(image);
+                        var xml = image.HasProfile("xmp") ? Encoding.UTF8.GetString(image.GetXmpProfile().GetData()) : string.Empty;
+                        xml = TouchXMP(fi, xml, meta_new);
+                        image.SetProfile(new XmpProfile(Encoding.UTF8.GetBytes(xml)));
+                        using (result = new MemoryStream())
+                        {
+                            image.Write(result, image.Format);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex) { Log(ex.Message); }
+            return (result);
+        }
+
         public static void TouchMetaAlt(string file, bool force = false, DateTime? dtc = null, DateTime? dtm = null, DateTime? dta = null, MetaInfo meta = null, bool pngcs = false)
         {
             try
@@ -3847,31 +4059,21 @@ namespace TouchMeta
 
                         #region CompactExifLib Update EXIF Metadata
                         DateTime date = dm;
-                        if (!force || exif.GetTagValue(CompactExifLib.ExifTag.DateTime, out date))
-                        {
-                            if (date.Ticks != dm.Ticks) exif.SetDateChanged(dm);
-                        }
-                        else exif.SetDateChanged(dm);
-                        if (!force || exif.GetTagValue(CompactExifLib.ExifTag.DateTimeDigitized, out date))
-                        {
-                            if (date.Ticks != dm.Ticks) exif.SetDateDigitized(dm);
-                        }
-                        else exif.SetDateDigitized(dm);
-                        if (!force || exif.GetTagValue(CompactExifLib.ExifTag.DateTimeOriginal, out date))
+                        if (!force && exif.GetTagValue(CompactExifLib.ExifTag.DateTimeOriginal, out date))
                         {
                             if (date.Ticks != dm.Ticks) exif.SetDateTaken(dm);
                         }
                         else exif.SetDateTaken(dm);
-                        if (!force || exif.GetTagValue(CompactExifLib.ExifTag.SubsecTimeDigitized, out date))
+                        if (!force && exif.GetTagValue(CompactExifLib.ExifTag.DateTimeDigitized, out date))
                         {
-                            if (date.Ticks != dm.Ticks) exif.SetTagValue(CompactExifLib.ExifTag.SubsecTimeDigitized, dm, ExifDateFormat.DateAndTime);
+                            if (date.Ticks != dm.Ticks) exif.SetDateDigitized(dm);
                         }
-                        else exif.SetTagValue(CompactExifLib.ExifTag.SubsecTimeDigitized, dm, ExifDateFormat.DateAndTime);
-                        if (!force || exif.GetTagValue(CompactExifLib.ExifTag.SubsecTimeOriginal, out date))
+                        else exif.SetDateDigitized(dm);
+                        if (!force && exif.GetTagValue(CompactExifLib.ExifTag.DateTime, out date))
                         {
-                            if (date.Ticks != dm.Ticks) exif.SetTagValue(CompactExifLib.ExifTag.SubsecTimeOriginal, dm, ExifDateFormat.DateAndTime);
+                            if (date.Ticks != dm.Ticks) exif.SetDateChanged(dm);
                         }
-                        else exif.SetTagValue(CompactExifLib.ExifTag.SubsecTimeOriginal, dm, ExifDateFormat.DateAndTime);
+                        else exif.SetDateChanged(dm);
 
                         if (string.IsNullOrEmpty(meta.Title))
                         {
@@ -3982,7 +4184,7 @@ namespace TouchMeta
                         //        }
                         //        //var xmp_profile = new XmpProfile(Encoding.UTF8.GetBytes(xmp));
                         //        //image.SetProfile(xmp_profile);
-                        //        image.Write(fi.FullName, image.FormatInfo.Format);
+                        //        image.Write(fi.FullName, image.Format);
                         //    }
                         //}
 #endif
@@ -4047,7 +4249,13 @@ namespace TouchMeta
                                 Log($"{"ColormapSize".PadRight(cw)}= {image.ColormapSize}");
                                 //Log($"{"TotalColors".PadRight(cw)}= {image.TotalColors}");
                                 Log($"{"FormatInfo".PadRight(cw)}= {image.FormatInfo.Format.ToString()}, MIME:{image.FormatInfo.MimeType}");
+                                Log($"{"ByteOrder".PadRight(cw)}= {exifdata.ByteOrder.ToString()}");
+                                Log($"{"ClassType".PadRight(cw)}= {image.ClassType.ToString()}");
+                                //Log($"{"Geometry".PadRight(cw)}= {image.Page.ToString()}");
                                 Log($"{"Compression".PadRight(cw)}= {image.Compression.ToString()}");
+                                if (image.FormatInfo.Format.ToString().Equals("jpeg", StringComparison.CurrentCultureIgnoreCase))
+                                    Log($"{"Quality".PadRight(cw)}= {(image.Quality == 0 ? 75 : image.Quality)}");
+                                Log($"{"Orientation".PadRight(cw)}= {image.Orientation.ToString()}");
                                 Log($"{"Filter".PadRight(cw)}= {(image.FilterType == FilterType.Undefined ? "Adaptive" : image.FilterType.ToString())}");
                                 Log($"{"Interlace".PadRight(cw)}= {image.Interlace.ToString()}");
                                 Log($"{"Interpolate".PadRight(cw)}= {image.Interpolate.ToString()}");
@@ -4225,6 +4433,7 @@ namespace TouchMeta
                             //    image.SetAttribute("tiff:photometric", "min-is-black");
                             //    image.SetAttribute("tiff:rows-per-strip", "512");
                             //}
+                            image.Quality = ConvertQuality;
                             image.Write(name, fmt);
 
                             if (!keep_name && !name.Equals(fi.FullName, StringComparison.CurrentCultureIgnoreCase))
@@ -4289,6 +4498,228 @@ namespace TouchMeta
                 ConvertImagesTo(files, fmt, keep_name);
             }
         }
+
+        private System.Drawing.Imaging.ImageCodecInfo GetEncoderInfo(string mimeType)
+        {
+            // Get image codecs for all image formats 
+            var codecs = System.Drawing.Imaging.ImageCodecInfo.GetImageEncoders();
+
+            // Find the correct image codec 
+            for (int i = 0; i < codecs.Length; i++)
+            {
+                if (codecs[i].MimeType == mimeType) return codecs[i];
+            }
+
+            return null;
+        }
+
+        public byte[] ReduceImageSize(byte[] buffer, string fmt, int quality = 85)
+        {
+            byte[] result = null;
+            try
+            {
+                if (buffer is byte[] && buffer.Length > 0)
+                {
+                    System.Drawing.Imaging.ImageFormat pFmt = System.Drawing.Imaging.ImageFormat.MemoryBmp;
+
+                    fmt = fmt.ToLower();
+                    if (fmt.Equals("png")) pFmt = System.Drawing.Imaging.ImageFormat.Png;
+                    else if (fmt.Equals("jpg")) pFmt = System.Drawing.Imaging.ImageFormat.Jpeg;
+                    else return (buffer);
+
+                    using (var mi = new MemoryStream(buffer))
+                    {
+                        using (var mo = new MemoryStream())
+                        {
+                            var bmp = new System.Drawing.Bitmap(mi);
+                            var codec_info = GetEncoderInfo("image/jpeg");
+                            var qualityParam = new System.Drawing.Imaging.EncoderParameter(System.Drawing.Imaging.Encoder.Quality, quality);
+                            var encoderParams = new System.Drawing.Imaging.EncoderParameters(1);
+                            encoderParams.Param[0] = qualityParam;
+                            if (pFmt == System.Drawing.Imaging.ImageFormat.Jpeg)
+                                bmp.Save(mo, codec_info, encoderParams);
+                            else
+                                bmp.Save(mo, pFmt);
+                            result = mo.ToArray();
+                        }
+                    }
+                }
+            }
+            catch (Exception ex) { MessageBox.Show(this, ex.Message); }
+            return (result);
+        }
+
+        public string ReduceImageSize(string file, string fmt, int quality = 75, bool keep_name = false)
+        {
+            string result = string.Empty;
+            try
+            {
+                if (!string.IsNullOrEmpty(file) && File.Exists(file))
+                {
+                    var fi = new FileInfo(file);
+                    var dc = fi.CreationTime;
+                    var dm = fi.LastWriteTime;
+                    var da = fi.LastAccessTime;
+
+                    var fout = keep_name ? file : Path.ChangeExtension(file, $".{fmt}");
+
+                    var bi = File.ReadAllBytes(file);
+                    using (var msi = new MemoryStream(bi))
+                    {
+                        var exif_in = new ExifData(msi);
+                        msi.Seek(0, SeekOrigin.Begin);
+
+                        if (exif_in.ImageType == ImageType.Png)
+                        {
+                            #region Get & Update PNG metadata
+                            msi.Seek(0, SeekOrigin.Begin);
+                            DateTime dt;
+                            var meta = GetPngMetaInfo(msi, full_field: false);
+                            if (meta.ContainsKey("Creation Time") && DateTime.TryParse(Regex.Replace(meta["Creation Time"], @"^(\d{4}):(\d{2})\:(\d{2})(.*?)$", "$1/$2/$3T$4", RegexOptions.IgnoreCase), out dt))
+                            {
+                                if (!exif_in.TagExists(CompactExifLib.ExifTag.DateTime)) exif_in.SetDateChanged(dt);
+                                if (!exif_in.TagExists(CompactExifLib.ExifTag.DateTimeDigitized)) exif_in.SetDateDigitized(dt);
+                                if (!exif_in.TagExists(CompactExifLib.ExifTag.DateTimeOriginal)) exif_in.SetDateTaken(dt);
+                            }
+                            if (!exif_in.TagExists(CompactExifLib.ExifTag.XpTitle) && meta.ContainsKey("Title"))
+                                exif_in.SetTagValue(CompactExifLib.ExifTag.XpTitle, meta["Title"], StrCoding.Utf16Le_Byte);
+                            if (!exif_in.TagExists(CompactExifLib.ExifTag.XpSubject) && meta.ContainsKey("Subject"))
+                                exif_in.SetTagValue(CompactExifLib.ExifTag.XpSubject, meta["Subject"], StrCoding.Utf16Le_Byte);
+                            if (!exif_in.TagExists(CompactExifLib.ExifTag.XpAuthor) && meta.ContainsKey("Author"))
+                            {
+                                exif_in.SetTagValue(CompactExifLib.ExifTag.Artist, meta["Author"], StrCoding.Utf8);
+                                exif_in.SetTagValue(CompactExifLib.ExifTag.XpAuthor, meta["Author"], StrCoding.Utf16Le_Byte);
+                            }
+                            if (!exif_in.TagExists(CompactExifLib.ExifTag.Copyright) && meta.ContainsKey("Copyright"))
+                                exif_in.SetTagValue(CompactExifLib.ExifTag.Copyright, meta["Copyright"], StrCoding.Utf8);
+
+                            if (!exif_in.TagExists(CompactExifLib.ExifTag.XpComment) && meta.ContainsKey("Description"))
+                                exif_in.SetTagValue(CompactExifLib.ExifTag.XpComment, meta["Description"], StrCoding.Utf16Le_Byte);
+                            if (!exif_in.TagExists(CompactExifLib.ExifTag.UserComment) && meta.ContainsKey("Description"))
+                                exif_in.SetTagValue(CompactExifLib.ExifTag.UserComment, meta["Description"], StrCoding.IdCode_Utf16);
+
+                            if (!exif_in.TagExists(CompactExifLib.ExifTag.XpKeywords) && meta.ContainsKey("Comment"))
+                                exif_in.SetTagValue(CompactExifLib.ExifTag.XpKeywords, meta["Comment"], StrCoding.Utf16Le_Byte);
+
+                            if (!exif_in.TagExists(CompactExifLib.ExifTag.FileSource) && meta.ContainsKey("Source"))
+                                exif_in.SetTagValue(CompactExifLib.ExifTag.FileSource, meta["Source"], StrCoding.Utf8);
+
+                            if (!exif_in.TagExists(CompactExifLib.ExifTag.Software) && meta.ContainsKey("Software"))
+                                exif_in.SetTagValue(CompactExifLib.ExifTag.Software, meta["Software"], StrCoding.Utf8);
+
+                            if (!exif_in.TagExists(CompactExifLib.ExifTag.XmpMetadata) && meta.ContainsKey("XML:com.adobe.xmp"))
+                            {
+                                var value = string.Join("", meta["XML:com.adobe.xmp"].Split(new char[]{ '\0' }).Last().ToArray().SkipWhile(c => c != '<'));
+                                exif_in.SetTagRawData(CompactExifLib.ExifTag.XmpMetadata, ExifTagType.Byte, Encoding.UTF8.GetByteCount(value), Encoding.UTF8.GetBytes(value));
+                            }
+                            #endregion
+                        }
+                        else
+                        {
+                            using (var image = new MagickImage(msi))
+                            {
+                                var fmt_jpg = new MagickFormat[] { MagickFormat.Jpg, MagickFormat.Jpeg, MagickFormat.Jpe };
+                                if (fmt_jpg.Contains(image.Format) && (image.Quality < quality || Math.Abs(image.Quality - quality) <= 2))
+                                {
+                                    throw new WarningException($"Image Quality : {image.Quality} <= Reduce Quality : {quality}!");
+                                }
+
+                                var meta = GetMetaInfo(image);
+                                if (meta is MetaInfo && meta.Profiles.ContainsKey("xmp") && !exif_in.TagExists(CompactExifLib.ExifTag.XmpMetadata))
+                                {
+                                    var xml = meta.Profiles["xmp"].GetData();
+                                    exif_in.SetTagRawData(CompactExifLib.ExifTag.XmpMetadata, ExifTagType.Byte, xml.Length, xml);
+                                }
+
+                            }
+                        }
+
+                        var bo = ReduceImageSize(bi, fmt, quality: quality);
+                        using (var msp = new MemoryStream(bo))
+                        {
+                            var exif_out = new ExifData(msp);
+                            exif_out.ReplaceAllTagsBy(exif_in);
+
+                            DateTime dt;
+                            if (exif_in.GetDateTaken(out dt)) { exif_out.SetDateTaken(dt); dc = dt; }
+                            if (exif_in.GetDateDigitized(out dt)) { exif_out.SetDateDigitized(dt); dm = dt; }
+                            if (exif_in.GetDateChanged(out dt)) { exif_out.SetDateChanged(dt); da = dt; }
+
+                            using (var mso = new MemoryStream())
+                            {
+                                msp.Seek(0, SeekOrigin.Begin);
+                                if (exif_out.TagExists(CompactExifLib.ExifTag.XmpMetadata))
+                                {
+                                    using (var msx = new MemoryStream())
+                                    {
+                                        exif_out.Save(msp, msx);
+                                        msx.Seek(0, SeekOrigin.Begin);
+                                        using (var image = new MagickImage(msx))
+                                        {
+                                            ExifTagType type;
+                                            int count;
+                                            byte[] xmp;
+                                            if (exif_out.GetTagRawData(CompactExifLib.ExifTag.XmpMetadata, out type, out count, out xmp))
+                                            {
+                                                var xml = Encoding.UTF8.GetString(xmp);
+                                                image.SetProfile(new XmpProfile(xmp));
+                                                image.Write(mso, image.Format);
+                                            }
+                                        }
+                                    }
+                                }
+                                else exif_out.Save(msp, mso);
+
+                                if (mso.Length < fi.Length) File.WriteAllBytes(fout, mso.ToArray());
+                            }
+                        }
+                    }
+
+                    var fo = new FileInfo(fout);
+                    fo.CreationTime = dc;
+                    fo.LastWriteTime = dm;
+                    fo.LastAccessTime = da;
+
+                    if (string.IsNullOrEmpty(fout))
+                        Log($"Reduce {file} Size Failed!");
+                    else
+                    {
+                        result = fout;
+                        Log($"Reduce {file} From {SmartFileSize(fi.Length)} To {SmartFileSize(fo.Length)}!");
+                    }
+                }
+            }
+            catch (Exception ex) { Log(ex.Message); }
+            return (result);
+        }
+
+        public string ReduceImageSize(string file, MagickFormat fmt, bool keep_name = false)
+        {
+            int.TryParse(GetConfigValue(ReduceQualityKey, ReduceQuality), out ReduceQuality);
+            return (ReduceImageSize(file, fmt.ToString().ToLower(), ReduceQuality, keep_name));
+        }
+
+        public void ReduceImageSize(IEnumerable<string> files, MagickFormat fmt, bool keep_name = false)
+        {
+            if (files is IEnumerable<string>)
+            {
+                RunBgWorker(new Action<string, bool>((file, show_xmp) =>
+                {
+                    var ret = ReduceImageSize(file, fmt, keep_name);
+                    if (!string.IsNullOrEmpty(ret) && File.Exists(ret) && !keep_name) AddFile(ret);
+                }));
+            }
+        }
+
+        public void ReduceImageSize(MagickFormat fmt = MagickFormat.Jpg, bool keep_name = true)
+        {
+            if (FilesList.Items.Count >= 1)
+            {
+                List<string> files = new List<string>();
+                foreach (var item in FilesList.SelectedItems.Count > 0 ? FilesList.SelectedItems : FilesList.Items) files.Add(item as string);
+                ReduceImageSize(files, fmt, keep_name);
+            }
+        }
         #endregion
 
         public static void InitMagicK()
@@ -4333,6 +4764,8 @@ namespace TouchMeta
             WindowStartupLocation = WindowStartupLocation.CenterScreen;
             Topmost = true;
 #endif
+            int.TryParse(GetConfigValue(ConvertQualityKey, ConvertQuality), out ConvertQuality);
+
             DefaultTitle = Title;
             InitMagicK();
 
@@ -4394,6 +4827,14 @@ namespace TouchMeta
                 if (FileRenameInputPopup.IsOpen) FileRenameInputPopup.IsOpen = false;
                 if (MetaInputPopup.IsOpen) MetaInputPopup.IsOpen = false;
                 //if (show)
+            }
+        }
+
+        private void Window_PreviewMouseUp(object sender, MouseButtonEventArgs e)
+        {
+            if (e.ButtonState == MouseButtonState.Released && e.ChangedButton == MouseButton.Middle)
+            {
+                Close();
             }
         }
 
@@ -4579,45 +5020,44 @@ namespace TouchMeta
             else if (sender == SetFileTimeFromC)
             {
                 #region Touching File Time
-                var meta = CurrentMeta;
-
-                meta.DateCreated = null;
-                meta.DateModified = null;
-                meta.DateAccesed = null;
-
                 RunBgWorker(new Action<string, bool>((file, show_xmp) =>
                 {
-                    TouchDate(file, force: force, dtc: File.GetCreationTime(file), meta: meta);
+                    var dt = File.GetCreationTime(file);
+                    var meta = new MetaInfo() { DateCreated = dt, DateModified = dt, DateAccesed = dt };
+                    TouchDate(file, force: true, meta: meta);
                 }));
                 #endregion
             }
             else if (sender == SetFileTimeFromM)
             {
                 #region Touching File Time
-                var meta = CurrentMeta;
-
-                meta.DateCreated = null;
-                meta.DateModified = null;
-                meta.DateAccesed = null;
-
                 RunBgWorker(new Action<string, bool>((file, show_xmp) =>
                 {
-                    TouchDate(file, force: force, dtm: File.GetLastWriteTime(file), meta: meta);
+                    var dt = File.GetLastWriteTime(file);
+                    var meta = new MetaInfo() { DateCreated = dt, DateModified = dt, DateAccesed = dt };
+                    TouchDate(file, force: true, meta: meta);
                 }));
                 #endregion
             }
             else if (sender == SetFileTimeFromA)
             {
                 #region Touching File Time
-                var meta = CurrentMeta;
-
-                meta.DateCreated = null;
-                meta.DateModified = null;
-                meta.DateAccesed = null;
-
                 RunBgWorker(new Action<string, bool>((file, show_xmp) =>
                 {
-                    TouchDate(file, force: force, dta: File.GetLastAccessTime(file), meta: meta);
+                    var dt = File.GetLastAccessTime(file);
+                    var meta = new MetaInfo() { DateCreated = dt, DateModified = dt, DateAccesed = dt };
+                    TouchDate(file, force: true, meta: meta);
+                }));
+                #endregion
+            }
+            else if (sender == SetFileTimeMeta)
+            {
+                #region Touching File Time
+                RunBgWorker(new Action<string, bool>((file, show_xmp) =>
+                {
+                    var dt = File.GetLastWriteTime(file);
+                    var meta = new MetaInfo() { DateCreated = dt, DateModified = dt, DateAccesed = dt };
+                    TouchDate(file, force: false, meta: meta);
                 }));
                 #endregion
             }
@@ -4626,45 +5066,31 @@ namespace TouchMeta
             else if (sender == TouchMetaFromC)
             {
                 #region Touching File Time
-                var meta = CurrentMeta;
-
-                meta.DateCreated = null;
-                meta.DateModified = null;
-                meta.DateAccesed = null;
-
                 RunBgWorker(new Action<string, bool>((file, show_xmp) =>
                 {
-                    TouchMeta(file, force: force, dtc: File.GetCreationTime(file), meta: meta);
+                    TouchMetaDate(file, File.GetCreationTime(file));
                 }));
                 #endregion
             }
             else if (sender == TouchMetaFromM)
             {
                 #region Touching File Time
-                var meta = CurrentMeta;
-
-                meta.DateCreated = null;
-                meta.DateModified = null;
-                meta.DateAccesed = null;
-
                 RunBgWorker(new Action<string, bool>((file, show_xmp) =>
                 {
-                    TouchMeta(file, force: force, dtm: File.GetLastWriteTime(file), meta: meta);
+                    //#if DEBUG
+                    TouchMetaDate(file, File.GetLastWriteTime(file));
+                    //#else
+                    //                    TouchMeta(file, force: force, dtm: File.GetLastWriteTime(file), meta: meta);
+                    //#endif
                 }));
                 #endregion
             }
             else if (sender == TouchMetaFromA)
             {
                 #region Touching File Time
-                var meta = CurrentMeta;
-
-                meta.DateCreated = null;
-                meta.DateModified = null;
-                meta.DateAccesed = null;
-
                 RunBgWorker(new Action<string, bool>((file, show_xmp) =>
                 {
-                    TouchMeta(file, force: force, dta: File.GetLastAccessTime(file), meta: meta);
+                    TouchMetaDate(file, File.GetLastAccessTime(file));
                 }));
                 #endregion
             }
@@ -4962,7 +5388,7 @@ namespace TouchMeta
                 ConvertImagesTo(MagickFormat.WebP, keep_name: alt);
             }
             #endregion
-            #region View/Rename Image File(s)
+            #region View/Rename/Reduce Image File(s)
             else if (sender == ViewSelected)
             {
                 bool openwith = Keyboard.Modifiers == ModifierKeys.Shift ? true : false;
@@ -4984,6 +5410,10 @@ namespace TouchMeta
                     FileRenameInputPopup.StaysOpen = true;
                     FileRenameInputPopup.IsOpen = true;
                 }
+            }
+            else if (sender == ReduceSelected)
+            {
+                ReduceImageSize(MagickFormat.Jpg, keep_name: true);
             }
             #endregion
             #region Remove Image File(s) From List
@@ -5049,12 +5479,7 @@ namespace TouchMeta
                 #region Touching File Time
                 var force = Keyboard.Modifiers == ModifierKeys.Control;
                 var meta = CurrentMeta;
-                //if (!force)
-                //{
-                //    meta.DateCreated = null;
-                //    meta.DateModified = null;
-                //    meta.DateAccesed = null;
-                //}
+
                 RunBgWorker(new Action<string, bool>((file, show_xmp) =>
                 {
                     TouchDate(file, force: force, meta: meta);
@@ -5167,5 +5592,7 @@ namespace TouchMeta
                 ShowMessage(string.Join(Environment.NewLine, lines), "Usage");
             }
         }
+
     }
+
 }

@@ -10,7 +10,8 @@
         Height="512" Width="512" MinHeight="512" MinWidth="512" MaxHeight="512" MaxWidth="512" 
         SnapsToDevicePixels="True" ResizeMode="CanMinimize" Topmost="True" 
         WindowStartupLocation="CenterScreen" AllowDrop="True"
-        Loaded="Window_Loaded" DragOver="Window_DragOver" Drop="Window_Drop" PreviewKeyDown="Window_PreviewKeyDown">
+        Loaded="Window_Loaded" DragOver="Window_DragOver" Drop="Window_Drop" 
+        PreviewKeyDown="Window_PreviewKeyDown" PreviewMouseUp="Window_PreviewMouseUp">
     <Grid x:Name="WindowContainer">
         <Grid.RowDefinitions>
             <RowDefinition Height="auto"/>
@@ -92,6 +93,7 @@
                     <MenuItem x:Name="SetFileTimeFromC" x:Uid="SetFileTimeFromC" Header="Set File Time From Created Name" Click="FilesListAction_Click"/>
                     <MenuItem x:Name="SetFileTimeFromM" x:Uid="SetFileTimeFromM" Header="Set File Time From Modified Name" Click="FilesListAction_Click"/>
                     <MenuItem x:Name="SetFileTimeFromA" x:Uid="SetFileTimeFromA" Header="Set File Time From Accessed Name" Click="FilesListAction_Click"/>
+                    <MenuItem x:Name="SetFileTimeMeta" x:Uid="SetFileTimeMeta" Header="Set File Time From Metadata" Click="FilesListAction_Click"/>
                     <Separator/>
                     <MenuItem x:Name="TouchMetaFromC" x:Uid="TouchMetaFromC" Header="Touch Meta Time From Created Name" Click="FilesListAction_Click"/>
                     <MenuItem x:Name="TouchMetaFromM" x:Uid="TouchMetaFromM" Header="Touch Meta Time From Modified Name" Click="FilesListAction_Click"/>
@@ -149,8 +151,9 @@
                     <MenuItem x:Name="ConvertSelectedToAvif" x:Uid="ConvertSelectedToAvif" Header="Convert Selected Files to AVIF" Click="FilesListAction_Click"/>
                     <MenuItem x:Name="ConvertSelectedToWebp" x:Uid="ConvertSelectedToWebp" Header="Convert Selected Files to WEBP" Click="FilesListAction_Click"/>
                     <Separator/>
-                    <MenuItem x:Name="ViewSelected" x:Uid="OpenSelected" Header="View Selected Files" Click="FilesListAction_Click"/>
-                    <MenuItem x:Name="RenameSelected" x:Uid="RenameSelected" Header="Rename Selected File" Click="FilesListAction_Click"/>
+                    <MenuItem x:Name="ViewSelected" x:Uid="OpenSelected" Header="Display Selected Files" Click="FilesListAction_Click"/>
+                    <MenuItem x:Name="RenameSelected" x:Uid="RenameSelected" Header="Rename Selected Files" Click="FilesListAction_Click"/>
+                    <MenuItem x:Name="ReduceSelected" x:Uid="ReduceSelected" Header="Reduce Selected Files" Click="FilesListAction_Click"/>
                     <Separator/>
                     <MenuItem x:Name="RemoveSelected" x:Uid="RemoveSelected" Header="Remove Selected File" Click="FilesListAction_Click"/>
                     <MenuItem x:Name="RemoveAll" x:Uid="RemoveAll" Header="Remove All File" Click="FilesListAction_Click"/>
