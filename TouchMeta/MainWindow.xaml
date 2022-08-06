@@ -11,8 +11,26 @@
         SnapsToDevicePixels="True" ResizeMode="CanMinimize" Topmost="True" 
         WindowStartupLocation="CenterScreen" AllowDrop="True"
         Loaded="Window_Loaded" DragOver="Window_DragOver" Drop="Window_Drop" 
+        LocationChanged="Window_LocationChanged"
         PreviewKeyDown="Window_PreviewKeyDown" PreviewMouseUp="Window_PreviewMouseUp">
     <Grid x:Name="WindowContainer">
+        <Grid.Resources>
+            <Style x:Key="AlternatingWithTriggers" TargetType="{x:Type ListBoxItem}">
+                <Setter Property="Background" Value="{DynamicResource {x:Static SystemColors.WindowColorKey}}"/>
+                <Setter Property="Foreground" Value="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}"/>
+                <Style.Triggers>
+                    <Trigger Property="ListBox.AlternationIndex" Value="0">
+                        <Setter Property="Background" Value="{DynamicResource {x:Static SystemColors.WindowColorKey}}"/>
+                        <Setter Property="Foreground" Value="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}"/>
+                    </Trigger>
+                    <Trigger Property="ListBox.AlternationIndex" Value="1">
+                        <Setter Property="Background" Value="{DynamicResource {x:Static SystemColors.ControlLightBrushKey}}"/>
+                        <Setter Property="Foreground" Value="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}"/>
+                    </Trigger>
+                </Style.Triggers>
+            </Style>
+        </Grid.Resources>
+
         <Grid.RowDefinitions>
             <RowDefinition Height="auto"/>
             <RowDefinition Height="auto"/>
@@ -78,14 +96,20 @@
 
         <ProgressBar Grid.Row="2" x:Name="Progress" x:Uid="Progress" Height="4" Margin="6 4" Value="50" HorizontalAlignment="Stretch" VerticalAlignment="Center"/>
         
-        <ListBox Grid.Row="3" x:Name="FilesList" x:Uid="FilesList" Margin="6" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" IsTabStop="True" SelectionMode="Extended" SelectionChanged="FilesList_SelectionChanged">
+        <ListBox Grid.Row="3" x:Name="FilesList" x:Uid="FilesList" Margin="6" 
+                 HorizontalAlignment="Stretch" VerticalAlignment="Stretch" 
+                 AlternationCount="2" IsTabStop="True" SelectionMode="Extended" 
+                 ItemContainerStyle="{StaticResource AlternatingWithTriggers}"
+                 MouseMove="FilesList_MouseMove"
+                 SelectionChanged="FilesList_SelectionChanged" >
             <ListBox.ContextMenu>
                 <ContextMenu>
                     <MenuItem x:Name="GetFileTimeFromSelected" x:Uid="GetFileTimeFromSelected" Header="Get File Time From Selected File" Click="FilesListAction_Click"/>
                     <MenuItem x:Name="GetMetaTimeFromSelected" x:Uid="GetMetaTimeFromSelected" Header="Get Meta Time From Selected File" Click="FilesListAction_Click"/>
                     <Separator/>
                     <MenuItem x:Name="GetMetaInfoFromSelected" x:Uid="GetMetaInfoFromSelected" Header="Get Meta Info From Selected File" Click="FilesListAction_Click"/>
-                    <MenuItem x:Name="GetMetaInfoFromClipboard" x:Uid="GetMetaInfoFromClipboard" Header="Get Meta Info From Clipboard" Click="FilesListAction_Click"/>
+                    <MenuItem x:Name="GetClipboardMetaInfo" x:Uid="GetClipboardMetaInfo" Header="Get Meta Info From Clipboard" Click="FilesListAction_Click"/>
+                    <MenuItem x:Name="SetClipboardMetaInfo" x:Uid="SetClipboardMetaInfo" Header="Set Meta Info To Clipboard" Click="FilesListAction_Click"/>
                     <Separator/>
                     <MenuItem x:Name="GetFileTimeFromFilaName" x:Uid="GetFileTimeFromFilaName" Header="Get File Time From File Name" Click="FilesListAction_Click"/>
                     <MenuItem x:Name="SetFileTimeFromFileName" x:Uid="SetFileTimeFromFileName" Header="Set File Time From File Name" Click="FilesListAction_Click"/>
@@ -155,8 +179,9 @@
                     <MenuItem x:Name="RenameSelected" x:Uid="RenameSelected" Header="Rename Selected Files" Click="FilesListAction_Click"/>
                     <MenuItem x:Name="ReduceSelected" x:Uid="ReduceSelected" Header="Reduce Selected Files" Click="FilesListAction_Click"/>
                     <Separator/>
-                    <MenuItem x:Name="RemoveSelected" x:Uid="RemoveSelected" Header="Remove Selected File" Click="FilesListAction_Click"/>
-                    <MenuItem x:Name="RemoveAll" x:Uid="RemoveAll" Header="Remove All File" Click="FilesListAction_Click"/>
+                    <MenuItem x:Name="AddFromClipboard" x:Uid="AddFilesFromClipboard" Header="Add Files From Clipboard" Click="FilesListAction_Click"/>
+                    <MenuItem x:Name="RemoveSelected" x:Uid="RemoveSelected" Header="Remove Selected Files" Click="FilesListAction_Click"/>
+                    <MenuItem x:Name="RemoveAll" x:Uid="RemoveAll" Header="Remove All Files" Click="FilesListAction_Click"/>
                 </ContextMenu>
             </ListBox.ContextMenu>
         </ListBox>
@@ -179,7 +204,7 @@
         </Grid>
 
         <Popup x:Name="FileRenameInputPopup" AllowsTransparency="True" PlacementTarget="{Binding ElementName=WindowContainer}" Placement="Center"
-               UseLayoutRounding="True" StaysOpen="False">
+               UseLayoutRounding="True" StaysOpen="False" >
             <Grid x:Name="FileRenameInputPopupCanvas" Opacity="0.90">
                 <Grid.RowDefinitions>
 

@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.Specialized;
 using System.ComponentModel;
+using System.Configuration;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
@@ -21,7 +23,6 @@ using System.Xml;
 
 using ImageMagick;
 using CompactExifLib;
-using System.Configuration;
 
 namespace TouchMeta
 {
@@ -390,7 +391,7 @@ namespace TouchMeta
                             else Progress.ToolTip = $"{percent:P1} : {tooltip}";
 
                             if (percent >= 1 || percent <= 0) Title = DefaultTitle;
-                            else Title = $"{DefaultTitle} [{percent:P1} - {count}/{total}]";
+                            else SetTitle($"[{percent:P1} - {count}/{total}]");
                         }
                         catch { }
 
@@ -469,6 +470,7 @@ namespace TouchMeta
                 result = true;
             }
             catch (Exception ex) { ShowMessage(ex.Message, "ERROR"); }
+            finally { SetTitle(); }
             return (result);
         }
 
@@ -1265,6 +1267,42 @@ namespace TouchMeta
                                 desc.SetAttribute("xmlns:MicrosoftPhoto", xmp_ns_lookup["MicrosoftPhoto"]);
                                 desc.AppendChild(xml_doc.CreateElement("MicrosoftPhoto:DateTaken", "MicrosoftPhoto"));
                                 root_node.AppendChild(desc);
+                            }
+                        }
+                        #endregion
+
+                        #region Remove duplicate node
+                        var all_elements = new List<string>()
+                        {
+                            "dc:title",
+                            "dc:description",
+                            "dc:creator", "xmp:creator",
+                            "dc:subject", "MicrosoftPhoto:LastKeywordXMP", "MicrosoftPhoto:LastKeywordIPTC", "MicrosoftPhoto:LastKeywordIPTC_TIFF_IRB",
+                            "dc:rights",
+                            "xmp:CreateDate", "xmp:ModifyDate", "xmp:DateTimeOriginal", "xmp:DateTimeDigitized", "xmp:MetadataDate",
+                            "xmp:Rating", "MicrosoftPhoto:Rating",
+                            "exif:DateTimeDigitized", "exif:DateTimeOriginal",
+                            "tiff:DateTime",
+                            "MicrosoftPhoto:DateAcquired", "MicrosoftPhoto:DateTaken",
+                            "xmp:CreatorTool",
+                        };
+                        all_elements.AddRange(tag_author);
+                        all_elements.AddRange(tag_comments);
+                        all_elements.AddRange(tag_copyright);
+                        all_elements.AddRange(tag_date);
+                        all_elements.AddRange(tag_keywords);
+                        all_elements.AddRange(tag_rating);
+                        all_elements.AddRange(tag_subject);
+                        all_elements.AddRange(tag_title);
+                        foreach (var element in all_elements)
+                        {
+                            var nodes = xml_doc.GetElementsByTagName(element);
+                            if (nodes.Count > 1)
+                            {
+                                for (var i = 1; i < nodes.Count; i++)
+                                {
+                                    nodes[i].ParentNode.RemoveChild(nodes[i]);
+                                }
                             }
                         }
                         #endregion
@@ -2159,15 +2197,15 @@ namespace TouchMeta
             {
                 if (mode == ChangePropertyMode.Append)
                 {
-                    meta.RatingPercent = Math.Max(0, Math.Min(meta.RatingPercent ?? 0 + rating, 5));
+                    meta.RatingPercent = Math.Max(0, Math.Min(100, meta.RatingPercent ?? 0 + rating));
                 }
                 else if (mode == ChangePropertyMode.Remove)
                 {
-                    meta.RatingPercent = Math.Min(5, Math.Max(meta.RatingPercent ?? 0 - rating, 0));
+                    meta.RatingPercent = Math.Max(0, Math.Min(100, meta.RatingPercent ?? 0 - rating));
                 }
                 else if (mode == ChangePropertyMode.Replace)
                 {
-                    meta.RatingPercent = Math.Max(0, Math.Min(5, rating));
+                    meta.RatingPercent = Math.Max(0, Math.Min(100, rating));
                 }
                 else if (mode == ChangePropertyMode.Empty)
                 {
@@ -2247,13 +2285,21 @@ namespace TouchMeta
 
         #region PngCs Routines for Update PNG Image Metadata
         private static string[] png_meta_chunk_text = new string[]{ "iTXt", "tEXt", "zTXt" };
-
-        private static string DecompressGzipBytesToText(byte[] bytes, Encoding encoding = default(Encoding), int skip = 2)
+        //private static int GZIP_MAGIC = 35615;
+        private static byte[] GZIP_MAGIC_HEADER = new byte[] { 0x1F, 0x8B, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+        private static string GzipBytesToText(byte[] bytes, Encoding encoding = default(Encoding), int skip = 2)
         {
             var result = string.Empty;
             try
             {
                 if (encoding == default(Encoding)) encoding = Encoding.UTF8;
+                ///
+                /// below line is need in VS2015 (C# 6.0) must add a gzip header struct & skip two bytes of zlib header, 
+                /// VX2017 (c# 7.0+) work fina willout this line
+                ///
+#if DEBUG
+                if (bytes[0] != GZIP_MAGIC_HEADER[0] && bytes[1] != GZIP_MAGIC_HEADER[1]) bytes = GZIP_MAGIC_HEADER.Concat(bytes.Skip(2)).ToArray();
+#endif
                 using (var msi = new MemoryStream(bytes))
                 {
                     using (var mso = new MemoryStream())
@@ -2274,11 +2320,11 @@ namespace TouchMeta
                             }
                             result = encoding.GetString(buff.Skip(skip).ToArray());
                         }
-                        catch (Exception ex) { MessageBox.Show(ex.Message); };
+                        catch (Exception ex) { Log($"{ex.Message}{Environment.NewLine}{ex.StackTrace}"); };
                     }
                 }
             }
-            catch (Exception ex) { MessageBox.Show(ex.Message); }
+            catch (Exception ex) { Log($"{ex.Message}{Environment.NewLine}{ex.StackTrace}"); }
             return (result);
         }
 
@@ -2307,7 +2353,7 @@ namespace TouchMeta
                                 var value = string.Empty;
                                 if (chunk.Id.Equals("zTXt"))
                                 {
-                                    value = DecompressGzipBytesToText(raw.Data.Skip(key.Length + 2).SkipWhile(c => c == 0).ToArray());
+                                    value = GzipBytesToText(raw.Data.Skip(key.Length + 2).SkipWhile(c => c == 0).ToArray());
                                     if ((raw.Data.Length > key.Length + 2) && string.IsNullOrEmpty(value)) value = "(Decodeing Error)";
                                 }
                                 else if (chunk.Id.Equals("iTXt"))
@@ -2320,14 +2366,14 @@ namespace TouchMeta
                                     var text = string.Empty;
 
                                     if (vs[2] == 0 && vs[3] == 0)
-                                        text = compress_flag == 1 ? DecompressGzipBytesToText(vs.SkipWhile(c => c == 0).ToArray()) : encoding.GetString(vs.SkipWhile(c => c == 0).ToArray());
+                                        text = compress_flag == 1 ? GzipBytesToText(vs.SkipWhile(c => c == 0).ToArray()) : encoding.GetString(vs.SkipWhile(c => c == 0).ToArray());
                                     else if (vs[2] == 0 && vs[3] != 0)
                                     {
                                         var trans = vs.Skip(3).TakeWhile(c => c != 0);
                                         translate_tag = encoding.GetString(trans.ToArray());
 
                                         var txt = vs.Skip(3).Skip(trans.Count()).SkipWhile(c => c == 0);
-                                        text = compress_flag == 1 ? DecompressGzipBytesToText(txt.SkipWhile(c => c == 0).ToArray()) : encoding.GetString(txt.ToArray());
+                                        text = compress_flag == 1 ? GzipBytesToText(txt.SkipWhile(c => c == 0).ToArray()) : encoding.GetString(txt.ToArray());
                                     }
 
                                     value = full_field ? $"{(int)compress_flag}, {(int)compress_method}, {language_tag}, {translate_tag}, {text}" : text.Trim().Trim('\0');
@@ -2389,7 +2435,7 @@ namespace TouchMeta
                                 var value = string.Empty;
                                 if (chunk.Id.Equals("zTXt"))
                                 {
-                                    value = DecompressGzipBytesToText(raw.Data.Skip(key.Length + 2).ToArray());
+                                    value = GzipBytesToText(raw.Data.Skip(key.Length + 2).ToArray());
                                     if ((raw.Data.Length > key.Length + 2) && string.IsNullOrEmpty(value)) value = "(Decodeing Error)";
                                 }
                                 else if (chunk.Id.Equals("iTXt"))
@@ -2402,14 +2448,14 @@ namespace TouchMeta
                                     var text = string.Empty;
 
                                     if (vs[2] == 0 && vs[3] == 0)
-                                        text = compress_flag == 1 ? DecompressGzipBytesToText(vs.Skip(4).ToArray()) : encoding.GetString(vs.Skip(4).ToArray());
+                                        text = compress_flag == 1 ? GzipBytesToText(vs.Skip(4).ToArray()) : encoding.GetString(vs.Skip(4).ToArray());
                                     else if (vs[2] == 0 && vs[3] != 0)
                                     {
                                         var trans = vs.Skip(3).TakeWhile(c => c != 0);
                                         translate_tag = encoding.GetString(trans.ToArray());
 
                                         var txt = vs.Skip(3).Skip(trans.Count()).SkipWhile(c => c==0);
-                                        text = compress_flag == 1 ? DecompressGzipBytesToText(txt.ToArray()) : encoding.GetString(txt.ToArray());
+                                        text = compress_flag == 1 ? GzipBytesToText(txt.ToArray()) : encoding.GetString(txt.ToArray());
                                     }
 
                                     value = $"{(int)compress_flag}, {(int)compress_method}, {language_tag}, {translate_tag}, {text}";
@@ -2884,7 +2930,7 @@ namespace TouchMeta
                 result.Title = title;
                 result.Subject = string.IsNullOrEmpty(subject) ? link : subject;
                 result.Keywords = tags;
-                result.Comment = string.IsNullOrEmpty(subject) ? desc : $"{desc}{Environment.NewLine}{Environment.NewLine}{link}";
+                result.Comment = string.IsNullOrEmpty(subject) ? desc : (string.IsNullOrEmpty(id) ? desc : $"{desc}{Environment.NewLine}{Environment.NewLine}{link}");
                 result.Authors = string.IsNullOrEmpty(author) ? string.IsNullOrEmpty(uid) ? $"{user}" : $"{user}; uid:{uid}" : author;
                 result.Copyrights = string.IsNullOrEmpty(copyright) ? result.Authors : copyright;
 
@@ -2894,7 +2940,7 @@ namespace TouchMeta
             return (result);
         }
 
-        public static MetaInfo GetClipboardMetaInfo(MetaInfo meta)
+        public static MetaInfo GetMetaInfoFromClipboard(MetaInfo meta)
         {
             var result = meta;
             try
@@ -2942,6 +2988,53 @@ namespace TouchMeta
             }
             catch (Exception ex) { ShowMessage(ex.Message); }
             return (result);
+        }
+
+        public static void SetMetaInfoToClipboard(MetaInfo meta)
+        {
+            try
+            {
+                var is_fav = meta.Rating >= 4;
+                var dm = meta.DateTaken ?? meta.DateAcquired ?? meta.DateModified ?? meta.DateCreated ?? null;
+                var dm_str = dm.HasValue ? dm.Value.ToString("yyyy-MM-ddTHH:mm:ss") : string.Empty;
+
+                var sb_json = new StringBuilder();
+                sb_json.AppendLine("{");
+                sb_json.AppendLine($"  \"date\": \"{dm_str}\",");
+                sb_json.AppendLine($"  \"title\": \"{meta.Title}\",");
+                sb_json.AppendLine($"  \"subject\": \"{meta.Subject}\",");
+                sb_json.AppendLine($"  \"tags\": \"{meta.Keywords}\",");
+                sb_json.AppendLine($"  \"description\": \"{meta.Comment}\",");
+                sb_json.AppendLine($"  \"user\": \"{meta.Authors}\",");
+                sb_json.AppendLine($"  \"copyright\": \"{meta.Authors}\",");
+                sb_json.AppendLine($"  \"favorited\": {is_fav.ToString()},");
+                sb_json.AppendLine("}");
+                var json = sb_json.ToString();
+
+                var sb_xml = new StringBuilder();
+                sb_xml.AppendLine("<?xml version='1.0' standalone='no'?>");
+                sb_xml.AppendLine("<root>");
+                sb_xml.AppendLine($"  <date>{dm_str}</date>");
+                sb_xml.AppendLine($"  <title>{meta.Title}</title>");
+                sb_xml.AppendLine($"  <subject>{meta.Subject}</subject>");
+                sb_xml.AppendLine($"  <tags>{meta.Keywords}</tags>");
+                sb_xml.AppendLine($"  <description>{meta.Comment}</description>");
+                sb_xml.AppendLine($"  <user>{meta.Authors}</user>");
+                sb_xml.AppendLine($"  <copyright>{meta.Authors}</copyright>");
+                sb_xml.AppendLine($"  <favorited>{is_fav}</favorited>");
+                sb_xml.AppendLine("</root>");
+                var xml = sb_xml.ToString();
+
+                var dataObject = new DataObject();
+                dataObject.SetData("Xml", xml);
+                dataObject.SetData("PixivIllustJSON", json);
+                dataObject.SetData("PixivJSON", json);
+                dataObject.SetData("JSON", json);
+                dataObject.SetData(DataFormats.Text, json);
+                dataObject.SetData(DataFormats.UnicodeText, json);
+                Clipboard.SetDataObject(dataObject, true);
+            }
+            catch (Exception ex) { ShowMessage(ex.Message); }
         }
         #endregion
 
@@ -3628,6 +3721,41 @@ namespace TouchMeta
                                             }
                                         }
                                         #endregion
+                                        #region Remove duplicate node
+                                        var all_elements = new List<string>()
+                                        {
+                                            "dc:title",
+                                            "dc:description",
+                                            "dc:creator", "xmp:creator",
+                                            "dc:subject", "MicrosoftPhoto:LastKeywordXMP", "MicrosoftPhoto:LastKeywordIPTC", "MicrosoftPhoto:LastKeywordIPTC_TIFF_IRB",
+                                            "dc:rights",
+                                            "xmp:CreateDate", "xmp:ModifyDate", "xmp:DateTimeOriginal", "xmp:DateTimeDigitized",
+                                            "xmp:Rating", "MicrosoftPhoto:Rating",
+                                            "exif:DateTimeDigitized", "exif:DateTimeOriginal",
+                                            "tiff:DateTime",
+                                            "MicrosoftPhoto:DateAcquired", "MicrosoftPhoto:DateTaken",
+                                        };
+                                        all_elements.AddRange(tag_author);
+                                        all_elements.AddRange(tag_comments);
+                                        all_elements.AddRange(tag_copyright);
+                                        all_elements.AddRange(tag_date);
+                                        all_elements.AddRange(tag_keywords);
+                                        all_elements.AddRange(tag_rating);
+                                        all_elements.AddRange(tag_subject);
+                                        all_elements.AddRange(tag_title);
+                                        all_elements.Add(tag_software);
+                                        foreach (var element in all_elements)
+                                        {
+                                            var nodes = xml_doc.GetElementsByTagName(element);
+                                            if (nodes.Count > 1)
+                                            {
+                                                for (var i = 1; i < nodes.Count; i++)
+                                                {
+                                                    nodes[i].ParentNode.RemoveChild(nodes[i]);
+                                                }
+                                            }
+                                        }
+                                        #endregion
 
                                         #region xml nodes updating
                                         var rdf_attr = "xmlns:rdf";
@@ -3850,7 +3978,7 @@ namespace TouchMeta
 #if DEBUG
                             image.Endian = Endian.Undefined;
                             using (var ms = new MemoryStream())
-                            {                               
+                            {
                                 image.Write(ms, image.Format);
                                 File.WriteAllBytes(fi.FullName, ms.ToArray());
                             }
@@ -3999,6 +4127,7 @@ namespace TouchMeta
                         fi.CreationTime = dt.Value;
                         fi.LastWriteTime = dt.Value;
                         fi.LastAccessTime = dt.Value;
+                        Log($"Touching Metadata Time From To {dt.Value.ToString("yyyy-MM-ddTHH:mm:sszzz")}");
                     }
                 }
             }
@@ -4612,6 +4741,11 @@ namespace TouchMeta
                                 var value = string.Join("", meta["XML:com.adobe.xmp"].Split(new char[]{ '\0' }).Last().ToArray().SkipWhile(c => c != '<'));
                                 exif_in.SetTagRawData(CompactExifLib.ExifTag.XmpMetadata, ExifTagType.Byte, Encoding.UTF8.GetByteCount(value), Encoding.UTF8.GetBytes(value));
                             }
+                            else if (!exif_in.TagExists(CompactExifLib.ExifTag.XmpMetadata) && meta.ContainsKey("Raw profile type xmp"))
+                            {
+                                var value = string.Join("", meta["Raw profile type xmp"].Split(new char[]{ '\0' }).Last().ToArray().SkipWhile(c => c != '<'));
+                                exif_in.SetTagRawData(CompactExifLib.ExifTag.XmpMetadata, ExifTagType.Byte, Encoding.UTF8.GetByteCount(value), Encoding.UTF8.GetBytes(value));
+                            }
                             #endregion
                         }
                         else
@@ -4745,6 +4879,59 @@ namespace TouchMeta
             catch (Exception ex) { Log(ex.Message); }
         }
 
+        private IEnumerable<string> GetDropedFiles(object sc)
+        {
+            var result = new List<string>();
+            try
+            {
+                if ((sc is IEnumerable<string> && (sc as IEnumerable<string>).Count() > 0) ||
+                    (sc is StringCollection && (sc as StringCollection).Count > 0))
+                {
+                    if (sc is StringCollection)
+                    {
+                        string[] sa = new string[(sc as StringCollection).Count];
+                        (sc as StringCollection).CopyTo(sa, 0);
+                        result.AddRange(sa);
+                    }
+                    else result.AddRange(sc as IEnumerable<string>);
+                }
+            }
+            catch (Exception ex) { Log(ex.Message); }
+            return (result);
+        }
+
+        private void SetTitle(string text = "")
+        {
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                try
+                {
+                    if (string.IsNullOrEmpty(text))
+                        Title = $"{DefaultTitle} - [{FilesList.SelectedItems.Count}/{FilesList.Items.Count}]";
+                    else
+                        Title = $"{DefaultTitle} - {text}";
+                }
+                catch (Exception ex) { Log(ex.Message); }
+            }));
+        }
+
+        private void PopupFlowWindowsLocation(Popup popup)
+        {
+            try
+            {
+                if (popup is Popup && popup.IsOpen)
+                {
+                    var offset_v = popup.VerticalOffset;
+                    var offset_h = popup.HorizontalOffset;
+                    popup.HorizontalOffset = offset_h + 1;
+                    popup.HorizontalOffset = offset_h;
+                    popup.VerticalOffset = offset_v + 1;
+                    popup.VerticalOffset = offset_v;
+                }
+            }
+            catch { }
+        }
+
         public MainWindow()
         {
             InitializeComponent();
@@ -4820,6 +5007,12 @@ namespace TouchMeta
             LoadFiles(args.Skip(1).ToArray());
         }
 
+        private void Window_LocationChanged(object sender, EventArgs e)
+        {
+            if (MetaInputPopup.IsOpen) PopupFlowWindowsLocation(MetaInputPopup);
+            if (FileRenameInputPopup.IsOpen) PopupFlowWindowsLocation(FileRenameInputPopup);
+        }
+
         private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
         {
             if (e.Key == Key.Escape)
@@ -4836,6 +5029,7 @@ namespace TouchMeta
             {
                 Close();
             }
+            else if (!this.IsActive) this.Activate();
         }
 
         private void Window_DragOver(object sender, DragEventArgs e)
@@ -4844,7 +5038,7 @@ namespace TouchMeta
 #if DEBUG
             Debug.WriteLine(string.Join(", ", fmts));
 #endif
-            if (fmts.Contains("FileDrop") || fmts.Contains("Text"))
+            if (fmts.Contains("FileDrop") || fmts.Contains("Text") || fmts.Contains("Downloaded"))
             {
                 e.Effects = DragDropEffects.Copy;
             }
@@ -4853,21 +5047,34 @@ namespace TouchMeta
         private void Window_Drop(object sender, DragEventArgs e)
         {
             var fmts = e.Data.GetFormats(true);
-            if (fmts.Contains("FileDrop"))
+            if (fmts.Contains("Downloaded"))
             {
-                var files = e.Data.GetData("FileDrop");
-                if (files is IEnumerable<string> && (files as IEnumerable<string>).Count() > 0)
+                Dispatcher.BeginInvoke(new Action(() =>
                 {
-                    LoadFiles((files as IEnumerable<string>).ToArray());
-                }
+                    var files = e.Data.GetData("Downloaded");
+                    var dl = GetDropedFiles(files);
+                    if (dl.Count() > 0) LoadFiles(dl);
+                }));
+            }
+            else if (fmts.Contains("FileDrop"))
+            {
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    var files = e.Data.GetData("FileDrop");
+                    var dl = GetDropedFiles(files);
+                    if (dl.Count() > 0) LoadFiles(dl);
+                }));
             }
             else if (fmts.Contains("Text"))
             {
-                var files = (e.Data.GetData("Text") as string).Split();
-                if (files is IEnumerable<string> && files.Count() > 0)
+                Dispatcher.BeginInvoke(new Action(() =>
                 {
-                    LoadFiles((files as IEnumerable<string>).ToArray());
-                }
+                    var files = (e.Data.GetData("Text") as string).Split();
+                    if (files is IEnumerable<string> && files.Count() > 0)
+                    {
+                        LoadFiles((files as IEnumerable<string>).ToArray());
+                    }
+                }));
             }
         }
 
@@ -4933,13 +5140,44 @@ namespace TouchMeta
             }
         }
 
+        private void FilesList_MouseMove(object sender, MouseEventArgs e)
+        {
+            if (e.LeftButton == MouseButtonState.Pressed)
+            {
+                e.Handled = true;
+                var force = Keyboard.Modifiers == ModifierKeys.Shift;
+                var pos = e.GetPosition(this);
+                if (force || pos.X < 0 || pos.X > this.Width || pos.Y < 0 || pos.Y > this.Height)
+                {
+                    try
+                    {
+                        var files = FilesList.SelectedItems.Count > 0 ? FilesList.SelectedItems : FilesList.Items;
+                        var fl = new string[files.Count];
+                        files.CopyTo(fl, 0);
+
+                        var fdl = new StringCollection();
+                        fdl.AddRange(fl);
+                        var dp = new DataObject(fdl);
+                        dp.SetFileDropList(fdl);
+                        DragDrop.DoDragDrop(this, dp, DragDropEffects.Copy);
+                    }
+                    catch (Exception ex) { Log(ex.Message); }
+                }
+#if DEBUG
+                System.Diagnostics.Debug.WriteLine($"POS: X => {pos.X}, Y => {pos.Y}");
+#endif
+            }
+        }
+
         private void FilesList_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
+            e.Handled = true;
             if (FilesList.SelectedItem != null)
             {
                 var file = FilesList.SelectedItem as string;
                 UpdateFileTimeInfo(file);
             }
+            SetTitle();
         }
 
         private void FilesListAction_Click(object sender, RoutedEventArgs e)
@@ -4998,10 +5236,16 @@ namespace TouchMeta
                     #endregion
                 }
             }
-            else if (sender == GetMetaInfoFromClipboard)
+            else if (sender == GetClipboardMetaInfo)
             {
                 #region Get Metadata Infomation From Clipboard
-                CurrentMeta = GetClipboardMetaInfo(CurrentMeta);
+                CurrentMeta = GetMetaInfoFromClipboard(CurrentMeta);
+                #endregion
+            }
+            else if (sender == SetClipboardMetaInfo)
+            {
+                #region Get Metadata Infomation From Clipboard
+                SetMetaInfoToClipboard(CurrentMeta);
                 #endregion
             }
             #endregion
@@ -5416,7 +5660,35 @@ namespace TouchMeta
                 ReduceImageSize(MagickFormat.Jpg, keep_name: true);
             }
             #endregion
-            #region Remove Image File(s) From List
+            #region Add/Remove Image File(s) From List
+            else if (sender == AddFromClipboard)
+            {
+                #region Add Files From Clipboard
+                try
+                {
+                    string[] files = new string[] { };
+                    if (Clipboard.ContainsFileDropList())
+                    {
+                        var flist = Clipboard.GetFileDropList();
+                        files = new string[flist.Count];
+                        flist.CopyTo(files, 0);
+                    }
+                    else if (Clipboard.ContainsText())
+                    {
+                        files = Clipboard.GetText().Split();
+                    }
+
+                    if (files is IEnumerable<string> && files.Count() > 0)
+                    {
+                        Dispatcher.BeginInvoke(new Action(() =>
+                        {
+                            LoadFiles((files as IEnumerable<string>).ToArray());
+                        }));
+                    }
+                }
+                catch (Exception ex) { ShowMessage(ex.Message, "ERROR"); }
+                #endregion
+            }
             else if (sender == RemoveSelected)
             {
                 #region From Files List Remove Selected Files
@@ -5510,6 +5782,10 @@ namespace TouchMeta
             }
             else if (sender == BtnShowMeta)
             {
+                if (Keyboard.Modifiers == ModifierKeys.Alt || Mouse.XButton1 == MouseButtonState.Pressed)
+                {
+                    SetMetaInfoToClipboard(CurrentMeta);
+                }
                 #region Show Metadata
                 bool xmp_merge_nodes = Keyboard.Modifiers == ModifierKeys.Control;
                 RunBgWorker(new Action<string, bool>((file, show_xmp) =>
@@ -5578,18 +5854,32 @@ namespace TouchMeta
             }
             else if (sender == ShowHelp)
             {
-                var lines = new List<string>();
-                lines.Add("Usage");
-                lines.Add("-".PadRight(NormallyMessageWidth, '-'));
+                if (Keyboard.Modifiers == ModifierKeys.Alt || Mouse.XButton1 == MouseButtonState.Pressed)
+                {
+                    ShowLog();
+                }
+                else if (Keyboard.Modifiers == ModifierKeys.Shift || Mouse.XButton2 == MouseButtonState.Pressed)
+                {
+                    var fl = FilesList.SelectedItems.Count > 0 ? FilesList.SelectedItems : FilesList.Items;
+                    var fa = new string[fl.Count];
+                    fl.CopyTo(fa, 0);
+                    Clipboard.SetText(string.Join(Environment.NewLine, fa));
+                }
+                else
+                {
+                    var lines = new List<string>();
+                    lines.Add("Usage");
+                    lines.Add("-".PadRight(NormallyMessageWidth, '-'));
 
-                lines.Add("Ctrl+Click Touch Time Button : Force Touching DateTime");
-                lines.Add("Ctrl+Click Touch Meta Button : Force Touching Metadata");
+                    lines.Add("Ctrl+Click Touch Time Button : Force Touching DateTime");
+                    lines.Add("Ctrl+Click Touch Meta Button : Force Touching Metadata");
 
-                lines.Add("~".PadRight(NormallyMessageWidth, '~'));
-                lines.Add("Note:");
-                lines.Add("Convert To AVIIF Format is very slowly and Huge CPU/Memory Usage, so NOT RECOMMENDED!");
-                lines.Add("=".PadRight(NormallyMessageWidth, '='));
-                ShowMessage(string.Join(Environment.NewLine, lines), "Usage");
+                    lines.Add("~".PadRight(NormallyMessageWidth, '~'));
+                    lines.Add("Note:");
+                    lines.Add("Convert To AVIIF Format is very slowly and Huge CPU/Memory Usage, so NOT RECOMMENDED!");
+                    lines.Add("=".PadRight(NormallyMessageWidth, '='));
+                    ShowMessage(string.Join(Environment.NewLine, lines), "Usage");
+                }
             }
         }
 
