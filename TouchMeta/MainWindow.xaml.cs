@@ -49,8 +49,8 @@ namespace TouchMeta
         public int? RatingPercent { get; set; } = null;
         public int? Rating { get; set; } = null;
 
-        public Dictionary<string, string> Attributes { get; set; } = null;
-        public Dictionary<string, IImageProfile> Profiles { get; set; } = null;
+        public Dictionary<string, string> Attributes { get; set; } = new Dictionary<string, string>();
+        public Dictionary<string, IImageProfile> Profiles { get; set; } = new Dictionary<string, IImageProfile>();
     }
 
     public enum ChangePropertyMode { None = 0, Append = 1, Remove = 2, Replace = 3, Empty = 4 };
@@ -773,7 +773,7 @@ namespace TouchMeta
         }
 
         private static char[] DateTimeTrimSymbols = new char[] {
-            '·',
+            ' ', '·',
             '`', '~', '!', '@', '#', '$', '%', '^', '&', '*', ':', ';', '?', ',', '.', '+', '-', '_',
             '！', '＠', '＃', '＄', '％', '＾', '＆', '＊', '～',  '。', '，', '；', '：', '＇', '？', '，', '．', '＝', '－', '＿', '＋',
             '|', '\'', '/', '＼', '／', '｜',
@@ -792,9 +792,12 @@ namespace TouchMeta
                 result = Regex.Replace(result, @"点|點|時|时", "时 ", RegexOptions.IgnoreCase);
                 result = Regex.Replace(result, $@"早 *?上|午 *?前|{AM}|AM", $"{AM} ", RegexOptions.IgnoreCase);
                 result = Regex.Replace(result, $@"晚 *?上|午 *?後|{PM}|PM", $"{PM} ", RegexOptions.IgnoreCase);
+                result = Regex.Replace(result, @"[·](Twitter|Tweet).*?$", "", RegexOptions.IgnoreCase);
                 result = Regex.Replace(result, @"[·]", " ", RegexOptions.IgnoreCase);
                 result = result.Trim(DateTimeTrimSymbols);
-                DateTime.Parse(result);
+
+                DateTime dt;
+                if (DateTime.TryParse(result, out dt)) result = dt.ToString();
             }
             catch (Exception ex) { Log(ex.Message); }
             return (result.Trim());
@@ -990,9 +993,9 @@ namespace TouchMeta
             return (result);
         }
 
-        private static string TouchXMP(FileInfo fi, string xml, MetaInfo meta)
+        private static string TouchXMP(string xml, FileInfo fi, MetaInfo meta)
         {
-            if (meta is MetaInfo)
+            if (meta is MetaInfo && fi is FileInfo)
             {
                 var title = meta is MetaInfo ? meta.Title ?? Path.GetFileNameWithoutExtension(fi.Name) : Path.GetFileNameWithoutExtension(fi.Name);
                 var subject = meta is MetaInfo ? meta.Subject : title;
@@ -2870,11 +2873,11 @@ namespace TouchMeta
                         {
                             int ranking;
                             if (exifdata.GetTagValue(CompactExifLib.ExifTag.Rating, out ranking) && ranking != result.Rating)
-                                result.Rating = ranking;
+                                result.Rating = result.Rating ?? ranking;
                             result.RatingPercent = RankingToRating(result.Rating);
                             int rating;
                             if (exifdata.GetTagValue(CompactExifLib.ExifTag.RatingPercent, out rating) && rating != result.RatingPercent)
-                                result.RatingPercent = rating;
+                                result.RatingPercent = result.RatingPercent ?? rating;
                             result.Rating = RatingToRanking(result.RatingPercent);
                         }
                         if (exifdata.TagExists(CompactExifLib.ExifTag.XmpMetadata))
@@ -2902,10 +2905,19 @@ namespace TouchMeta
             MetaInfo result = meta is MetaInfo ? meta : new MetaInfo();
             if (xml is XmlDocument)
             {
-                var id = xml.GetElementsByTagName("id").Count > 0 ? xml.GetElementsByTagName("id")[0].InnerText : string.Empty;
-                var date = xml.GetElementsByTagName("date").Count > 0 ? xml.GetElementsByTagName("date")[0].InnerText : string.Empty;
-                var title = xml.GetElementsByTagName("title").Count > 0 ? xml.GetElementsByTagName("title")[0].InnerText : string.Empty;
-                var subject = xml.GetElementsByTagName("subject").Count > 0 ? xml.GetElementsByTagName("subject")[0].InnerText : string.Empty;
+                XmlDocument node = xml;
+                if (xml.GetElementsByTagName("illust").Count > 0)
+                {
+                    node = new XmlDocument();
+                    node.LoadXml(xml.InnerXml);
+                    node.DocumentElement.RemoveAll();
+                    var child = node.ImportNode(xml.GetElementsByTagName("illust")[0], true);
+                    node.DocumentElement.AppendChild(child);
+                }
+                var id = node.GetElementsByTagName("id").Count > 0 ? xml.GetElementsByTagName("id")[0].InnerText : string.Empty;
+                var date = node.GetElementsByTagName("date").Count > 0 ? xml.GetElementsByTagName("date")[0].InnerText : string.Empty;
+                var title = node.GetElementsByTagName("title").Count > 0 ? xml.GetElementsByTagName("title")[0].InnerText : string.Empty;
+                var subject = node.GetElementsByTagName("subject").Count > 0 ? xml.GetElementsByTagName("subject")[0].InnerText : string.Empty;
                 var desc = xml.GetElementsByTagName("description").Count > 0 ? xml.GetElementsByTagName("description")[0].InnerText : string.Empty;
                 var tags = xml.GetElementsByTagName("tags").Count > 0 ? xml.GetElementsByTagName("tags")[0].InnerText : string.Empty;
                 var favor = xml.GetElementsByTagName("favorited").Count > 0 ? xml.GetElementsByTagName("favorited")[0].InnerText : string.Empty;
@@ -4098,6 +4110,27 @@ namespace TouchMeta
             else Log($"File \"{file}\" not exists!");
         }
 
+        public static void TouchMetaDate(MagickImage image, FileInfo fi = null, DateTime? dt = null)
+        {
+            if (image is MagickImage)
+            {
+                foreach (var tag in tag_date)
+                {
+                    if (tag.StartsWith("exif"))
+                        //image.SetAttribute(tag, dt.Value.ToString("yyyy:MM:dd HH:mm:ss"));
+                        SetAttribute(image, tag, dt.Value.ToString("yyyy:MM:dd HH:mm:ss"));
+                    else if (tag.StartsWith("MicrosoftPhoto"))
+                        image.SetAttribute(tag, dt.Value.ToString("yyyy-MM-ddTHH:mm:ss.fff"));
+                    else
+                        image.SetAttribute(tag, dt.Value.ToString("yyyy:MM:dd HH:mm:sszzz"));
+                }
+                var meta_new = GetMetaInfo(image);
+                var xml = image.HasProfile("xmp") ? Encoding.UTF8.GetString(image.GetXmpProfile().GetData()) : string.Empty;
+                xml = TouchXMP(xml, fi, meta_new);
+                image.SetProfile(new XmpProfile(Encoding.UTF8.GetBytes(xml)));
+            }
+        }
+
         public static void TouchMetaDate(string file, DateTime? dt = null)
         {
             ///
@@ -4112,22 +4145,13 @@ namespace TouchMeta
                     var fi = new FileInfo(file);
                     using (var image = new MagickImage(fi.FullName))
                     {
-                        foreach (var tag in tag_date)
-                        {
-                            if (tag.StartsWith("exif"))
-                                image.SetAttribute(tag, dt.Value.ToString("yyyy:MM:dd HH:mm:ss"));
-                            else if (tag.StartsWith("MicrosoftPhoto"))
-                                image.SetAttribute(tag, dt.Value.ToString("yyyy-MM-ddTHH:mm:ss.fff"));
-                        }
-                        var meta_new = GetMetaInfo(image);
-                        var xml = image.HasProfile("xmp") ? Encoding.UTF8.GetString(image.GetXmpProfile().GetData()) : string.Empty;
-                        xml = TouchXMP(fi, xml, meta_new);
-                        image.SetProfile(new XmpProfile(Encoding.UTF8.GetBytes(xml)));
+                        var dt_old = GetMetaTime(image);
+                        TouchMetaDate(image, fi, dt);
                         image.Write(fi.FullName, image.Format);
                         fi.CreationTime = dt.Value;
                         fi.LastWriteTime = dt.Value;
                         fi.LastAccessTime = dt.Value;
-                        Log($"Touching Metadata Time From To {dt.Value.ToString("yyyy-MM-ddTHH:mm:sszzz")}");
+                        Log($"Touching Metadata Time From {dt_old.Value.ToString("yyyy-MM-ddTHH:mm:sszzz")} To {dt.Value.ToString("yyyy-MM-ddTHH:mm:sszzz")}");
                     }
                 }
             }
@@ -4148,21 +4172,9 @@ namespace TouchMeta
                 {
                     using (var image = new MagickImage(src))
                     {
-                        foreach (var tag in tag_date)
-                        {
-                            if (tag.StartsWith("exif"))
-                                image.SetAttribute(tag, dt.Value.ToString("yyyy:MM:dd HH:mm:ss"));
-                            else if (tag.StartsWith("MicrosoftPhoto"))
-                                image.SetAttribute(tag, dt.Value.ToString("yyyy-MM-ddTHH:mm:ss.fff"));
-                        }
-                        var meta_new = GetMetaInfo(image);
-                        var xml = image.HasProfile("xmp") ? Encoding.UTF8.GetString(image.GetXmpProfile().GetData()) : string.Empty;
-                        xml = TouchXMP(fi, xml, meta_new);
-                        image.SetProfile(new XmpProfile(Encoding.UTF8.GetBytes(xml)));
-                        using (result = new MemoryStream())
-                        {
-                            image.Write(result, image.Format);
-                        }
+                        TouchMetaDate(image, fi, dt);
+                        result = new MemoryStream();
+                        image.Write(result, image.Format);
                     }
                 }
             }
@@ -4279,7 +4291,7 @@ namespace TouchMeta
                             exif.GetTagRawData(CompactExifLib.ExifTag.XmpMetadata, out type, out bytecount, out bytes);
                             if (bytes is byte[] && bytecount > 0) xmp = Encoding.UTF8.GetString(bytes);
                         }
-                        xmp = TouchXMP(fi, xmp, meta);
+                        xmp = TouchXMP(xmp, fi, meta);
                         //exif.SetTagValue(CompactExifLib.ExifTag.XmpMetadata, xmp, StrCoding.Utf8);
                         exif.SetTagRawData(CompactExifLib.ExifTag.XmpMetadata, ExifTagType.Byte, Encoding.UTF8.GetByteCount(xmp), Encoding.UTF8.GetBytes(xmp));
                         #endregion
@@ -5312,7 +5324,7 @@ namespace TouchMeta
                 #region Touching File Time
                 RunBgWorker(new Action<string, bool>((file, show_xmp) =>
                 {
-                    TouchMetaDate(file, File.GetCreationTime(file));
+                    TouchMetaDate(file, alt ? CurrentMeta.DateCreated : File.GetCreationTime(file));
                 }));
                 #endregion
             }
@@ -5322,7 +5334,7 @@ namespace TouchMeta
                 RunBgWorker(new Action<string, bool>((file, show_xmp) =>
                 {
                     //#if DEBUG
-                    TouchMetaDate(file, File.GetLastWriteTime(file));
+                    TouchMetaDate(file, alt ? CurrentMeta.DateModified : File.GetLastWriteTime(file));
                     //#else
                     //                    TouchMeta(file, force: force, dtm: File.GetLastWriteTime(file), meta: meta);
                     //#endif
@@ -5334,7 +5346,7 @@ namespace TouchMeta
                 #region Touching File Time
                 RunBgWorker(new Action<string, bool>((file, show_xmp) =>
                 {
-                    TouchMetaDate(file, File.GetLastAccessTime(file));
+                    TouchMetaDate(file, alt ? CurrentMeta.DateAccesed : File.GetLastAccessTime(file));
                 }));
                 #endregion
             }
