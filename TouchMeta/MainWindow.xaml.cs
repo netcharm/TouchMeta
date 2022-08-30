@@ -4390,7 +4390,7 @@ namespace TouchMeta
                                 Log($"{"ColormapSize".PadRight(cw)}= {image.ColormapSize}");
                                 //Log($"{"TotalColors".PadRight(cw)}= {image.TotalColors}");
                                 Log($"{"FormatInfo".PadRight(cw)}= {image.FormatInfo.Format.ToString()}, MIME:{image.FormatInfo.MimeType}");
-                                Log($"{"ByteOrder".PadRight(cw)}= {exifdata.ByteOrder.ToString()}");
+                                Log($"{"ByteOrder".PadRight(cw)}= {(exifdata is ExifData ? exifdata.ByteOrder.ToString() : image.Endian.ToString())}");
                                 Log($"{"ClassType".PadRight(cw)}= {image.ClassType.ToString()}");
                                 //Log($"{"Geometry".PadRight(cw)}= {image.Page.ToString()}");
                                 Log($"{"Compression".PadRight(cw)}= {image.Compression.ToString()}");
@@ -4545,12 +4545,13 @@ namespace TouchMeta
                 {
                     try
                     {
-                        var exifdata = new CompactExifLib.ExifData(ms);
+                        ExifData exifdata = null;
+                        try { exifdata = new ExifData(ms); } catch { };
                         ms.Seek(0, SeekOrigin.Begin);
 
                         using (MagickImage image = new MagickImage(ms))
                         {
-                            if (image.Endian == Endian.Undefined) image.Endian = exifdata.ByteOrder == ExifByteOrder.BigEndian ? Endian.MSB : Endian.LSB;
+                            if (exifdata is ExifData && image.Endian == Endian.Undefined) image.Endian = exifdata.ByteOrder == ExifByteOrder.BigEndian ? Endian.MSB : Endian.LSB;
 
                             var meta = GetMetaInfo(image);
 
