@@ -1778,6 +1778,8 @@ namespace TouchMeta
                                 {
                                     if (tag_value.Tag == ImageMagick.ExifTag.ExifVersion)
                                         result = BytesToString(tag_value.GetValue() as byte[], true, is_msb);
+                                    else if (tag_value.Tag == ImageMagick.ExifTag.GPSProcessingMethod || tag_value.Tag == ImageMagick.ExifTag.MakerNote)
+                                        result = Encoding.UTF8.GetString(tag_value.GetValue() as byte[]).TrimEnd('\0').Trim();
                                     else
                                         result = BytesToString(tag_value.GetValue() as byte[], false, is_msb);
                                 }
