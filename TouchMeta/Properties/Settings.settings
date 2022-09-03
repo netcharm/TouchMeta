@@ -8,5 +8,8 @@
     <Setting Name="ReduceQuality" Type="System.Int32" Scope="Application">
       <Value Profile="(Default)">75</Value>
     </Setting>
+    <Setting Name="TopMost" Type="System.Boolean" Scope="Application">
+      <Value Profile="(Default)">False</Value>
+    </Setting>
   </Settings>
 </SettingsFile>

@@ -23,6 +23,8 @@ using System.Xml;
 
 using ImageMagick;
 using CompactExifLib;
+using System.Windows.Interop;
+using System.Runtime.InteropServices;
 
 namespace TouchMeta
 {
@@ -58,19 +60,19 @@ namespace TouchMeta
     [Flags]
     public enum ChangePropertyType
     {
-        None       = 0x0000, //0b00000000,
-        Title      = 0x0001, //0b00000001,
-        Subject    = 0x0002, //0b00000010,
-        Keywords   = 0x0004, //0b00000100,
-        Comment    = 0x0008, //0b00001000,
-        Authors    = 0x0010, //0b00010000,
+        None = 0x0000, //0b00000000,
+        Title = 0x0001, //0b00000001,
+        Subject = 0x0002, //0b00000010,
+        Keywords = 0x0004, //0b00000100,
+        Comment = 0x0008, //0b00001000,
+        Authors = 0x0010, //0b00010000,
         Copyrights = 0x0020, //0b00100000,
-        Rating     = 0x0040, //0b01000000,
-        Ranking    = 0x0080, //0b10000000,
+        Rating = 0x0040, //0b01000000,
+        Ranking = 0x0080, //0b10000000,
 
-        DateTime   = 0x4000,
-        Smart      = 0x8000,
-        All        = 0xFFFF,
+        DateTime = 0x4000,
+        Smart = 0x8000,
+        All = 0xFFFF,
     };
 
     /// <summary>
@@ -85,8 +87,10 @@ namespace TouchMeta
 
         private const string ConvertQualityKey = "ConvertQuality";
         private const string ReduceQualityKey = "ReduceQuality";
+        private const string AlwaysTopMostKey = "TopMost";
         private int ConvertQuality = Properties.Settings.Default.ConvertQuality;
         private int ReduceQuality = Properties.Settings.Default.ReduceQuality;
+        private bool AlwaysTopMost = Properties.Settings.Default.TopMost;
 
         private static Configuration config = ConfigurationManager.OpenExeConfiguration(AppExec);
         private static AppSettingsSection appSection = config.AppSettings;
@@ -126,21 +130,39 @@ namespace TouchMeta
             string result = string.Empty;
             if (appSection is AppSettingsSection)
             {
-                try
+                if (appSection.Settings.AllKeys.Contains(key))
                 {
                     result = appSection.Settings[key].Value;
+                    if (string.IsNullOrEmpty(result)) result = value.ToString();
                 }
-                catch
+                else
                 {
                     if (value != null)
+                    {
                         appSection.Settings.Add(key, value.ToString());
-                    else
-                        appSection.Settings.Add(key, string.Empty);
-
-                    config.Save();
+                        config.Save();
+                    }
                 }
             }
             return (result);
+        }
+
+        private void SetConfigValue(string key, object value = null)
+        {
+            if (appSection is AppSettingsSection)
+            {
+                if (value != null)
+                {
+                    if (appSection.Settings.AllKeys.Contains(key))
+                        appSection.Settings[key].Value = value.ToString();
+                    else
+                        appSection.Settings.Add(key, value.ToString());
+                }
+                else if (appSection.Settings.AllKeys.Contains(key))
+                    appSection.Settings.Remove(key);
+
+                config.Save();
+            }
         }
         #endregion
 
@@ -1583,6 +1605,9 @@ namespace TouchMeta
                     _current_meta_.DateCreated = DateCreated.SelectedDate;
                     _current_meta_.DateModified = DateModified.SelectedDate;
                     _current_meta_.DateAccesed = DateAccessed.SelectedDate;
+
+                    _current_meta_.DateAcquired = null;
+                    _current_meta_.DateTaken = null;
 
                     _current_meta_.Title = string.IsNullOrEmpty(MetaInputTitleText.Text) ? null : MetaInputTitleText.Text;
                     _current_meta_.Subject = string.IsNullOrEmpty(MetaInputSubjectText.Text) ? null : MetaInputSubjectText.Text;
@@ -3161,16 +3186,16 @@ namespace TouchMeta
                             var xmp = image.HasProfile("xmp") ? image.GetXmpProfile() : null;
 
                             #region touch date
-                            var dc = dtc ?? (meta is MetaInfo ? meta.DateCreated ?? meta.DateAcquired ?? meta.DateTaken : null) ?? fi.CreationTime;
-                            var dm = dtm ?? (meta is MetaInfo ? meta.DateModified ?? meta.DateAcquired ?? meta.DateTaken : null) ?? fi.LastWriteTime;
-                            var da = dta ?? (meta is MetaInfo ? meta.DateAccesed ?? meta.DateAcquired ?? meta.DateTaken : null) ?? fi.LastAccessTime;
+                            var dc = dtc ?? (meta is MetaInfo ? meta.DateAcquired ?? meta.DateTaken ?? meta.DateCreated : null) ?? fi.CreationTime;
+                            var dm = dtm ?? (meta is MetaInfo ? meta.DateAcquired ?? meta.DateTaken ?? meta.DateModified : null) ?? fi.LastWriteTime;
+                            var da = dta ?? (meta is MetaInfo ? meta.DateAcquired ?? meta.DateTaken ?? meta.DateAccesed : null) ?? fi.LastAccessTime;
 
                             if (!force)
                             {
                                 var dt = GetMetaTime(image);
-                                dc = dt ?? dtc ?? (meta is MetaInfo ? meta.DateCreated ?? meta.DateAcquired ?? meta.DateTaken : null) ?? fi.CreationTime;
-                                dm = dt ?? dtm ?? (meta is MetaInfo ? meta.DateModified ?? meta.DateAcquired ?? meta.DateTaken : null) ?? fi.LastWriteTime;
-                                da = dt ?? dta ?? (meta is MetaInfo ? meta.DateAccesed ?? meta.DateAcquired ?? meta.DateTaken : null) ?? fi.LastAccessTime;
+                                dc = dt ?? dtc ?? (meta is MetaInfo ? meta.DateAcquired ?? meta.DateTaken ?? meta.DateCreated : null) ?? fi.CreationTime;
+                                dm = dt ?? dtm ?? (meta is MetaInfo ? meta.DateAcquired ?? meta.DateTaken ?? meta.DateModified : null) ?? fi.LastWriteTime;
+                                da = dt ?? dta ?? (meta is MetaInfo ? meta.DateAcquired ?? meta.DateTaken ?? meta.DateAccesed : null) ?? fi.LastAccessTime;
                             }
 
                             // 2021:09:13 11:00:16
@@ -4191,9 +4216,9 @@ namespace TouchMeta
                 if (File.Exists(file))
                 {
                     var fi = new FileInfo(file);
-                    var dc = dtc ?? (meta is MetaInfo ? meta.DateCreated : null) ?? fi.CreationTime;
-                    var dm = dtm ?? (meta is MetaInfo ? meta.DateModified : null) ?? fi.LastWriteTime;
-                    var da = dta ?? (meta is MetaInfo ? meta.DateAccesed : null) ?? fi.LastAccessTime;
+                    var dc = dtc ?? (meta is MetaInfo ? meta.DateAcquired ?? meta.DateTaken ?? meta.DateCreated : null) ?? fi.CreationTime;
+                    var dm = dtm ?? (meta is MetaInfo ? meta.DateAcquired ?? meta.DateTaken ?? meta.DateModified : null) ?? fi.LastWriteTime;
+                    var da = dta ?? (meta is MetaInfo ? meta.DateAcquired ?? meta.DateTaken ?? meta.DateAccesed : null) ?? fi.LastAccessTime;
 
                     var exif = new ExifData(file);
                     if (exif is ExifData)
@@ -4871,6 +4896,208 @@ namespace TouchMeta
         }
         #endregion
 
+        #region Process SystemMenu
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="hWnd"></param>
+        /// <param name="bRevert"></param>
+        /// <returns></returns>
+        [DllImport("user32.dll")]
+        private static extern IntPtr GetSystemMenu(IntPtr hWnd, bool bRevert);
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="hMenu"></param>
+        /// <param name="wPosition"></param>
+        /// <param name="wFlags"></param>
+        /// <param name="wIDNewItem"></param>
+        /// <param name="lpNewItem"></param>
+        /// <returns></returns>
+        [DllImport("user32.dll")]
+        private static extern bool InsertMenu(IntPtr hMenu, int wPosition, int wFlags, int wIDNewItem, string lpNewItem);
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="hMenu"></param>
+        /// <param name="uItem"></param>
+        /// <param name="fByPosition"></param>
+        /// <param name="lpmii"></param>
+        /// <returns></returns>
+        [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
+        private static extern bool GetMenuItemInfo(IntPtr hMenu, uint uItem, bool fByPosition, MENUITEMINFO lpmii);
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="hMenu"></param>
+        /// <param name="uItem"></param>
+        /// <param name="fByPosition"></param>
+        /// <param name="lpmii"></param>
+        /// <returns></returns>
+        [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
+        private static extern bool SetMenuItemInfo(IntPtr hMenu, uint uItem, bool fByPosition, MENUITEMINFO lpmii);
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="hMenu"></param>
+        /// <param name="uItem"></param>
+        /// <param name="uCheck"></param>
+        /// <returns></returns>
+        [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
+        private static extern bool CheckMenuItem(IntPtr hMenu, uint uItem, uint uCheck);
+
+        /// <summary>
+        /// 
+        /// </summary>
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Auto)]        
+        private class MENUITEMINFO
+        {
+            public int cbSize;
+            public uint fMask;
+            public uint fType;
+            public uint fState;
+            public uint wID;
+            public IntPtr hSubMenu;
+            public IntPtr hbmpChecked;
+            public IntPtr hbmpUnchecked;
+            public IntPtr dwItemData;
+            public IntPtr dwTypeData;
+            public uint cch;
+            public IntPtr hbmpItem;
+
+            public MENUITEMINFO()
+            {
+                cbSize = Marshal.SizeOf(typeof(MENUITEMINFO));
+            }
+        }
+
+        ///A window receives this message when the user chooses a command from the Window menu, 
+        ///or when the user chooses the maximize button, minimize button, restore button, or close button.
+        private const int WM_SYSCOMMAND = 0x0112;
+
+        ///Draws a horizontal dividing line.This flag is used only in a drop-down menu, submenu, 
+        ///or shortcut menu.The line cannot be grayed, disabled, or highlighted.
+        private const int MF_SEPARATOR = 0x0800;
+
+        private const int MFS_UNCHECKED = 0x0000;
+        private const int MFS_CHECKED = 0x0008;
+
+        ///Specifies that an ID is a position index into the menu and not a command ID.
+        private const int MF_BYPOSITION = 0x4000;
+
+        ///Specifies that the menu item is a text string.
+        private const uint MF_STRING = 0x0000;
+
+        ///Menu Ids for our custom menu items
+        private const int _ItemTopMostMenuId = 1000;
+        private const int _ItemAboutMenuID = 1001;
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="topmost"></param>
+        private void InitHookWndProc(bool topmost = false)
+        {
+            IntPtr windowhandle = new WindowInteropHelper(this).Handle;
+            HwndSource hwndSource = HwndSource.FromHwnd(windowhandle);
+
+            //Get the handle for the system menu
+            IntPtr systemMenuHandle = GetSystemMenu(windowhandle, false);
+
+            //Insert our custom menu items
+            InsertMenu(systemMenuHandle, 5, MF_BYPOSITION | MF_SEPARATOR, 0, string.Empty); //Add a menu seperator
+            if (topmost)
+                InsertMenu(systemMenuHandle, 6, MF_BYPOSITION | MFS_CHECKED, _ItemTopMostMenuId, "Always On Top"); //Add a setting menu item
+            else
+                InsertMenu(systemMenuHandle, 6, MF_BYPOSITION | MFS_UNCHECKED, _ItemTopMostMenuId, "Always On Top"); //Add a setting menu item
+            InsertMenu(systemMenuHandle, 7, MF_BYPOSITION, _ItemAboutMenuID, "About"); //add an About menu item
+
+            hwndSource.AddHook(new HwndSourceHook(WndProc));
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="topmost"></param>
+        private void SetMenuTopMostState(bool topmost)
+        {
+            IntPtr windowhandle = new WindowInteropHelper(this).Handle;
+            HwndSource hwndSource = HwndSource.FromHwnd(windowhandle);
+
+            //Get the handle for the system menu
+            IntPtr systemMenuHandle = GetSystemMenu(windowhandle, false);
+
+            //            uint MIIM_STRING = 0x00000040;
+            //            uint MIIM_STATE = 0x00000001;
+            //            //uint MFT_STRING = 0x00000000;
+            //            MENUITEMINFO miTopmost = new MENUITEMINFO() { fMask = MIIM_STATE, fType = MFS_UNCHECKED, dwTypeData = IntPtr.Zero };
+            //            if (GetMenuItemInfo(systemMenuHandle, _ItemTopMostMenuId, false, miTopmost))
+            //            {
+            //                try
+            //                {
+            //                    miTopmost.cch++;
+            //                    miTopmost.dwTypeData = Marshal.AllocHGlobal((IntPtr)(miTopmost.cch * 2));
+            //                    if (GetMenuItemInfo(systemMenuHandle, _ItemTopMostMenuId, false, miTopmost))
+            //                    {
+            //                        string caption = Marshal.PtrToStringUni(miTopmost.dwTypeData);
+            //#if DEBUG
+            //                        if (miTopmost.fState == MFS_UNCHECKED)
+            //                            miTopmost.fState = MFS_CHECKED;
+            //                        else
+            //                            miTopmost.fState = MFS_UNCHECKED;
+            //#else
+            //                        miTopmost.fState = (uint)(topmost ? MFS_CHECKED : MFS_UNCHECKED);
+            //#endif
+            //                        SetMenuItemInfo(systemMenuHandle, _ItemTopMostMenuId, false, miTopmost);
+            //                        //PostMessage()
+            //                    }
+            //                }
+            //                finally
+            //                {
+            //                    Marshal.FreeHGlobal(miTopmost.dwTypeData);
+            //                }
+            //            }
+            CheckMenuItem(systemMenuHandle, _ItemTopMostMenuId, (uint)(topmost ? MFS_CHECKED : MFS_UNCHECKED));
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="hwnd"></param>
+        /// <param name="msg"></param>
+        /// <param name="wParam"></param>
+        /// <param name="lParam"></param>
+        /// <param name="handled"></param>
+        /// <returns></returns>
+        private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
+        {
+            // Check if the SystemCommand message has been executed
+            if (msg == WM_SYSCOMMAND)
+            {
+                //check which menu item was clicked
+                switch (wParam.ToInt32())
+                {
+                    case _ItemTopMostMenuId:
+                        //MessageBox.Show("Item 1 was clicked");
+                        AlwaysTopMost = !AlwaysTopMost;
+                        SetConfigValue(AlwaysTopMostKey, AlwaysTopMost);
+                        SetMenuTopMostState(AlwaysTopMost);
+                        handled = true;
+                        break;
+                    case _ItemAboutMenuID:
+                        //MessageBox.Show("Item 2 was clicked");
+                        handled = true;
+                        break;
+                }
+            }
+            return IntPtr.Zero;
+        }
+        #endregion
+
         public static void InitMagicK()
         {
             try
@@ -4959,15 +5186,18 @@ namespace TouchMeta
                 Icon = new BitmapImage(new Uri("pack://application:,,,/TouchMeta;component/Resources/time.ico"));
             }
             catch (Exception ex) { ShowMessage(ex.Message); }
+
+            int.TryParse(GetConfigValue(ConvertQualityKey, ConvertQuality), out ConvertQuality);
+            bool.TryParse(GetConfigValue(AlwaysTopMostKey, AlwaysTopMost), out AlwaysTopMost);
+
+            InitHookWndProc(AlwaysTopMost);
 #if DEBUG
             WindowStartupLocation = WindowStartupLocation.Manual;
             Topmost = false;
 #else
             WindowStartupLocation = WindowStartupLocation.CenterScreen;
-            Topmost = true;
+            Topmost = AlwaysTopMost;
 #endif
-            int.TryParse(GetConfigValue(ConvertQualityKey, ConvertQuality), out ConvertQuality);
-
             DefaultTitle = Title;
             InitMagicK();
 
@@ -5018,6 +5248,55 @@ namespace TouchMeta
 
             InitBgWorker();
 
+            #region Add Keyboard Accelerators to ListBox
+            // add keyboard accelerators for backwards navigation
+            RoutedCommand cmd_Rename = new RoutedCommand();
+            cmd_Rename.InputGestures.Add(new KeyGesture(Key.F2, ModifierKeys.None, Key.F2.ToString()));
+            FilesList.CommandBindings.Add(new CommandBinding(cmd_Rename, (obj, evt) =>
+            {
+                evt.Handled = true;
+                if (FilesList.SelectedItem != null)
+                {
+                    var file = FilesList.SelectedItem as string;
+                    FileRenameInputNameText.Tag = file;
+                    FileRenameInputNameText.Text = Path.GetFileName(file);
+                    FileRenameInputPopup.StaysOpen = true;
+                    FileRenameInputPopup.IsOpen = true;
+                }
+            }));
+            RenameSelected.InputGestureText = string.Join(", ", cmd_Rename.InputGestures.OfType<KeyGesture>().Select(k => k.DisplayString));
+
+            RoutedCommand cmd_Remove = new RoutedCommand();
+            cmd_Remove.InputGestures.Add(new KeyGesture(Key.Delete, ModifierKeys.None, Key.Delete.ToString()));
+            FilesList.CommandBindings.Add(new CommandBinding(cmd_Remove, (obj, evt) =>
+            {
+                evt.Handled = true;
+                try
+                {
+                    var items = FilesList.SelectedItems.Count>0 ? FilesList.SelectedItems : FilesList.Items;
+                    foreach (var i in items.OfType<string>().ToList()) FilesList.Items.Remove(i);
+                }
+                catch (Exception ex) { ShowMessage(ex.Message, "ERROR"); }
+            }));
+            RemoveSelected.InputGestureText = string.Join(", ", cmd_Remove.InputGestures.OfType<KeyGesture>().Select(k => k.DisplayString));
+
+            RoutedCommand cmd_Display = new RoutedCommand();
+            cmd_Display.InputGestures.Add(new KeyGesture(Key.Enter, ModifierKeys.None, Key.Enter.ToString()));
+            FilesList.CommandBindings.Add(new CommandBinding(cmd_Display, (obj, evt) =>
+            {
+                evt.Handled = true;
+                var alt = Keyboard.Modifiers == ModifierKeys.Shift ? true : false;
+                RunBgWorker(new Action<string, bool>((file, show_xmp) =>
+                {
+                    if (alt)
+                        Process.Start("OpenWith.exe", file);
+                    else
+                        Process.Start(file);
+                }), showlog: false);
+            }));
+            ViewSelected.InputGestureText = string.Join(", ", cmd_Display.InputGestures.OfType<KeyGesture>().Select(k => k.DisplayString));
+            #endregion
+
             var args = Environment.GetCommandLineArgs();
             LoadFiles(args.Skip(1).ToArray());
         }
@@ -5038,13 +5317,13 @@ namespace TouchMeta
             }
         }
 
-        private void Window_PreviewMouseUp(object sender, MouseButtonEventArgs e)
+        private void Window_PreviewMouseDown(object sender, MouseButtonEventArgs e)
         {
-            if (e.ButtonState == MouseButtonState.Released && e.ChangedButton == MouseButton.Middle)
+            if (e.MiddleButton == MouseButtonState.Pressed)
             {
                 Close();
             }
-            else if (!this.IsActive) this.Activate();
+            else if (!IsActive) Activate();
         }
 
         private void Window_DragOver(object sender, DragEventArgs e)
@@ -5650,10 +5929,9 @@ namespace TouchMeta
             #region View/Rename/Reduce Image File(s)
             else if (sender == ViewSelected)
             {
-                bool openwith = Keyboard.Modifiers == ModifierKeys.Shift ? true : false;
                 RunBgWorker(new Action<string, bool>((file, show_xmp) =>
                 {
-                    if (openwith)
+                    if (alt)
                         Process.Start("OpenWith.exe", file);
                     else
                         Process.Start(file);
