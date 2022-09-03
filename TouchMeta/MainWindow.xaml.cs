@@ -5084,6 +5084,7 @@ namespace TouchMeta
                     case _ItemTopMostMenuId:
                         //MessageBox.Show("Item 1 was clicked");
                         AlwaysTopMost = !AlwaysTopMost;
+                        Topmost = AlwaysTopMost;
                         SetConfigValue(AlwaysTopMostKey, AlwaysTopMost);
                         SetMenuTopMostState(AlwaysTopMost);
                         handled = true;
