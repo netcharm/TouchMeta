@@ -236,6 +236,30 @@ namespace TouchMeta
             catch (Exception ex) { ShowMessage(ex.Message, "ERROR"); }
         }
 
+        /// <summary>
+        ///   Sends the specified key.
+        /// </summary>
+        /// <param name="key">The key.</param>
+        public static void Send(Key key)
+        {
+            if (Keyboard.PrimaryDevice != null)
+            {
+                if (Keyboard.PrimaryDevice.ActiveSource != null)
+                {
+                    var e = new KeyEventArgs(Keyboard.PrimaryDevice, Keyboard.PrimaryDevice.ActiveSource, 0, key)
+                    {
+                        RoutedEvent = Keyboard.KeyDownEvent
+                    };
+                    InputManager.Current.ProcessInput(e);
+
+                    // Note: Based on your requirements you may also need to fire events for:
+                    // RoutedEvent = Keyboard.PreviewKeyDownEvent
+                    // RoutedEvent = Keyboard.KeyUpEvent
+                    // RoutedEvent = Keyboard.PreviewKeyUpEvent
+                }
+            }
+        }
+
         private static void ClearLog()
         {
             //Application.Current.Dispatcher.BeginInvoke(new Action(() =>
@@ -263,6 +287,7 @@ namespace TouchMeta
                 dlg.MaxHeight = 480;
                 dlg.HorizontalContentAlignment = HorizontalAlignment.Stretch;
                 dlg.MouseDoubleClick += (o, e) => { Clipboard.SetText(dlg.Text.Replace("\0", string.Empty).TrimEnd('\0')); };
+                dlg.PreviewMouseDown += (o, e) => { if (e.MiddleButton == MouseButtonState.Pressed) Send(Key.Escape); };
                 Application.Current.MainWindow.Activate();
                 dlg.ShowDialog();
             }));
@@ -275,29 +300,58 @@ namespace TouchMeta
 
         private static void ShowMessage(string text, string title, double? width = null)
         {
-            var style = new Style(typeof(Xceed.Wpf.Toolkit.MessageBox));
-            style.Setters.Add(new Setter(FontFamilyProperty, Application.Current.FindResource("MonoSpaceFamily") as FontFamily));
-            style.Setters.Add(new Setter(FontSizeProperty, Application.Current.FindResource("MonoSpaceSize") as double?));
-            if (width.HasValue) style.Setters.Add(new Setter(MaxWidthProperty, width));
-            Xceed.Wpf.Toolkit.MessageBox.Show(Application.Current.MainWindow, text, title, messageBoxStyle: style);
+            Application.Current.Dispatcher.BeginInvoke(new Action(() =>
+            {
+                var contents_style = (Style)Application.Current.FindResource("MessageDialogWidth");
+                var dlg = new Xceed.Wpf.Toolkit.MessageBox() { };
+                dlg.Resources.Add(typeof(TextBlock), contents_style);
+                dlg.CaptionIcon = Application.Current.MainWindow.Icon;
+                dlg.Language = System.Windows.Markup.XmlLanguage.GetLanguage(CultureInfo.CurrentCulture.IetfLanguageTag);
+                dlg.FontFamily = Application.Current.FindResource("MonoSpaceFamily") as FontFamily;
+                dlg.Text = text;
+                dlg.Caption = title;
+                if (width.HasValue)
+                {
+                    //dlg.Width = width.Value;
+                    dlg.MaxWidth = width.Value;
+                }
+                dlg.HorizontalContentAlignment = HorizontalAlignment.Stretch;
+                dlg.MouseDoubleClick += (o, e) => { Clipboard.SetText(dlg.Text.Replace("\0", string.Empty).TrimEnd('\0')); };
+                dlg.PreviewMouseDown += (o, e) => { if (e.MiddleButton == MouseButtonState.Pressed) Send(Key.Escape); };
+                Application.Current.MainWindow.Activate();
+                dlg.ShowDialog();
+            }));
         }
 
-        private static string ShowInput(string input)
+        private string ShowInput(UIElement form, string input, string title = null)
         {
             var result = input;
             Application.Current.Dispatcher.BeginInvoke(new Action(() =>
             {
-                var dlg = new Xceed.Wpf.Toolkit.MessageBox();
-                dlg.CaptionIcon = Application.Current.MainWindow.Icon;
+                //var dlg = new Xceed.Wpf.Toolkit.MessageBox();
+                //dlg.CaptionIcon = Application.Current.MainWindow.Icon;
+                //dlg.Language = System.Windows.Markup.XmlLanguage.GetLanguage(CultureInfo.CurrentCulture.IetfLanguageTag);
+                //dlg.FontFamily = Application.Current.FindResource("MonoSpaceFamily") as FontFamily;
+                //dlg.Caption = "Metadata Info";
+                //dlg.Content = form;
+                //dlg.MaxWidth = 720;
+                //dlg.MaxHeight = 480;
+                //dlg.HorizontalContentAlignment = HorizontalAlignment.Stretch;
+
+                var dlg = new Xceed.Wpf.Toolkit.CollectionControlDialog();
+                dlg.Icon = Application.Current.MainWindow.Icon;
+
                 dlg.Language = System.Windows.Markup.XmlLanguage.GetLanguage(CultureInfo.CurrentCulture.IetfLanguageTag);
                 dlg.FontFamily = Application.Current.FindResource("MonoSpaceFamily") as FontFamily;
-                dlg.Caption = "Metadata Info";
+                dlg.Title = string.IsNullOrEmpty(title) ? "Metadata Info" : title;
+                dlg.Content = form;
                 dlg.MaxWidth = 720;
                 dlg.MaxHeight = 480;
                 dlg.HorizontalContentAlignment = HorizontalAlignment.Stretch;
-                dlg.MouseDoubleClick += (o, e) => { Clipboard.SetText(dlg.Text.Replace("\0", string.Empty).TrimEnd('\0')); };
-                //dlg.PreviewMouseUp += (o, e) => { if (e.ButtonState == MouseButtonState.Released && e.ChangedButton == MouseButton.Middle) t };
+                //dlg.MouseDoubleClick += (o, e) => { Clipboard.SetText(dlg.Text.Replace("\0", string.Empty).TrimEnd('\0')); };
+                //dlg.PreviewMouseDown += (o, e) => { if (e.MiddleButton == MouseButtonState.Pressed) t };
                 Application.Current.MainWindow.Activate();
+                dlg.ShowDialog();
             }));
             return (result);
         }
@@ -4885,7 +4939,7 @@ namespace TouchMeta
             }
         }
 
-        public void ReduceImageSize(MagickFormat fmt = MagickFormat.Jpg, bool keep_name = true)
+        public void ReduceImageFileSize(MagickFormat fmt = MagickFormat.Jpg, bool keep_name = true)
         {
             if (FilesList.Items.Count >= 1)
             {
@@ -4953,7 +5007,7 @@ namespace TouchMeta
         /// <summary>
         /// 
         /// </summary>
-        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Auto)]        
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Auto)]
         private class MENUITEMINFO
         {
             public int cbSize;
@@ -5099,7 +5153,8 @@ namespace TouchMeta
         }
         #endregion
 
-        public static void InitMagicK()
+        #region Common Helper
+        private void InitMagicK()
         {
             try
             {
@@ -5122,87 +5177,8 @@ namespace TouchMeta
             catch (Exception ex) { Log(ex.Message); }
         }
 
-        private IEnumerable<string> GetDropedFiles(object sc)
+        private void InitDefaultUI()
         {
-            var result = new List<string>();
-            try
-            {
-                if ((sc is IEnumerable<string> && (sc as IEnumerable<string>).Count() > 0) ||
-                    (sc is StringCollection && (sc as StringCollection).Count > 0))
-                {
-                    if (sc is StringCollection)
-                    {
-                        string[] sa = new string[(sc as StringCollection).Count];
-                        (sc as StringCollection).CopyTo(sa, 0);
-                        result.AddRange(sa);
-                    }
-                    else result.AddRange(sc as IEnumerable<string>);
-                }
-            }
-            catch (Exception ex) { Log(ex.Message); }
-            return (result);
-        }
-
-        private void SetTitle(string text = "")
-        {
-            Dispatcher.BeginInvoke(new Action(() =>
-            {
-                try
-                {
-                    if (string.IsNullOrEmpty(text))
-                        Title = $"{DefaultTitle} - [{FilesList.SelectedItems.Count}/{FilesList.Items.Count}]";
-                    else
-                        Title = $"{DefaultTitle} - {text}";
-                }
-                catch (Exception ex) { Log(ex.Message); }
-            }));
-        }
-
-        private void PopupFlowWindowsLocation(Popup popup)
-        {
-            try
-            {
-                if (popup is Popup && popup.IsOpen)
-                {
-                    var offset_v = popup.VerticalOffset;
-                    var offset_h = popup.HorizontalOffset;
-                    popup.HorizontalOffset = offset_h + 1;
-                    popup.HorizontalOffset = offset_h;
-                    popup.VerticalOffset = offset_v + 1;
-                    popup.VerticalOffset = offset_v;
-                }
-            }
-            catch { }
-        }
-
-        public MainWindow()
-        {
-            InitializeComponent();
-        }
-
-        private void Window_Loaded(object sender, RoutedEventArgs e)
-        {
-            try
-            {
-                Icon = new BitmapImage(new Uri("pack://application:,,,/TouchMeta;component/Resources/time.ico"));
-            }
-            catch (Exception ex) { ShowMessage(ex.Message); }
-
-            int.TryParse(GetConfigValue(ConvertQualityKey, ConvertQuality), out ConvertQuality);
-            bool.TryParse(GetConfigValue(AlwaysTopMostKey, AlwaysTopMost), out AlwaysTopMost);
-
-            InitHookWndProc(AlwaysTopMost);
-#if DEBUG
-            WindowStartupLocation = WindowStartupLocation.Manual;
-            Topmost = false;
-#else
-            WindowStartupLocation = WindowStartupLocation.CenterScreen;
-            Topmost = AlwaysTopMost;
-#endif
-            DefaultTitle = Title;
-            InitMagicK();
-
-            #region Default UI values
             var now = DateTime.Now;
             DateCreated.SelectedDate = now;
             DateModified.SelectedDate = now;
@@ -5245,25 +5221,17 @@ namespace TouchMeta
             MetaInputPopup.PreviewMouseDown += (obj, evt) => { Activate(); };
 
             CurrentMetaRating = 0;
-            #endregion
+        }
 
-            InitBgWorker();
-
-            #region Add Keyboard Accelerators to ListBox
+        private void InitAccelerators()
+        {
             // add keyboard accelerators for backwards navigation
             RoutedCommand cmd_Rename = new RoutedCommand();
             cmd_Rename.InputGestures.Add(new KeyGesture(Key.F2, ModifierKeys.None, Key.F2.ToString()));
             FilesList.CommandBindings.Add(new CommandBinding(cmd_Rename, (obj, evt) =>
             {
                 evt.Handled = true;
-                if (FilesList.SelectedItem != null)
-                {
-                    var file = FilesList.SelectedItem as string;
-                    FileRenameInputNameText.Tag = file;
-                    FileRenameInputNameText.Text = Path.GetFileName(file);
-                    FileRenameInputPopup.StaysOpen = true;
-                    FileRenameInputPopup.IsOpen = true;
-                }
+                ShowRenamePanel();
             }));
             RenameSelected.InputGestureText = string.Join(", ", cmd_Rename.InputGestures.OfType<KeyGesture>().Select(k => k.DisplayString));
 
@@ -5272,12 +5240,7 @@ namespace TouchMeta
             FilesList.CommandBindings.Add(new CommandBinding(cmd_Remove, (obj, evt) =>
             {
                 evt.Handled = true;
-                try
-                {
-                    var items = FilesList.SelectedItems.Count>0 ? FilesList.SelectedItems : FilesList.Items;
-                    foreach (var i in items.OfType<string>().ToList()) FilesList.Items.Remove(i);
-                }
-                catch (Exception ex) { ShowMessage(ex.Message, "ERROR"); }
+                RemoveFileListItems();
             }));
             RemoveSelected.InputGestureText = string.Join(", ", cmd_Remove.InputGestures.OfType<KeyGesture>().Select(k => k.DisplayString));
 
@@ -5286,16 +5249,198 @@ namespace TouchMeta
             FilesList.CommandBindings.Add(new CommandBinding(cmd_Display, (obj, evt) =>
             {
                 evt.Handled = true;
-                var alt = Keyboard.Modifiers == ModifierKeys.Shift ? true : false;
-                RunBgWorker(new Action<string, bool>((file, show_xmp) =>
-                {
-                    if (alt)
-                        Process.Start("OpenWith.exe", file);
-                    else
-                        Process.Start(file);
-                }), showlog: false);
+                OpenFiles(Keyboard.Modifiers == ModifierKeys.Shift ? true : false);
             }));
             ViewSelected.InputGestureText = string.Join(", ", cmd_Display.InputGestures.OfType<KeyGesture>().Select(k => k.DisplayString));
+        }
+
+        private void PopupFlowWindowsLocation(Popup popup)
+        {
+            try
+            {
+                if (popup is Popup && popup.IsOpen)
+                {
+                    var offset_v = popup.VerticalOffset;
+                    var offset_h = popup.HorizontalOffset;
+                    popup.HorizontalOffset = offset_h + 1;
+                    popup.HorizontalOffset = offset_h;
+                    popup.VerticalOffset = offset_v + 1;
+                    popup.VerticalOffset = offset_v;
+                }
+            }
+            catch { }
+        }
+
+        private IEnumerable<string> GetDropedFiles(object sc)
+        {
+            var result = new List<string>();
+            try
+            {
+                if ((sc is IEnumerable<string> && (sc as IEnumerable<string>).Count() > 0) ||
+                    (sc is StringCollection && (sc as StringCollection).Count > 0))
+                {
+                    if (sc is StringCollection)
+                    {
+                        string[] sa = new string[(sc as StringCollection).Count];
+                        (sc as StringCollection).CopyTo(sa, 0);
+                        result.AddRange(sa);
+                    }
+                    else result.AddRange(sc as IEnumerable<string>);
+                }
+            }
+            catch (Exception ex) { Log(ex.Message); }
+            return (result);
+        }
+
+        private void SetTitle(string text = "")
+        {
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                try
+                {
+                    if (string.IsNullOrEmpty(text))
+                        Title = $"{DefaultTitle} - [{FilesList.SelectedItems.Count}/{FilesList.Items.Count}]";
+                    else
+                        Title = $"{DefaultTitle} - {text}";
+                }
+                catch (Exception ex) { Log(ex.Message); }
+            }));
+        }
+
+        private void RemoveFileListItems()
+        {
+            try
+            {
+                var items = FilesList.SelectedItems.Count>0 ? FilesList.SelectedItems : FilesList.Items;
+                foreach (var i in items.OfType<string>().ToList()) FilesList.Items.Remove(i);
+            }
+            catch (Exception ex) { ShowMessage(ex.Message, "ERROR"); }
+        }
+
+        private void OpenFiles(bool alt = false)
+        {
+            RunBgWorker(new Action<string, bool>((file, show_xmp) =>
+            {
+                if (alt)
+                    Process.Start("OpenWith.exe", file);
+                else
+                    Process.Start(file);
+            }), showlog: false);
+        }
+
+        private void ShowRenamePanel()
+        {
+            if (FilesList.SelectedItem != null)
+            {
+                var file = FilesList.SelectedItem as string;
+                var filename = Path.GetFileName(file);
+#if DEBUG
+                var ret = ShowInput(FileRenameInputPopupCanvas, filename);
+                if (!ret.Equals(filename, StringComparison.CurrentCultureIgnoreCase))
+                {
+                    RenameFileName(file, ret);
+                }
+#else
+                FileRenameInputNameText.Tag = file;
+                FileRenameInputNameText.Text = filename;
+                FileRenameInputPopup.StaysOpen = true;
+                FileRenameInputPopup.IsOpen = true;
+#endif
+            }
+        }
+
+        private void RenameFileName(string file, string name)
+        {
+            if (File.Exists(file))
+            {
+                var folder = Path.GetDirectoryName(file);
+                var fi = new FileInfo(file);
+                var fn_new = name.Trim();
+                if (!Path.IsPathRooted(fn_new)) fn_new = Path.GetFullPath(Path.Combine(fi.DirectoryName, fn_new));
+                fi.MoveTo(fn_new);
+                var idx = FilesList.Items.IndexOf(file);
+                if (idx >= 0) FilesList.Items[idx] = fn_new;
+            }
+        }
+
+        private void CloseRenamePanel()
+        {
+            FileRenameInputPopup.IsOpen = false;
+            FileRenameInputNameText.Tag = null;
+            FileRenameInputNameText.Text = string.Empty;
+        }
+
+        private void ShowMetaPanel()
+        {
+            MetaInputPopup.Tag = null;
+            if (MetaInputPopup.StaysOpen)
+                MetaInputPopup.IsOpen = !MetaInputPopup.IsOpen;
+            else
+                MetaInputPopup.IsOpen = true;
+            MetaInputPopup.StaysOpen = Keyboard.Modifiers == ModifierKeys.Control;
+            MetaInputPopup.Tag = MetaInputPopup.IsOpen && MetaInputPopup.StaysOpen ? (bool?)true : null;
+        }
+        #endregion
+
+        public MainWindow()
+        {
+            InitializeComponent();
+        }
+
+        private void Window_Loaded(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                Icon = new BitmapImage(new Uri("pack://application:,,,/TouchMeta;component/Resources/time.ico"));
+            }
+            catch (Exception ex) { ShowMessage(ex.Message); }
+
+            int.TryParse(GetConfigValue(ConvertQualityKey, ConvertQuality), out ConvertQuality);
+            bool.TryParse(GetConfigValue(AlwaysTopMostKey, AlwaysTopMost), out AlwaysTopMost);
+
+            InitHookWndProc(AlwaysTopMost);
+#if DEBUG
+            WindowStartupLocation = WindowStartupLocation.Manual;
+            Topmost = false;
+#else
+            WindowStartupLocation = WindowStartupLocation.CenterScreen;
+            Topmost = AlwaysTopMost;
+#endif
+            DefaultTitle = Title;
+
+            InitMagicK();
+
+            #region Default UI values
+            InitDefaultUI();
+            #endregion
+
+            InitBgWorker();
+
+            #region Add Keyboard Accelerators to ListBox
+            InitAccelerators();
+            #endregion
+
+            #region Try hide popup when app not actived
+            Deactivated += (obj, evt) =>
+            {
+                e.Handled = true;
+                if (!Topmost && !IsFocused && WindowState != WindowState.Minimized)
+                {
+                    if (MetaInputPopup.Tag != null) { MetaInputPopup.IsOpen = false; }
+                    if (FileRenameInputPopup.Tag != null) { FileRenameInputPopup.IsOpen = false; }
+                }
+                else { }
+            };
+
+            Activated += (obj, evt) =>
+            {
+                e.Handled = true;
+                if (!Topmost && IsFocused)
+                {
+                    if (MetaInputPopup.Tag != null) { MetaInputPopup.IsOpen = true; }
+                    if (FileRenameInputPopup.Tag != null) { FileRenameInputPopup.IsOpen = true; }
+                }
+            };
             #endregion
 
             var args = Environment.GetCommandLineArgs();
@@ -5930,28 +6075,15 @@ namespace TouchMeta
             #region View/Rename/Reduce Image File(s)
             else if (sender == ViewSelected)
             {
-                RunBgWorker(new Action<string, bool>((file, show_xmp) =>
-                {
-                    if (alt)
-                        Process.Start("OpenWith.exe", file);
-                    else
-                        Process.Start(file);
-                }), showlog: false);
+                OpenFiles(alt);
             }
             else if (sender == RenameSelected)
             {
-                if (FilesList.SelectedItem != null)
-                {
-                    var file = FilesList.SelectedItem as string;
-                    FileRenameInputNameText.Tag = file;
-                    FileRenameInputNameText.Text = Path.GetFileName(file);
-                    FileRenameInputPopup.StaysOpen = true;
-                    FileRenameInputPopup.IsOpen = true;
-                }
+                ShowRenamePanel();
             }
             else if (sender == ReduceSelected)
             {
-                ReduceImageSize(MagickFormat.Jpg, keep_name: true);
+                ReduceImageFileSize(MagickFormat.Jpg, keep_name: true);
             }
             #endregion
             #region Add/Remove Image File(s) From List
@@ -5986,12 +6118,7 @@ namespace TouchMeta
             else if (sender == RemoveSelected)
             {
                 #region From Files List Remove Selected Files
-                try
-                {
-                    foreach (var i in FilesList.SelectedItems.OfType<string>().ToList())
-                        FilesList.Items.Remove(i);
-                }
-                catch (Exception ex) { ShowMessage(ex.Message, "ERROR"); }
+                RemoveFileListItems();
                 #endregion
             }
             else if (sender == RemoveAll)
@@ -6024,11 +6151,7 @@ namespace TouchMeta
             else if (sender == ShowMetaInputPopup)
             {
                 #region Popup Metadata Input Panel
-                if (MetaInputPopup.StaysOpen)
-                    MetaInputPopup.IsOpen = !MetaInputPopup.IsOpen;
-                else
-                    MetaInputPopup.IsOpen = true;
-                MetaInputPopup.StaysOpen = Keyboard.Modifiers == ModifierKeys.Control;
+                ShowMetaPanel();
                 #endregion
             }
             else if (sender == TimeStringParsing)
@@ -6094,9 +6217,7 @@ namespace TouchMeta
             }
             else if (sender == FileRenameInputClose)
             {
-                FileRenameInputPopup.IsOpen = false;
-                FileRenameInputNameText.Tag = null;
-                FileRenameInputNameText.Text = string.Empty;
+                CloseRenamePanel();
             }
             else if (sender == FileRenameApply)
             {
@@ -6106,16 +6227,7 @@ namespace TouchMeta
                     try
                     {
                         var file = FileRenameInputNameText.Tag as string;
-                        if (File.Exists(file))
-                        {
-                            var folder = Path.GetDirectoryName(file);
-                            var fi = new FileInfo(file);
-                            var fn_new = FileRenameInputNameText.Text.Trim();
-                            if (!Path.IsPathRooted(fn_new)) fn_new = Path.GetFullPath(Path.Combine(fi.DirectoryName, fn_new));
-                            fi.MoveTo(fn_new);
-                            var idx = FilesList.Items.IndexOf(file);
-                            if (idx >= 0) FilesList.Items[idx] = fn_new;
-                        }
+                        RenameFileName(file, FileRenameInputNameText.Text);
                     }
                     catch (Exception ex) { ShowMessage(ex.Message); }
                 }
@@ -6170,13 +6282,12 @@ namespace TouchMeta
 
                     lines.Add("~".PadRight(NormallyMessageWidth, '~'));
                     lines.Add("Note:");
-                    lines.Add("Convert To AVIIF Format is very slowly and Huge CPU/Memory Usage, so NOT RECOMMENDED!");
+                    lines.Add("Convert To AVIF Format is very slowly and Huge CPU/Memory Usage, so NOT RECOMMENDED!");
                     lines.Add("=".PadRight(NormallyMessageWidth, '='));
-                    ShowMessage(string.Join(Environment.NewLine, lines), "Usage");
+                    ShowMessage(string.Join(Environment.NewLine, lines), "Usage", width: 640);
                 }
             }
         }
 
     }
-
 }
