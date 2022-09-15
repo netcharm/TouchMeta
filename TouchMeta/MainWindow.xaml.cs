@@ -2072,7 +2072,7 @@ namespace TouchMeta
         {
             if (meta is MetaInfo && mode != ChangePropertyMode.None)
             {
-                var tags_old = meta.Keywords.Split(';');
+                var tags_old = string.IsNullOrEmpty(meta.Keywords) ? new string[] { } :  meta.Keywords.Split(';');
                 if (mode == ChangePropertyMode.Append)
                 {
                     meta.Keywords = string.Join("; ", tags_old.Select(t => t.Trim()).Union(keywords.Select(t => t.Trim())));
@@ -2154,7 +2154,7 @@ namespace TouchMeta
         {
             if (meta is MetaInfo && mode != ChangePropertyMode.None)
             {
-                var authors_old = meta.Authors.Split(';');
+                var authors_old = string.IsNullOrEmpty(meta.Authors) ? new string[] { } : meta.Authors.Split(';');
                 if (mode == ChangePropertyMode.Append)
                 {
                     meta.Authors = string.Join("; ", authors_old.Select(t => t.Trim()).Union(authors.Select(t => t.Trim())));
@@ -2196,7 +2196,7 @@ namespace TouchMeta
         {
             if (meta is MetaInfo && mode != ChangePropertyMode.None)
             {
-                var copyrights_old = meta.Copyrights.Split(';');
+                var copyrights_old = string.IsNullOrEmpty(meta.Copyrights) ? new string[] { } : meta.Copyrights.Split(';');
                 if (mode == ChangePropertyMode.Append)
                 {
                     meta.Copyrights = string.Join("; ", copyrights_old.Select(t => t.Trim()).Union(copyrights.Select(t => t.Trim())));
@@ -5467,6 +5467,7 @@ namespace TouchMeta
         {
             if (e.MiddleButton == MouseButtonState.Pressed)
             {
+                System.Threading.Thread.Sleep(200);
                 Close();
             }
             else if (!IsActive) Activate();
