@@ -1087,6 +1087,7 @@ namespace TouchMeta
                 if (!string.IsNullOrEmpty(keywords)) keywords.Replace("\0", string.Empty).TrimEnd('\0');
                 if (!string.IsNullOrEmpty(comment)) comment.Replace("\0", string.Empty).TrimEnd('\0');
 
+                #region Init datetime string
                 var dc = (meta is MetaInfo ? meta.DateCreated ?? meta.DateAcquired ?? meta.DateTaken : null) ?? fi.CreationTime;
                 var dm = (meta is MetaInfo ? meta.DateModified ?? meta.DateAcquired ?? meta.DateTaken : null) ?? fi.LastWriteTime;
                 var da = (meta is MetaInfo ? meta.DateAccesed ?? meta.DateAcquired ?? meta.DateTaken : null) ?? fi.LastAccessTime;
@@ -1119,9 +1120,12 @@ namespace TouchMeta
                 var dc_misc = dc.ToString("yyyy:MM:dd HH:mm:sszzz");
                 var dm_misc = dm.ToString("yyyy:MM:dd HH:mm:sszzz");
                 var da_misc = da.ToString("yyyy:MM:dd HH:mm:sszzz");
+                #endregion
 
+                #region Normalization Keywords
                 var keyword_list = string.IsNullOrEmpty(keywords) ? new List<string>() : keywords.Split(new char[] { ';', '#' }, StringSplitOptions.RemoveEmptyEntries).Select(k => k.Trim()).Where(k => !string.IsNullOrEmpty(k)).Distinct();
                 keywords = string.Join("; ", keyword_list);
+                #endregion
 
                 #region Init a XMP contents
                 if (string.IsNullOrEmpty(xml))
@@ -4232,7 +4236,7 @@ namespace TouchMeta
                         fi.CreationTime = dt.Value;
                         fi.LastWriteTime = dt.Value;
                         fi.LastAccessTime = dt.Value;
-                        Log($"Touching Metadata Time From {dt_old.Value.ToString("yyyy-MM-ddTHH:mm:sszzz")} To {dt.Value.ToString("yyyy-MM-ddTHH:mm:sszzz")}");
+                        Log($"Touching Metadata Time From {(dt_old.HasValue ? dt_old.Value.ToString("yyyy-MM-ddTHH:mm:sszzz") : "NULL")} To {(dt.HasValue ? dt.Value.ToString("yyyy-MM-ddTHH:mm:sszzz") : "NULL")}");
                     }
                 }
             }
