@@ -117,14 +117,16 @@
                     <MenuItem x:Name="GetFileTimeFromFilaName" x:Uid="GetFileTimeFromFilaName" Header="Get File Time From File Name" Click="FilesListAction_Click"/>
                     <MenuItem x:Name="SetFileTimeFromFileName" x:Uid="SetFileTimeFromFileName" Header="Set File Time From File Name" Click="FilesListAction_Click"/>
                     <Separator/>
-                    <MenuItem x:Name="SetFileTimeFromC" x:Uid="SetFileTimeFromC" Header="Set File Time From Created Name" Click="FilesListAction_Click"/>
-                    <MenuItem x:Name="SetFileTimeFromM" x:Uid="SetFileTimeFromM" Header="Set File Time From Modified Name" Click="FilesListAction_Click"/>
-                    <MenuItem x:Name="SetFileTimeFromA" x:Uid="SetFileTimeFromA" Header="Set File Time From Accessed Name" Click="FilesListAction_Click"/>
-                    <MenuItem x:Name="SetFileTimeMeta" x:Uid="SetFileTimeMeta" Header="Set File Time From Metadata" Click="FilesListAction_Click"/>
+                    <MenuItem x:Name="SetFileTimeFromC" x:Uid="SetFileTimeFromC" Header="Set File Time From Created Time" Click="FilesListAction_Click"/>
+                    <MenuItem x:Name="SetFileTimeFromM" x:Uid="SetFileTimeFromM" Header="Set File Time From Modified Time" Click="FilesListAction_Click"/>
+                    <MenuItem x:Name="SetFileTimeFromA" x:Uid="SetFileTimeFromA" Header="Set File Time From Accessed Time" Click="FilesListAction_Click"/>
+                    <MenuItem x:Name="SetFileTimeMeta" x:Uid="SetFileTimeMeta" Header="Set File Time From Metadata Time" Click="FilesListAction_Click"/>
                     <Separator/>
-                    <MenuItem x:Name="TouchMetaFromC" x:Uid="TouchMetaFromC" Header="Touch Meta Time From Created Name" Click="FilesListAction_Click"/>
-                    <MenuItem x:Name="TouchMetaFromM" x:Uid="TouchMetaFromM" Header="Touch Meta Time From Modified Name" Click="FilesListAction_Click"/>
-                    <MenuItem x:Name="TouchMetaFromA" x:Uid="TouchMetaFromA" Header="Touch Meta Time From Accessed Name" Click="FilesListAction_Click"/>
+                    <MenuItem x:Name="SetFolderTimeFromFM" x:Uid="SetFolderTimeFromF" Header="Set Folder Time From Modified Time" Click="FilesListAction_Click"/>
+                    <Separator/>
+                    <MenuItem x:Name="TouchMetaFromC" x:Uid="TouchMetaFromC" Header="Touch Meta Time From Created Time" Click="FilesListAction_Click"/>
+                    <MenuItem x:Name="TouchMetaFromM" x:Uid="TouchMetaFromM" Header="Touch Meta Time From Modified Time" Click="FilesListAction_Click"/>
+                    <MenuItem x:Name="TouchMetaFromA" x:Uid="TouchMetaFromA" Header="Touch Meta Time From Accessed Time" Click="FilesListAction_Click"/>
                     <Separator/>
                     <MenuItem x:Name="ReTouchMeta" x:Uid="ReTouchMeta" Header="Re-Touch Meta Info for Selected File" Click="FilesListAction_Click"/>
                     <MenuItem x:Name="ReTouchMetaAlt" x:Uid="ReTouchMetaAlt" Header="Re-Touch Meta Info for Selected File (Alt)" Click="FilesListAction_Click"/>

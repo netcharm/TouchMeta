@@ -4195,6 +4195,64 @@ namespace TouchMeta
             else Log($"File \"{file}\" not exists!");
         }
 
+        public static void TouchFolder(string folder, string dt = null, bool force = false, DateTime? dtc = null, DateTime? dtm = null, DateTime? dta = null, MetaInfo meta = null)
+        {
+            if (Directory.Exists(folder))
+            {
+                var di = new DirectoryInfo(folder);
+                var dc = dtc ?? (meta is MetaInfo ? meta.DateCreated : null) ?? di.CreationTime;
+                var dm = dtm ?? (meta is MetaInfo ? meta.DateModified : null) ?? di.LastWriteTime;
+                var da = dta ?? (meta is MetaInfo ? meta.DateAccesed : null) ?? di.LastAccessTime;
+
+                var ov = di.LastWriteTime.ToString("yyyy-MM-ddTHH:mm:sszzz");
+
+                if (force)
+                {
+                    if (di.CreationTime != dc) di.CreationTime = dc;
+                    if (di.LastWriteTime != dm) di.LastWriteTime = dm;
+                    if (di.LastAccessTime != da) di.LastAccessTime = da;
+                    Log($"Touching Date From {ov} To {dm.ToString("yyyy-MM-ddTHH:mm:sszzz")}");
+                }
+                else if (string.IsNullOrEmpty(dt))
+                {
+                    try
+                    {
+                        if (di.CreationTime > dm) di.CreationTime = dm;
+                        if (di.LastWriteTime > dm) di.LastWriteTime = dm;
+                        if (di.LastAccessTime > dm) di.LastAccessTime = dm;
+                        //if (di.CreationTime != dc) Directory.SetCreationTime(folder, dm);
+                        //if (di.LastWriteTime != dm) Directory.SetLastAccessTime(folder, dm);
+                        //if (di.LastAccessTime != da) Directory.SetLastAccessTime(folder, dm);
+                        Log($"Touching Date From {ov} To {dm.ToString("yyyy-MM-ddTHH:mm:sszzz")}");
+                    }
+                    catch (Exception ex)
+                    {
+#if DEBUG
+                        Log($"{ex.Message}{Environment.NewLine}{ex.StackTrace}");
+#else
+                        Log(ex.Message);
+#endif
+                    }
+                }
+                else
+                {
+                    try
+                    {
+                        var t = DateTime.Now;
+                        if (DateTime.TryParse(dt, out t))
+                        {
+                            if (di.CreationTime > t) di.CreationTime = t;
+                            if (di.LastWriteTime > t) di.LastWriteTime = t;
+                            if (di.LastAccessTime > t) di.LastAccessTime = t;
+                            Log($"Touching Date From {ov} To {t.ToString("yyyy-MM-ddTHH:mm:sszzz")}");
+                        }
+                    }
+                    catch (Exception ex) { Log($"{ex.Message}{Environment.NewLine}{ex.StackTrace}"); }
+                }
+            }
+            else Log($"File \"{folder}\" not exists!");
+        }
+
         public static void TouchMetaDate(MagickImage image, FileInfo fi = null, DateTime? dt = null)
         {
             if (image is MagickImage)
@@ -5747,6 +5805,17 @@ namespace TouchMeta
                     var dt = File.GetLastWriteTime(file);
                     var meta = new MetaInfo() { DateCreated = dt, DateModified = dt, DateAccesed = dt };
                     TouchDate(file, force: false, meta: meta);
+                }));
+                #endregion
+            }
+            else if (sender == SetFolderTimeFromFM)
+            {
+                #region Touching File Time
+                RunBgWorker(new Action<string, bool>((file, show_xmp) =>
+                {
+                    var dt = File.GetLastWriteTime(file);
+                    var meta = new MetaInfo() { DateCreated = dt, DateModified = dt, DateAccesed = dt };
+                    TouchFolder(Path.GetDirectoryName(file), force: force, meta: meta);
                 }));
                 #endregion
             }
