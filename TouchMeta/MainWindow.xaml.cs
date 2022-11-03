@@ -1417,6 +1417,7 @@ namespace TouchMeta
                         });
                         foreach (XmlNode node in xml_doc.GetElementsByTagName("rdf:Description"))
                         {
+                            var nodes = new List<XmlNode>();
                             foreach (XmlNode child in node.ChildNodes)
                             {
                                 if (child.Name.Equals("dc:title", StringComparison.CurrentCultureIgnoreCase))
@@ -1501,7 +1502,14 @@ namespace TouchMeta
                                     child.InnerText = dm_ms;
                                 else if (child.Name.Equals("tiff:DateTime", StringComparison.CurrentCultureIgnoreCase))
                                     child.InnerText = dm_ms;
+
+                                if (tag_date.Contains(node.Name, StringComparer.CurrentCultureIgnoreCase))
+                                {
+                                    if (nodes.Count(n => n.Name.Equals(child.Name, StringComparison.CurrentCultureIgnoreCase)) > 0) node.RemoveChild(child);
+                                    else nodes.Add(child);
+                                }
                             }
+                            nodes.Clear();
                         }
                         #endregion
                         #region pretty xml
@@ -3881,6 +3889,7 @@ namespace TouchMeta
                                         });
                                         foreach (XmlNode node in xml_doc.GetElementsByTagName("rdf:Description"))
                                         {
+                                            var nodes = new List<XmlNode>();
                                             foreach (XmlNode child in node.ChildNodes)
                                             {
                                                 if (child.Name.Equals("dc:title", StringComparison.CurrentCultureIgnoreCase))
@@ -3961,7 +3970,14 @@ namespace TouchMeta
                                                     child.InnerText = dm_ms;
                                                 else if (child.Name.Equals("tiff:DateTime", StringComparison.CurrentCultureIgnoreCase))
                                                     child.InnerText = dm_ms;
+
+                                                if (tag_date.Contains(node.Name, StringComparer.CurrentCultureIgnoreCase))
+                                                {
+                                                    if (nodes.Count(n => n.Name.Equals(child.Name, StringComparison.CurrentCultureIgnoreCase)) > 0) node.RemoveChild(child);
+                                                    else nodes.Add(child);
+                                                }
                                             }
+                                            nodes.Clear();
                                         }
                                         #endregion
                                         #region pretty xml
