@@ -3583,6 +3583,13 @@ namespace TouchMeta
                                 SetAttribute(image, $"exif:{tag_software}", GetAttribute(image, tag_software));
                             if (!image.AttributeNames.Contains(tag_software) && image.AttributeNames.Contains($"exif:{tag_software}"))
                                 SetAttribute(image, tag_software, GetAttribute(image, $"exif:{tag_software}"));
+                            if (string.IsNullOrEmpty(GetAttribute(image, $"exif:{tag_software}")) &&
+                                string.IsNullOrEmpty(GetAttribute(image, $"{tag_software}")) &&
+                                !string.IsNullOrEmpty(GetAttribute(image, $"exif:MakerNote")))
+                            {
+                                SetAttribute(image, $"exif:{tag_software}", GetAttribute(image, $"exif:MakerNote"));
+                                //SetAttribute(image, $"exif:MakerNote", GetAttribute(image, $"exif:MakerNote"));
+                            }
                             #endregion
                             Log($"{"Profiles".PadRight(32)}= {string.Join(", ", image.ProfileNames)}");
 
@@ -3849,7 +3856,7 @@ namespace TouchMeta
                                         all_elements.AddRange(tag_subject);
                                         all_elements.AddRange(tag_title);
                                         all_elements.Add(tag_software);
-                                        foreach (var element in all_elements)
+                                        foreach (var element in all_elements.Distinct())
                                         {
                                             var nodes = xml_doc.GetElementsByTagName(element);
                                             if (nodes.Count > 1)
@@ -4433,6 +4440,32 @@ namespace TouchMeta
                         {
                             exif.SetTagRawData(CompactExifLib.ExifTag.XpComment, ExifTagType.Byte, Encoding.Unicode.GetByteCount(meta.Comment), Encoding.Unicode.GetBytes(meta.Comment));
                             exif.SetTagValue(CompactExifLib.ExifTag.UserComment, meta.Comment, StrCoding.IdCode_Utf16);
+                        }
+
+                        if (exif.TagExists(CompactExifLib.ExifTag.MakerNote) && !exif.TagExists(CompactExifLib.ExifTag.Software))
+                        {
+                            ExifTagType type;
+                            int count;
+                            byte[] value;
+                            string note = string.Empty;
+                            //if (exif.GetTagValue(CompactExifLib.ExifTag.MakerNote, out note, StrCoding.Utf16Le_Byte))
+                            if (exif.GetTagRawData(CompactExifLib.ExifTag.MakerNote, out type, out count, out value))
+                            {
+                                if (type == ExifTagType.Ascii || type == ExifTagType.Byte || type == ExifTagType.SByte)
+                                    note = Encoding.UTF8.GetString(value);
+                                else if (type == ExifTagType.Undefined && value is byte[] && value.Length > 0)
+                                {
+                                    try
+                                    {
+                                        if (value.Length >= 2 && value[1] == 0x00)
+                                            note = Encoding.Unicode.GetString(value);
+                                        else
+                                            note = Encoding.UTF8.GetString(value);
+                                    }
+                                    catch { note = Encoding.UTF8.GetString(value.Where(c => c != 0x00).ToArray()); }                                    
+                                }
+                                if (!string.IsNullOrEmpty(note)) exif.SetTagValue(CompactExifLib.ExifTag.Software, note, StrCoding.Utf8);
+                            }
                         }
 
                         exif.SetTagValue(CompactExifLib.ExifTag.Rating, meta.Rating ?? 0, TagType: ExifTagType.UShort);
