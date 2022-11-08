@@ -325,6 +325,12 @@ namespace TouchMeta
             }));
         }
 
+        private static bool ShowConfirm(string text, string title)
+        {
+            var ret = Xceed.Wpf.Toolkit.MessageBox.Show(Application.Current.MainWindow, text, title, MessageBoxButton.YesNo, MessageBoxImage.Question);
+            return (ret == MessageBoxResult.Yes ? true : false);
+        }
+
         private string ShowInput(UIElement form, string input, string title = null)
         {
             var result = input;
@@ -4725,6 +4731,100 @@ namespace TouchMeta
         #endregion
 
         #region Converting Image Format Helper
+        private static System.Drawing.Color[] GetMatrix(System.Drawing.Bitmap bmp, int x, int y, int w, int h)
+        {
+            var ret = new List<System.Drawing.Color>();
+            if (bmp is System.Drawing.Bitmap)
+            {
+                //var data = bmp.LockBits(new Rectangle(x, y, w, h), ImageLockMode.ReadOnly, bmp.PixelFormat);
+                for (var i = x; i < x + w; i++)
+                {
+                    for (var j = y; j < y + h; j++)
+                    {
+                        if (i < bmp.Width && j < bmp.Height)
+                            ret.Add(bmp.GetPixel(i, j));
+                    }
+                }
+                //bmp.UnlockBits(data);
+            }
+            return (ret.ToArray());
+        }
+
+        private static bool GuessAlpha(Stream source, int window = 3, int threshold = 255)
+        {
+            var result = false;
+            try
+            {
+                if (source is Stream && source.CanRead)
+                {
+                    var status = false;
+                    if (source.CanSeek) source.Seek(0, SeekOrigin.Begin);
+                    using (System.Drawing.Image image = System.Drawing.Image.FromStream(source))
+                    {
+                        if (image is System.Drawing.Image && (
+                            image.RawFormat.Guid.Equals(System.Drawing.Imaging.ImageFormat.Png.Guid) ||
+                            image.RawFormat.Guid.Equals(System.Drawing.Imaging.ImageFormat.Bmp.Guid) ||
+                            image.RawFormat.Guid.Equals(System.Drawing.Imaging.ImageFormat.Tiff.Guid)))
+                        {
+                            if (image.PixelFormat == System.Drawing.Imaging.PixelFormat.Format32bppArgb) { status = true; }
+                            else if (image.PixelFormat == System.Drawing.Imaging.PixelFormat.Format32bppPArgb) { status = true; }
+                            else if (image.PixelFormat == System.Drawing.Imaging.PixelFormat.Format16bppArgb1555) { status = true; }
+                            else if (image.PixelFormat == System.Drawing.Imaging.PixelFormat.Format64bppArgb) { status = true; }
+                            else if (image.PixelFormat == System.Drawing.Imaging.PixelFormat.Format64bppPArgb) { status = true; }
+                            else if (image.PixelFormat == System.Drawing.Imaging.PixelFormat.PAlpha) { status = true; }
+                            else if (image.PixelFormat == System.Drawing.Imaging.PixelFormat.Alpha) { status = true; }
+                            else if (System.Drawing.Image.IsAlphaPixelFormat(image.PixelFormat)) { status = true; }
+
+                            if (status)
+                            {
+                                var bmp = new System.Drawing.Bitmap(image);
+                                var w = bmp.Width;
+                                var h = bmp.Height;
+                                var m = window;
+                                var mt = Math.Ceiling(m * m / 2.0);
+                                var lt = GetMatrix(bmp, 0, 0, m, m).Count(c => c.A < threshold);
+                                var rt = GetMatrix(bmp, w - m, 0, m, m).Count(c => c.A < threshold);
+                                var lb = GetMatrix(bmp, 0, h - m, m, m).Count(c => c.A < threshold);
+                                var rb = GetMatrix(bmp, w - m, h - m, m, m).Count(c => c.A < threshold);
+                                var ct = GetMatrix(bmp, (int)(w / 2.0 - m / 2.0) , (int)(h / 2.0 - m / 2.0), m, m).Count(c => c.A < threshold);
+                                status = (lt > mt || rt > mt || lb > mt || rb > mt || ct > mt) ? true : false;
+                            }
+                        }
+                    }
+                    result = status;
+                }
+            }
+            catch (Exception ex) { Log(ex.Message); }
+            return (result);
+        }
+
+        private static bool GuessAlpha(byte[] buffer, int window = 3, int threshold = 255)
+        {
+            var result = false;
+            if (buffer is byte[] && buffer.Length > 0)
+            {
+                using (var ms = new MemoryStream(buffer))
+                {
+                    result = GuessAlpha(ms, window, threshold);
+                }
+            }
+            return (result);
+        }
+
+        private static bool GuessAlpha(string file, int window = 3, int threshold = 255)
+        {
+            var result = false;
+
+            if (File.Exists(file))
+            {
+                using (var ms = new MemoryStream(File.ReadAllBytes(file)))
+                {
+                    result = GuessAlpha(ms, window, threshold);
+                }
+            }
+            return (result);
+        }
+
         public string ConvertImageTo(string file, MagickFormat fmt, bool keep_name = false)
         {
             var result = file;
@@ -4734,74 +4834,80 @@ namespace TouchMeta
                 var dc = fi.CreationTime;
                 var dm = fi.LastWriteTime;
                 var da = fi.LastAccessTime;
-                //using (var ms = new FileStream(fi.FullName, FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite))
+
+
                 using (var ms = new MemoryStream(File.ReadAllBytes(fi.FullName)))
                 {
                     try
                     {
-                        ExifData exifdata = null;
-                        try { exifdata = new ExifData(ms); } catch { };
-                        ms.Seek(0, SeekOrigin.Begin);
-
-                        using (MagickImage image = new MagickImage(ms))
+                        if (!GuessAlpha(ms) || ShowConfirm("Image Has Alpha, Continue?", "Confirm"))
                         {
-                            if (exifdata is ExifData && image.Endian == Endian.Undefined) image.Endian = exifdata.ByteOrder == ExifByteOrder.BigEndian ? Endian.MSB : Endian.LSB;
+                            if (ms.CanSeek) ms.Seek(0, SeekOrigin.Begin);
 
-                            var meta = GetMetaInfo(image);
+                            ExifData exifdata = null;
+                            try { exifdata = new ExifData(ms); } catch { };
+                            if (ms.CanSeek) ms.Seek(0, SeekOrigin.Begin);
 
-                            var fmt_info = MagickNET.SupportedFormats.Where(f => f.Format == fmt).FirstOrDefault();
-                            var ext = fmt_info is MagickFormatInfo ? fmt_info.Format.ToString() : fmt.ToString();
-                            var name = keep_name ? fi.FullName : Path.ChangeExtension(fi.FullName, $".{ext.ToLower()}");
-
-                            #region touch software
-                            var tag_software = "Software";
-                            if (image.AttributeNames.Contains(tag_software) && !image.AttributeNames.Contains($"exif:{tag_software}"))
-                                SetAttribute(image, $"exif:{tag_software}", GetAttribute(image, tag_software));
-                            if (!image.AttributeNames.Contains(tag_software) && image.AttributeNames.Contains($"exif:{tag_software}"))
-                                SetAttribute(image, tag_software, GetAttribute(image, $"exif:{tag_software}"));
-                            #endregion
-
-                            FixDPI(image);
-
-                            //if (fmt == MagickFormat.Tif || fmt == MagickFormat.Tiff || fmt == MagickFormat.Tiff64)
-                            //{
-                            //    image.SetAttribute("tiff:alpha", "unassociated");
-                            //    image.SetAttribute("tiff:photometric", "min-is-black");
-                            //    image.SetAttribute("tiff:rows-per-strip", "512");
-                            //}
-                            image.Quality = ConvertQuality;
-                            image.BackgroundColor = new MagickColor(ConvertBGColor.R, ConvertBGColor.G, ConvertBGColor.B, ConvertBGColor.A);
-                            image.Write(name, fmt);
-
-                            if (!keep_name && !name.Equals(fi.FullName, StringComparison.CurrentCultureIgnoreCase))
+                            using (MagickImage image = new MagickImage(ms))
                             {
-                                var nfi = new FileInfo(name);
-                                nfi.CreationTime = dc;
-                                nfi.LastWriteTime = dm;
-                                nfi.LastAccessTime = da;
+                                if (exifdata is ExifData && image.Endian == Endian.Undefined) image.Endian = exifdata.ByteOrder == ExifByteOrder.BigEndian ? Endian.MSB : Endian.LSB;
 
-                                Log($"Convert {file} => {name}");
+                                var meta = GetMetaInfo(image);
 
-                                //try
+                                var fmt_info = MagickNET.SupportedFormats.Where(f => f.Format == fmt).FirstOrDefault();
+                                var ext = fmt_info is MagickFormatInfo ? fmt_info.Format.ToString() : fmt.ToString();
+                                var name = keep_name ? fi.FullName : Path.ChangeExtension(fi.FullName, $".{ext.ToLower()}");
+
+                                #region touch software
+                                var tag_software = "Software";
+                                if (image.AttributeNames.Contains(tag_software) && !image.AttributeNames.Contains($"exif:{tag_software}"))
+                                    SetAttribute(image, $"exif:{tag_software}", GetAttribute(image, tag_software));
+                                if (!image.AttributeNames.Contains(tag_software) && image.AttributeNames.Contains($"exif:{tag_software}"))
+                                    SetAttribute(image, tag_software, GetAttribute(image, $"exif:{tag_software}"));
+                                #endregion
+
+                                FixDPI(image);
+
+                                //if (fmt == MagickFormat.Tif || fmt == MagickFormat.Tiff || fmt == MagickFormat.Tiff64)
                                 //{
-                                //    var exifdata_n = new ExifData(name);
-                                //    exifdata_n.ReplaceAllTagsBy(exifdata);
-                                //    if (meta.Attributes.ContainsKey("Software"))
-                                //        exifdata_n.SetTagValue(CompactExifLib.ExifTag.Software, meta.Attributes["Software"], StrCoding.Utf8);
-                                //    exifdata_n.Save(name);                                    
+                                //    image.SetAttribute("tiff:alpha", "unassociated");
+                                //    image.SetAttribute("tiff:photometric", "min-is-black");
+                                //    image.SetAttribute("tiff:rows-per-strip", "512");
                                 //}
-                                //catch (Exception ex) { Log(ex.Message); }
+                                image.Quality = ConvertQuality;
+                                image.BackgroundColor = new MagickColor(ConvertBGColor.R, ConvertBGColor.G, ConvertBGColor.B, ConvertBGColor.A);
+                                image.Write(name, fmt);
 
-                                //if (meta is MetaInfo)
-                                //{
-                                //    Log("~".PadRight(ExtendedMessageWidth, '~'));
-                                //    TouchMeta(name, dtc: dc, dtm: dm, dta: da, meta: meta);
-                                //}
+                                if (!keep_name && !name.Equals(fi.FullName, StringComparison.CurrentCultureIgnoreCase))
+                                {
+                                    var nfi = new FileInfo(name);
+                                    nfi.CreationTime = dc;
+                                    nfi.LastWriteTime = dm;
+                                    nfi.LastAccessTime = da;
+
+                                    Log($"Convert {file} => {name}");
+
+                                    //try
+                                    //{
+                                    //    var exifdata_n = new ExifData(name);
+                                    //    exifdata_n.ReplaceAllTagsBy(exifdata);
+                                    //    if (meta.Attributes.ContainsKey("Software"))
+                                    //        exifdata_n.SetTagValue(CompactExifLib.ExifTag.Software, meta.Attributes["Software"], StrCoding.Utf8);
+                                    //    exifdata_n.Save(name);                                    
+                                    //}
+                                    //catch (Exception ex) { Log(ex.Message); }
+
+                                    //if (meta is MetaInfo)
+                                    //{
+                                    //    Log("~".PadRight(ExtendedMessageWidth, '~'));
+                                    //    TouchMeta(name, dtc: dc, dtm: dm, dta: da, meta: meta);
+                                    //}
+                                }
+                                else
+                                    Log($"Convert {file} to {fmt_info.MimeType.ToString()}");
+
+                                result = name;
                             }
-                            else
-                                Log($"Convert {file} to {fmt_info.MimeType.ToString()}");
-
-                            result = name;
                         }
                     }
                     catch (Exception ex) { Log(ex.Message); }
@@ -4864,36 +4970,39 @@ namespace TouchMeta
                     else if (fmt.Equals("jpg")) pFmt = System.Drawing.Imaging.ImageFormat.Jpeg;
                     else return (buffer);
 
-                    using (var mi = new MemoryStream(buffer))
+                    if (!GuessAlpha(buffer))
                     {
-                        using (var mo = new MemoryStream())
+                        using (var mi = new MemoryStream(buffer))
                         {
-                            var bmp = new System.Drawing.Bitmap(mi);
-                            var codec_info = GetEncoderInfo("image/jpeg");
-                            var qualityParam = new System.Drawing.Imaging.EncoderParameter(System.Drawing.Imaging.Encoder.Quality, quality);
-                            var encoderParams = new System.Drawing.Imaging.EncoderParameters(1);
-                            encoderParams.Param[0] = qualityParam;
-                            if (pFmt == System.Drawing.Imaging.ImageFormat.Jpeg)
+                            using (var mo = new MemoryStream())
                             {
-                                using (System.Drawing.Graphics g = System.Drawing.Graphics.FromImage(bmp))
+                                var bmp = new System.Drawing.Bitmap(mi);
+                                var codec_info = GetEncoderInfo("image/jpeg");
+                                var qualityParam = new System.Drawing.Imaging.EncoderParameter(System.Drawing.Imaging.Encoder.Quality, quality);
+                                var encoderParams = new System.Drawing.Imaging.EncoderParameters(1);
+                                encoderParams.Param[0] = qualityParam;
+                                if (pFmt == System.Drawing.Imaging.ImageFormat.Jpeg)
                                 {
-                                    if (mi.CanSeek) mi.Seek(0, SeekOrigin.Begin);
-                                    var img = new System.Drawing.Bitmap(mi);
-                                    var bg = ConvertBGColor;
-                                    g.Clear(System.Drawing.Color.FromArgb(bg.A, bg.R, bg.G, bg.B));
-                                    g.DrawImage(img, 0, 0, new System.Drawing.Rectangle(new System.Drawing.Point(), bmp.Size), System.Drawing.GraphicsUnit.Pixel);
-                                    img.Dispose();
+                                    using (System.Drawing.Graphics g = System.Drawing.Graphics.FromImage(bmp))
+                                    {
+                                        if (mi.CanSeek) mi.Seek(0, SeekOrigin.Begin);
+                                        var img = new System.Drawing.Bitmap(mi);
+                                        var bg = ConvertBGColor;
+                                        g.Clear(System.Drawing.Color.FromArgb(bg.A, bg.R, bg.G, bg.B));
+                                        g.DrawImage(img, 0, 0, new System.Drawing.Rectangle(new System.Drawing.Point(), bmp.Size), System.Drawing.GraphicsUnit.Pixel);
+                                        img.Dispose();
+                                    }
+                                    bmp.Save(mo, codec_info, encoderParams);
                                 }
-                                bmp.Save(mo, codec_info, encoderParams);
+                                else
+                                    bmp.Save(mo, pFmt);
+                                result = mo.ToArray();
                             }
-                            else
-                                bmp.Save(mo, pFmt);
-                            result = mo.ToArray();
                         }
                     }
                 }
             }
-            catch (Exception ex) { MessageBox.Show(this, ex.Message); }
+            catch (Exception ex) { Log(ex.Message); }
             return (result);
         }
 
@@ -4988,42 +5097,45 @@ namespace TouchMeta
                         }
 
                         var bo = ReduceImageSize(bi, fmt, quality: quality);
-                        using (var msp = new MemoryStream(bo))
+                        if (bo is byte[] && bo.Length > 0)
                         {
-                            var exif_out = new ExifData(msp);
-                            exif_out.ReplaceAllTagsBy(exif_in);
-
-                            DateTime dt;
-                            if (exif_in.GetDateTaken(out dt)) { exif_out.SetDateTaken(dt); dc = dt; }
-                            if (exif_in.GetDateDigitized(out dt)) { exif_out.SetDateDigitized(dt); dm = dt; }
-                            if (exif_in.GetDateChanged(out dt)) { exif_out.SetDateChanged(dt); da = dt; }
-
-                            using (var mso = new MemoryStream())
+                            using (var msp = new MemoryStream(bo))
                             {
-                                msp.Seek(0, SeekOrigin.Begin);
-                                if (exif_out.TagExists(CompactExifLib.ExifTag.XmpMetadata))
+                                var exif_out = new ExifData(msp);
+                                exif_out.ReplaceAllTagsBy(exif_in);
+
+                                DateTime dt;
+                                if (exif_in.GetDateTaken(out dt)) { exif_out.SetDateTaken(dt); dc = dt; }
+                                if (exif_in.GetDateDigitized(out dt)) { exif_out.SetDateDigitized(dt); dm = dt; }
+                                if (exif_in.GetDateChanged(out dt)) { exif_out.SetDateChanged(dt); da = dt; }
+
+                                using (var mso = new MemoryStream())
                                 {
-                                    using (var msx = new MemoryStream())
+                                    msp.Seek(0, SeekOrigin.Begin);
+                                    if (exif_out.TagExists(CompactExifLib.ExifTag.XmpMetadata))
                                     {
-                                        exif_out.Save(msp, msx);
-                                        msx.Seek(0, SeekOrigin.Begin);
-                                        using (var image = new MagickImage(msx))
+                                        using (var msx = new MemoryStream())
                                         {
-                                            ExifTagType type;
-                                            int count;
-                                            byte[] xmp;
-                                            if (exif_out.GetTagRawData(CompactExifLib.ExifTag.XmpMetadata, out type, out count, out xmp))
+                                            exif_out.Save(msp, msx);
+                                            msx.Seek(0, SeekOrigin.Begin);
+                                            using (var image = new MagickImage(msx))
                                             {
-                                                var xml = Encoding.UTF8.GetString(xmp);
-                                                image.SetProfile(new XmpProfile(xmp));
-                                                image.Write(mso, image.Format);
+                                                ExifTagType type;
+                                                int count;
+                                                byte[] xmp;
+                                                if (exif_out.GetTagRawData(CompactExifLib.ExifTag.XmpMetadata, out type, out count, out xmp))
+                                                {
+                                                    var xml = Encoding.UTF8.GetString(xmp);
+                                                    image.SetProfile(new XmpProfile(xmp));
+                                                    image.Write(mso, image.Format);
+                                                }
                                             }
                                         }
                                     }
-                                }
-                                else exif_out.Save(msp, mso);
+                                    else exif_out.Save(msp, mso);
 
-                                if (mso.Length < fi.Length) File.WriteAllBytes(fout, mso.ToArray());
+                                    if (mso.Length < fi.Length) File.WriteAllBytes(fout, mso.ToArray());
+                                }
                             }
                         }
                     }
@@ -5740,6 +5852,12 @@ namespace TouchMeta
             }
         }
 
+        private void FilesList_MouseDoubleClick(object sender, MouseButtonEventArgs e)
+        {
+            var alt = Keyboard.Modifiers == ModifierKeys.Shift;
+            OpenFiles(alt);
+        }
+
         private void FilesList_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             e.Handled = true;
@@ -6430,6 +6548,5 @@ namespace TouchMeta
                 }
             }
         }
-
     }
 }

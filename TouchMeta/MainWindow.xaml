@@ -100,7 +100,7 @@
         <ListBox Grid.Row="3" x:Name="FilesList" x:Uid="FilesList" Margin="6" 
                  HorizontalAlignment="Stretch" VerticalAlignment="Stretch" 
                  AlternationCount="2" IsTabStop="True" SelectionMode="Extended"
-                 MouseMove="FilesList_MouseMove"
+                 MouseMove="FilesList_MouseMove" MouseDoubleClick="FilesList_MouseDoubleClick"
                  SelectionChanged="FilesList_SelectionChanged" >
             <ListBox.ItemContainerStyle>
                 <StaticResource ResourceKey="AlternatingWithTriggers"/>
