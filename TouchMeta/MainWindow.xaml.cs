@@ -85,9 +85,11 @@ namespace TouchMeta
         private static string AppName = Path.GetFileNameWithoutExtension(AppPath);
         private static string CachePath =  "cache";
 
+        private const string ConvertBGColorKey = "ConvertBGColor";
         private const string ConvertQualityKey = "ConvertQuality";
         private const string ReduceQualityKey = "ReduceQuality";
         private const string AlwaysTopMostKey = "TopMost";
+        private Color ConvertBGColor = Properties.Settings.Default.ConvertBGColor;
         private int ConvertQuality = Properties.Settings.Default.ConvertQuality;
         private int ReduceQuality = Properties.Settings.Default.ReduceQuality;
         private bool AlwaysTopMost = Properties.Settings.Default.TopMost;
@@ -4768,6 +4770,7 @@ namespace TouchMeta
                             //    image.SetAttribute("tiff:rows-per-strip", "512");
                             //}
                             image.Quality = ConvertQuality;
+                            image.BackgroundColor = new MagickColor(ConvertBGColor.R, ConvertBGColor.G, ConvertBGColor.B, ConvertBGColor.A);
                             image.Write(name, fmt);
 
                             if (!keep_name && !name.Equals(fi.FullName, StringComparison.CurrentCultureIgnoreCase))
@@ -4871,7 +4874,18 @@ namespace TouchMeta
                             var encoderParams = new System.Drawing.Imaging.EncoderParameters(1);
                             encoderParams.Param[0] = qualityParam;
                             if (pFmt == System.Drawing.Imaging.ImageFormat.Jpeg)
+                            {
+                                using (System.Drawing.Graphics g = System.Drawing.Graphics.FromImage(bmp))
+                                {
+                                    if (mi.CanSeek) mi.Seek(0, SeekOrigin.Begin);
+                                    var img = new System.Drawing.Bitmap(mi);
+                                    var bg = ConvertBGColor;
+                                    g.Clear(System.Drawing.Color.FromArgb(bg.A, bg.R, bg.G, bg.B));
+                                    g.DrawImage(img, 0, 0, new System.Drawing.Rectangle(new System.Drawing.Point(), bmp.Size), System.Drawing.GraphicsUnit.Pixel);
+                                    img.Dispose();
+                                }
                                 bmp.Save(mo, codec_info, encoderParams);
+                            }
                             else
                                 bmp.Save(mo, pFmt);
                             result = mo.ToArray();
@@ -5506,8 +5520,13 @@ namespace TouchMeta
             }
             catch (Exception ex) { ShowMessage(ex.Message); }
 
-            int.TryParse(GetConfigValue(ConvertQualityKey, ConvertQuality), out ConvertQuality);
-            bool.TryParse(GetConfigValue(AlwaysTopMostKey, AlwaysTopMost), out AlwaysTopMost);
+            try
+            {
+                int.TryParse(GetConfigValue(ConvertQualityKey, ConvertQuality), out ConvertQuality);
+                bool.TryParse(GetConfigValue(AlwaysTopMostKey, AlwaysTopMost), out AlwaysTopMost);
+                ConvertBGColor = (Color)ColorConverter.ConvertFromString(GetConfigValue(ConvertBGColorKey, ConvertBGColor));
+            }
+            catch (Exception ex) { ShowMessage($"Config Error!{Environment.NewLine}{ex.Message}"); }
 
             InitHookWndProc(AlwaysTopMost);
 #if DEBUG

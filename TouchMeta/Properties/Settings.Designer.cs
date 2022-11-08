@@ -49,5 +49,14 @@ namespace TouchMeta.Properties {
                 return ((bool)(this["TopMost"]));
             }
         }
+        
+        [global::System.Configuration.ApplicationScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("#FF808080")]
+        public global::System.Windows.Media.Color ConvertBGColor {
+            get {
+                return ((global::System.Windows.Media.Color)(this["ConvertBGColor"]));
+            }
+        }
     }
 }
