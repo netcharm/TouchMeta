@@ -5,7 +5,8 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:xctk="http://schemas.xceed.com/wpf/xaml/toolkit"
         xmlns:local="clr-namespace:TouchMeta"
-        xmlns:System="clr-namespace:System;assembly=mscorlib" x:Class="TouchMeta.MainWindow"
+        xmlns:System="clr-namespace:System;assembly=mscorlib" 
+        x:Class="TouchMeta.MainWindow"
         mc:Ignorable="d"
         Title="Touch File Time And Metadata"
         Height="512" Width="512" MinHeight="512" MinWidth="512" MaxHeight="512" MaxWidth="512" 
@@ -183,6 +184,23 @@
                     <MenuItem x:Name="ViewSelected" x:Uid="OpenSelected" Header="Display Selected Files" Click="FilesListAction_Click"/>
                     <MenuItem x:Name="RenameSelected" x:Uid="RenameSelected" Header="Rename Selected Files" Click="FilesListAction_Click" />
                     <MenuItem x:Name="ReduceSelected" x:Uid="ReduceSelected" Header="Reduce Selected Files" Click="FilesListAction_Click"/>
+                    <MenuItem x:Name="ReduceToSelected" x:Uid="ReduceToSelected" Header="Reduce Selected Files To" Click="FilesListAction_Click"/>
+                    <StackPanel x:Name="ReduceToQualityPanel" x:Uid="ReduceToQualityPanel" Orientation="Horizontal" HorizontalAlignment="Stretch" Width="auto">
+                        <StackPanel.ToolTip>
+                            <ToolTip Content="{Binding ElementName=ReduceToQuality, Path=ToolTip, Mode=TwoWay}" />
+                        </StackPanel.ToolTip>
+                        <Slider x:Name="ReduceToQuality" x:Uid="ReduceToQuality" MinWidth="160" MaxWidth="240" 
+                                HorizontalAlignment="Stretch" VerticalAlignment="Center"
+                            TickFrequency="1" TickPlacement="Both" SmallChange="1" LargeChange="5" 
+                            Minimum="50" Maximum="100" Value="85" ValueChanged="ReduceToQuality_ValueChanged" >
+                            <Slider.ToolTip>
+                                <ToolTip Content="{Binding RelativeSource={RelativeSource Self}, Path=PlacementTarget.Value}" ContentStringFormat="Reduce Quality: {0:F0}" />
+                            </Slider.ToolTip>
+                        </Slider>
+                        <TextBlock x:Name="ReduceToQualityValue" x:Uid="ReduceToQualityValue" Width="36" Margin="8,0,0,0"
+                                   HorizontalAlignment="Right" VerticalAlignment="Center"
+                              Text="85"/>
+                    </StackPanel>
                     <Separator/>
                     <MenuItem x:Name="AddFromClipboard" x:Uid="AddFilesFromClipboard" Header="Add Files From Clipboard" Click="FilesListAction_Click"/>
                     <MenuItem x:Name="RemoveSelected" x:Uid="RemoveSelected" Header="Remove Selected Files" Click="FilesListAction_Click"/>

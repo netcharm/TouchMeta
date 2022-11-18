@@ -264,16 +264,16 @@ namespace TouchMeta
 
         private static void ClearLog()
         {
-            //Application.Current.Dispatcher.BeginInvoke(new Action(() =>
+            //Application.Current.Dispatcher.InvokeAsync(() =>
             //{
             try { _log_.Clear(); }
             catch (Exception ex) { ShowMessage(ex.Message, "ERROR"); }
-            //}));
+            //});
         }
 
         private static void ShowLog()
         {
-            Application.Current.Dispatcher.BeginInvoke(new Action(() =>
+            Application.Current.Dispatcher.InvokeAsync(() =>
             {
                 var contents_style = (Style)Application.Current.FindResource("MessageDialogWidth");
                 var contents = string.Join(Environment.NewLine, _log_.Skip(_log_.Count-500));
@@ -292,7 +292,7 @@ namespace TouchMeta
                 dlg.PreviewMouseDown += (o, e) => { if (e.MiddleButton == MouseButtonState.Pressed) Send(Key.Escape); };
                 Application.Current.MainWindow.Activate();
                 dlg.ShowDialog();
-            }));
+            });
         }
 
         private static void ShowMessage(string text)
@@ -302,7 +302,7 @@ namespace TouchMeta
 
         private static void ShowMessage(string text, string title, double? width = null)
         {
-            Application.Current.Dispatcher.BeginInvoke(new Action(() =>
+            Application.Current.Dispatcher.InvokeAsync(() =>
             {
                 var contents_style = (Style)Application.Current.FindResource("MessageDialogWidth");
                 var dlg = new Xceed.Wpf.Toolkit.MessageBox() { };
@@ -322,7 +322,7 @@ namespace TouchMeta
                 dlg.PreviewMouseDown += (o, e) => { if (e.MiddleButton == MouseButtonState.Pressed) Send(Key.Escape); };
                 Application.Current.MainWindow.Activate();
                 dlg.ShowDialog();
-            }));
+            });
         }
 
         private static bool ShowConfirm(string text, string title)
@@ -334,7 +334,7 @@ namespace TouchMeta
         private string ShowInput(UIElement form, string input, string title = null)
         {
             var result = input;
-            Application.Current.Dispatcher.BeginInvoke(new Action(() =>
+            Application.Current.Dispatcher.InvokeAsync(() =>
             {
                 //var dlg = new Xceed.Wpf.Toolkit.MessageBox();
                 //dlg.CaptionIcon = Application.Current.MainWindow.Icon;
@@ -360,7 +360,7 @@ namespace TouchMeta
                 //dlg.PreviewMouseDown += (o, e) => { if (e.MiddleButton == MouseButtonState.Pressed) t };
                 Application.Current.MainWindow.Activate();
                 dlg.ShowDialog();
-            }));
+            });
             return (result);
         }
         #endregion
@@ -373,7 +373,7 @@ namespace TouchMeta
         private int NormallyMessageWidth = 75;
         private void ProgressReset()
         {
-            Dispatcher.Invoke(() => { Progress.Value = 0; });
+            Dispatcher.InvokeAsync(() => { Progress.Value = 0; });
         }
 
         private void ProgressReport(double count, double total, string tooltip)
@@ -464,7 +464,7 @@ namespace TouchMeta
                 Progress.Value = 0;
                 ReportProgress = new Action<double, double, string>((count, total, tooltip) =>
                 {
-                    Dispatcher.Invoke(async () =>
+                    Dispatcher.InvokeAsync(async () =>
                     {
                         try
                         {
@@ -490,7 +490,7 @@ namespace TouchMeta
         #region Get/Set Datetime Helper
         private void SetCustomDateTime(DateTime? dt = null, DateTime? dtc = null, DateTime? dtm = null, DateTime? dta = null)
         {
-            Dispatcher.Invoke(() =>
+            Dispatcher.InvokeAsync(() =>
             {
                 DateCreated.SelectedDate = dtc ?? dt ?? DateCreated.SelectedDate;
                 DateModified.SelectedDate = dtm ?? dt ?? DateModified.SelectedDate;
@@ -577,7 +577,7 @@ namespace TouchMeta
 
         private void UpdateFileTimeInfo(string file = null)
         {
-            Dispatcher.BeginInvoke(new Action(() =>
+            Dispatcher.InvokeAsync(() =>
             {
                 try
                 {
@@ -602,12 +602,12 @@ namespace TouchMeta
 
                 }
                 catch (Exception ex) { ShowMessage(ex.Message, "ERROR"); }
-            }));
+            });
         }
 
         private void AddFile(string file)
         {
-            Dispatcher.Invoke(() =>
+            Dispatcher.InvokeAsync(() =>
             {
                 var idx = FilesList.Items.IndexOf(file);
                 if (idx >= 0) FilesList.Items.RemoveAt(idx);
@@ -620,7 +620,7 @@ namespace TouchMeta
             List<string> files = new List<string>();
             if (element is ListBox && element.Items.Count > 0)
             {
-                element.Dispatcher.Invoke(() =>
+                element.Dispatcher.InvokeAsync(() =>
                 {
                     foreach (var item in element.SelectedItems.Count > 0 ? element.SelectedItems : element.Items) files.Add(item as string);
                 });
@@ -633,7 +633,7 @@ namespace TouchMeta
             List<string> files = new List<string>();
             if (FilesList.Items.Count >= 1)
             {
-                Dispatcher.Invoke(() =>
+                Dispatcher.InvokeAsync(() =>
                 {
                     foreach (var item in FilesList.SelectedItems.Count > 0 ? FilesList.SelectedItems : FilesList.Items) files.Add(item as string);
                 });
@@ -1672,7 +1672,7 @@ namespace TouchMeta
             get
             {
                 if (_current_meta_ == null) _current_meta_ = new MetaInfo();
-                Dispatcher.Invoke(() =>
+                Dispatcher.InvokeAsync(() =>
                 {
                     _current_meta_.TouchProfiles = MetaInputTouchProfile.IsChecked ?? true;
 
@@ -1697,7 +1697,7 @@ namespace TouchMeta
             set
             {
                 _current_meta_ = value;
-                Dispatcher.Invoke(() =>
+                Dispatcher.InvokeAsync(() =>
                 {
                     if (_current_meta_ != null)
                     {
@@ -2041,7 +2041,7 @@ namespace TouchMeta
                     var meta = GetMetaInfo(file);
                     meta.TouchProfiles = false;
                     meta.ChangeProperties = ChangePropertyType.Title;
-                    ChangeTitle(meta, title, mode);
+                    meta = ChangeTitle(meta, title, mode);
                     TouchMeta(file, force: true, meta: meta);
                 }
                 catch (Exception ex) { Log(ex.Message); }
@@ -2081,7 +2081,7 @@ namespace TouchMeta
                     var meta = GetMetaInfo(file);
                     meta.TouchProfiles = false;
                     meta.ChangeProperties = ChangePropertyType.Subject;
-                    ChangeSubject(meta, subject, mode);
+                    meta = ChangeSubject(meta, subject, mode);
                     TouchMeta(file, force: true, meta: meta);
                 }
                 catch (Exception ex) { Log(ex.Message); }
@@ -2110,6 +2110,7 @@ namespace TouchMeta
                 {
                     meta.Keywords = string.Empty;
                 }
+                if (!string.IsNullOrEmpty(meta.Keywords)) meta.Keywords += ";";
             }
             return (meta);
         }
@@ -2123,7 +2124,7 @@ namespace TouchMeta
                     var meta = GetMetaInfo(file);
                     meta.TouchProfiles = false;
                     meta.ChangeProperties = ChangePropertyType.Keywords;
-                    ChangeKeywords(meta, keywords, mode);
+                    meta = ChangeKeywords(meta, keywords, mode);
                     TouchMeta(file, force: true, meta: meta);
                 }
                 catch (Exception ex) { Log(ex.Message); }
@@ -2163,7 +2164,7 @@ namespace TouchMeta
                     var meta = GetMetaInfo(file);
                     meta.TouchProfiles = false;
                     meta.ChangeProperties = ChangePropertyType.Comment;
-                    ChangeSubject(meta, comment, mode);
+                    meta = ChangeSubject(meta, comment, mode);
                     TouchMeta(file, force: true, meta: meta);
                 }
                 catch (Exception ex) { Log(ex.Message); }
@@ -2192,6 +2193,7 @@ namespace TouchMeta
                 {
                     meta.Authors = string.Empty;
                 }
+                if (!string.IsNullOrEmpty(meta.Authors)) meta.Authors += ";";
             }
             return (meta);
         }
@@ -2205,7 +2207,7 @@ namespace TouchMeta
                     var meta = GetMetaInfo(file);
                     meta.TouchProfiles = false;
                     meta.ChangeProperties = ChangePropertyType.Authors;
-                    ChangeAuthors(meta, authors, mode);
+                    meta = ChangeAuthors(meta, authors, mode);
                     TouchMeta(file, force: true, meta: meta);
                 }
                 catch (Exception ex) { Log(ex.Message); }
@@ -2234,6 +2236,7 @@ namespace TouchMeta
                 {
                     meta.Copyrights = string.Empty;
                 }
+                if (!string.IsNullOrEmpty(meta.Copyrights)) meta.Copyrights += ";";
             }
             return (meta);
         }
@@ -2247,7 +2250,7 @@ namespace TouchMeta
                     var meta = GetMetaInfo(file);
                     meta.TouchProfiles = false;
                     meta.ChangeProperties = ChangePropertyType.Copyrights;
-                    ChangeCopyrights(meta, copyrights, mode);
+                    meta = ChangeCopyrights(meta, copyrights, mode);
                     TouchMeta(file, force: true, meta: meta);
                 }
                 catch (Exception ex) { Log(ex.Message); }
@@ -2288,7 +2291,7 @@ namespace TouchMeta
                     var meta = GetMetaInfo(file);
                     meta.TouchProfiles = false;
                     meta.ChangeProperties = ChangePropertyType.Ranking;
-                    ChangeRanking(meta, ranking, mode);
+                    meta = ChangeRanking(meta, ranking, mode);
                     TouchMeta(file, force: true, meta: meta);
                 }
                 catch (Exception ex) { Log(ex.Message); }
@@ -2329,7 +2332,7 @@ namespace TouchMeta
                     var meta = GetMetaInfo(file);
                     meta.TouchProfiles = false;
                     meta.ChangeProperties = ChangePropertyType.Rating;
-                    ChangeRating(meta, rating, mode);
+                    meta = ChangeRating(meta, rating, mode);
                     TouchMeta(file, force: true, meta: meta);
                 }
                 catch (Exception ex) { Log(ex.Message); }
@@ -4956,9 +4959,9 @@ namespace TouchMeta
             return null;
         }
 
-        public byte[] ReduceImageSize(byte[] buffer, string fmt, int quality = 85)
+        public byte[] ReduceImageQuality(byte[] buffer, string fmt, int quality = 85)
         {
-            byte[] result = null;
+            byte[] result = buffer;
             try
             {
                 if (buffer is byte[] && buffer.Length > 0)
@@ -4977,26 +4980,32 @@ namespace TouchMeta
                             using (var mo = new MemoryStream())
                             {
                                 var bmp = new System.Drawing.Bitmap(mi);
-                                var codec_info = GetEncoderInfo("image/jpeg");
-                                var qualityParam = new System.Drawing.Imaging.EncoderParameter(System.Drawing.Imaging.Encoder.Quality, quality);
-                                var encoderParams = new System.Drawing.Imaging.EncoderParameters(1);
-                                encoderParams.Param[0] = qualityParam;
-                                if (pFmt == System.Drawing.Imaging.ImageFormat.Jpeg)
+                                if (bmp is System.Drawing.Bitmap)
                                 {
-                                    using (System.Drawing.Graphics g = System.Drawing.Graphics.FromImage(bmp))
+                                    var codec_info = GetEncoderInfo("image/jpeg");
+                                    var qualityParam = new System.Drawing.Imaging.EncoderParameter(System.Drawing.Imaging.Encoder.Quality, quality);
+                                    var encoderParams = new System.Drawing.Imaging.EncoderParameters(1);
+                                    encoderParams.Param[0] = qualityParam;
+
+                                    if (pFmt == System.Drawing.Imaging.ImageFormat.Jpeg)
                                     {
-                                        if (mi.CanSeek) mi.Seek(0, SeekOrigin.Begin);
-                                        var img = new System.Drawing.Bitmap(mi);
-                                        var bg = ConvertBGColor;
-                                        g.Clear(System.Drawing.Color.FromArgb(bg.A, bg.R, bg.G, bg.B));
-                                        g.DrawImage(img, 0, 0, new System.Drawing.Rectangle(new System.Drawing.Point(), bmp.Size), System.Drawing.GraphicsUnit.Pixel);
+                                        var img = new System.Drawing.Bitmap(bmp.Width, bmp.Height, System.Drawing.Imaging.PixelFormat.Format32bppRgb);
+                                        img.SetResolution(bmp.HorizontalResolution, bmp.VerticalResolution);
+                                        using (System.Drawing.Graphics g = System.Drawing.Graphics.FromImage(img))
+                                        {
+                                            var bg = ConvertBGColor;
+                                            g.Clear(System.Drawing.Color.FromArgb(bg.A, bg.R, bg.G, bg.B));
+                                            g.DrawImage(bmp, 0, 0, new System.Drawing.Rectangle(new System.Drawing.Point(), bmp.Size), System.Drawing.GraphicsUnit.Pixel);
+                                        }
+                                        img.Save(mo, codec_info, encoderParams);
                                         img.Dispose();
                                     }
-                                    bmp.Save(mo, codec_info, encoderParams);
+                                    else
+                                        bmp.Save(mo, pFmt);
+
+                                    result = mo.ToArray();
+                                    bmp.Dispose();
                                 }
-                                else
-                                    bmp.Save(mo, pFmt);
-                                result = mo.ToArray();
                             }
                         }
                     }
@@ -5006,7 +5015,7 @@ namespace TouchMeta
             return (result);
         }
 
-        public string ReduceImageSize(string file, string fmt, int quality = 75, bool keep_name = false)
+        public string ReduceImageQuality(string file, string fmt, int quality = 75, bool keep_name = false)
         {
             string result = string.Empty;
             try
@@ -5096,7 +5105,7 @@ namespace TouchMeta
                             }
                         }
 
-                        var bo = ReduceImageSize(bi, fmt, quality: quality);
+                        var bo = ReduceImageQuality(bi, fmt, quality: quality);
                         if (bo is byte[] && bo.Length > 0)
                         {
                             using (var msp = new MemoryStream(bo))
@@ -5158,31 +5167,36 @@ namespace TouchMeta
             return (result);
         }
 
-        public string ReduceImageSize(string file, MagickFormat fmt, bool keep_name = false)
+        public string ReduceImageQuality(string file, MagickFormat fmt, int quality = 0, bool keep_name = false)
         {
-            int.TryParse(GetConfigValue(ReduceQualityKey, ReduceQuality), out ReduceQuality);
-            return (ReduceImageSize(file, fmt.ToString().ToLower(), ReduceQuality, keep_name));
+            if (quality <= 0)
+            {
+                //int.TryParse(GetConfigValue(ReduceQualityKey, ReduceQuality), out ReduceQuality);
+                return (ReduceImageQuality(file, fmt.ToString().ToLower(), ReduceQuality, keep_name));                
+            }
+            else
+                return (ReduceImageQuality(file, fmt.ToString().ToLower(), quality, keep_name));
         }
 
-        public void ReduceImageSize(IEnumerable<string> files, MagickFormat fmt, bool keep_name = false)
+        public void ReduceImageQuality(IEnumerable<string> files, MagickFormat fmt, int quality = 0, bool keep_name = false)
         {
             if (files is IEnumerable<string>)
             {
                 RunBgWorker(new Action<string, bool>((file, show_xmp) =>
                 {
-                    var ret = ReduceImageSize(file, fmt, keep_name);
+                    var ret = ReduceImageQuality(file, fmt, quality, keep_name);
                     if (!string.IsNullOrEmpty(ret) && File.Exists(ret) && !keep_name) AddFile(ret);
                 }));
             }
         }
 
-        public void ReduceImageFileSize(MagickFormat fmt = MagickFormat.Jpg, bool keep_name = true)
+        public void ReduceImageQuality(MagickFormat fmt = MagickFormat.Jpg, int quality = 0, bool keep_name = true)
         {
             if (FilesList.Items.Count >= 1)
             {
                 List<string> files = new List<string>();
                 foreach (var item in FilesList.SelectedItems.Count > 0 ? FilesList.SelectedItems : FilesList.Items) files.Add(item as string);
-                ReduceImageSize(files, fmt, keep_name);
+                ReduceImageQuality(files, fmt, quality, keep_name);
             }
         }
         #endregion
@@ -5416,48 +5430,51 @@ namespace TouchMeta
 
         private void InitDefaultUI()
         {
-            var now = DateTime.Now;
-            DateCreated.SelectedDate = now;
-            DateModified.SelectedDate = now;
-            DateAccessed.SelectedDate = now;
-            DateCreated.IsTodayHighlighted = true;
-            DateModified.IsTodayHighlighted = true;
-            DateAccessed.IsTodayHighlighted = true;
+            Dispatcher.InvokeAsync(() =>
+            {
+                var now = DateTime.Now;
+                DateCreated.SelectedDate = now;
+                DateModified.SelectedDate = now;
+                DateAccessed.SelectedDate = now;
+                DateCreated.IsTodayHighlighted = true;
+                DateModified.IsTodayHighlighted = true;
+                DateAccessed.IsTodayHighlighted = true;
 
-            TimeCreated.Value = now;
-            TimeModified.Value = now;
-            TimeAccessed.Value = now;
-            TimeCreated.DefaultValue = now;
-            TimeModified.DefaultValue = now;
-            TimeAccessed.DefaultValue = now;
+                TimeCreated.Value = now;
+                TimeModified.Value = now;
+                TimeAccessed.Value = now;
+                TimeCreated.DefaultValue = now;
+                TimeModified.DefaultValue = now;
+                TimeAccessed.DefaultValue = now;
 
-            SetCreatedDateToAllEnabled.IsChecked = true;
-            SetModifiedDateToAllEnabled.IsChecked = true;
-            SetAccessedDateToAllEnabled.IsChecked = true;
+                SetCreatedDateToAllEnabled.IsChecked = true;
+                SetModifiedDateToAllEnabled.IsChecked = true;
+                SetAccessedDateToAllEnabled.IsChecked = true;
 
-            SetCreatedTimeToAllEnabled.IsChecked = true;
-            SetModifiedTimeToAllEnabled.IsChecked = true;
-            SetAccessedTimeToAllEnabled.IsChecked = true;
+                SetCreatedTimeToAllEnabled.IsChecked = true;
+                SetModifiedTimeToAllEnabled.IsChecked = true;
+                SetAccessedTimeToAllEnabled.IsChecked = true;
 
-            FileRenameInputPopupCanvas.Background = Background;
-            FileRenameInputPopupBorder.BorderBrush = FilesList.BorderBrush;
-            FileRenameInputPopupBorder.BorderThickness = FilesList.BorderThickness;
+                FileRenameInputPopupCanvas.Background = Background;
+                FileRenameInputPopupBorder.BorderBrush = FilesList.BorderBrush;
+                FileRenameInputPopupBorder.BorderThickness = FilesList.BorderThickness;
 
-            MetaInputPopupCanvas.Background = Background;
-            MetaInputPopupBorder.BorderBrush = FilesList.BorderBrush;
-            MetaInputPopupBorder.BorderThickness = FilesList.BorderThickness;
-            MetaInputPopup.Width = Width - 28;
-            MetaInputPopup.MinHeight = 336;
-            //MetaInputPopup.Height = 336;
+                MetaInputPopupCanvas.Background = Background;
+                MetaInputPopupBorder.BorderBrush = FilesList.BorderBrush;
+                MetaInputPopupBorder.BorderThickness = FilesList.BorderThickness;
+                MetaInputPopup.Width = Width - 28;
+                MetaInputPopup.MinHeight = 336;
+                //MetaInputPopup.Height = 336;
 
-            MetaInputPopup.StaysOpen = true;
-            MetaInputPopup.Placement = PlacementMode.Bottom;
-            MetaInputPopup.HorizontalOffset = MetaInputPopup.Width - ShowMetaInputPopup.ActualWidth;
-            MetaInputPopup.VerticalOffset = -6;
+                MetaInputPopup.StaysOpen = true;
+                MetaInputPopup.Placement = PlacementMode.Bottom;
+                MetaInputPopup.HorizontalOffset = MetaInputPopup.Width - ShowMetaInputPopup.ActualWidth;
+                MetaInputPopup.VerticalOffset = -6;
 
-            MetaInputPopup.PreviewMouseDown += (obj, evt) => { Activate(); };
+                MetaInputPopup.PreviewMouseDown += (obj, evt) => { Activate(); };
 
-            CurrentMetaRating = 0;
+                CurrentMetaRating = 0;
+            });
         }
 
         private void InitAccelerators()
@@ -5531,7 +5548,7 @@ namespace TouchMeta
 
         private void SetTitle(string text = "")
         {
-            Dispatcher.BeginInvoke(new Action(() =>
+            Dispatcher.InvokeAsync(() =>
             {
                 try
                 {
@@ -5541,7 +5558,7 @@ namespace TouchMeta
                         Title = $"{DefaultTitle} - {text}";
                 }
                 catch (Exception ex) { Log(ex.Message); }
-            }));
+            });
         }
 
         private void RemoveFileListItems()
@@ -5634,8 +5651,9 @@ namespace TouchMeta
 
             try
             {
-                int.TryParse(GetConfigValue(ConvertQualityKey, ConvertQuality), out ConvertQuality);
                 bool.TryParse(GetConfigValue(AlwaysTopMostKey, AlwaysTopMost), out AlwaysTopMost);
+                int.TryParse(GetConfigValue(ConvertQualityKey, ConvertQuality), out ConvertQuality);
+                int.TryParse(GetConfigValue(ReduceQualityKey, ReduceQuality), out ReduceQuality);
                 ConvertBGColor = (Color)ColorConverter.ConvertFromString(GetConfigValue(ConvertBGColorKey, ConvertBGColor));
             }
             catch (Exception ex) { ShowMessage($"Config Error!{Environment.NewLine}{ex.Message}"); }
@@ -5685,6 +5703,8 @@ namespace TouchMeta
             };
             #endregion
 
+            Dispatcher.InvokeAsync(() => { ReduceToQuality.Value = ReduceQuality; });            
+
             var args = Environment.GetCommandLineArgs();
             LoadFiles(args.Skip(1).ToArray());
         }
@@ -5732,32 +5752,32 @@ namespace TouchMeta
             var fmts = e.Data.GetFormats(true);
             if (fmts.Contains("Downloaded"))
             {
-                Dispatcher.BeginInvoke(new Action(() =>
+                Dispatcher.InvokeAsync(() =>
                 {
                     var files = e.Data.GetData("Downloaded");
                     var dl = GetDropedFiles(files);
                     if (dl.Count() > 0) LoadFiles(dl);
-                }));
+                });
             }
             else if (fmts.Contains("FileDrop"))
             {
-                Dispatcher.BeginInvoke(new Action(() =>
+                Dispatcher.InvokeAsync(() =>
                 {
                     var files = e.Data.GetData("FileDrop");
                     var dl = GetDropedFiles(files);
                     if (dl.Count() > 0) LoadFiles(dl);
-                }));
+                });
             }
             else if (fmts.Contains("Text"))
             {
-                Dispatcher.BeginInvoke(new Action(() =>
+                Dispatcher.InvokeAsync(() =>
                 {
                     var files = (e.Data.GetData("Text") as string).Split();
                     if (files is IEnumerable<string> && files.Count() > 0)
                     {
                         LoadFiles((files as IEnumerable<string>).ToArray());
                     }
-                }));
+                });
             }
         }
 
@@ -6070,6 +6090,7 @@ namespace TouchMeta
             }
             #endregion
             #region Add/Remove/Replace/Empty Image File(s) Metadata
+            #region Title
             else if (sender == ChangeMetaTitleAppend)
             {
                 RunBgWorker(new Action<string, bool>((file, show_xmp) =>
@@ -6098,7 +6119,8 @@ namespace TouchMeta
                     ChangeProperties(file, CurrentMeta, ChangePropertyType.Title, ChangePropertyMode.Empty);
                 }));
             }
-
+            #endregion
+            #region Subject
             else if (sender == ChangeMetaSubjectAppend)
             {
                 RunBgWorker(new Action<string, bool>((file, show_xmp) =>
@@ -6127,7 +6149,8 @@ namespace TouchMeta
                     ChangeProperties(file, CurrentMeta, ChangePropertyType.Subject, ChangePropertyMode.Empty);
                 }));
             }
-
+            #endregion
+            #region Keywords
             else if (sender == ChangeMetaKeywordsAppend)
             {
                 RunBgWorker(new Action<string, bool>((file, show_xmp) =>
@@ -6156,7 +6179,8 @@ namespace TouchMeta
                     ChangeProperties(file, CurrentMeta, ChangePropertyType.Keywords, ChangePropertyMode.Empty);
                 }));
             }
-
+            #endregion
+            #region Comment
             else if (sender == ChangeMetaCommentAppend)
             {
                 RunBgWorker(new Action<string, bool>((file, show_xmp) =>
@@ -6185,7 +6209,8 @@ namespace TouchMeta
                     ChangeProperties(file, CurrentMeta, ChangePropertyType.Comment, ChangePropertyMode.Empty);
                 }));
             }
-
+            #endregion
+            #region Authors
             else if (sender == ChangeMetaAuthorsAppend)
             {
                 RunBgWorker(new Action<string, bool>((file, show_xmp) =>
@@ -6214,7 +6239,8 @@ namespace TouchMeta
                     ChangeProperties(file, CurrentMeta, ChangePropertyType.Authors, ChangePropertyMode.Empty);
                 }));
             }
-
+            #endregion
+            #region Copyrights
             else if (sender == ChangeMetaCopyrightsAppend)
             {
                 RunBgWorker(new Action<string, bool>((file, show_xmp) =>
@@ -6243,7 +6269,8 @@ namespace TouchMeta
                     ChangeProperties(file, CurrentMeta, ChangePropertyType.Copyrights, ChangePropertyMode.Empty);
                 }));
             }
-
+            #endregion
+            #region Rating
             else if (sender == ChangeMetaRatingAppend)
             {
                 RunBgWorker(new Action<string, bool>((file, show_xmp) =>
@@ -6272,7 +6299,8 @@ namespace TouchMeta
                     ChangeProperties(file, CurrentMeta, ChangePropertyType.Rating, ChangePropertyMode.Empty);
                 }));
             }
-
+            #endregion
+            #region Smart
             else if (sender == ChangeMetaSmartAppend)
             {
                 RunBgWorker(new Action<string, bool>((file, show_xmp) =>
@@ -6301,6 +6329,9 @@ namespace TouchMeta
                     ChangeProperties(file, CurrentMeta, ChangePropertyType.Smart, ChangePropertyMode.Empty);
                 }));
             }
+            #endregion
+            #region 
+            #endregion
             #endregion
             #region Convert Image File Format
             else if (sender == ConvertSelectedToJpg)
@@ -6343,7 +6374,11 @@ namespace TouchMeta
             }
             else if (sender == ReduceSelected)
             {
-                ReduceImageFileSize(MagickFormat.Jpg, keep_name: true);
+                ReduceImageQuality(MagickFormat.Jpg, keep_name: true);
+            }
+            else if (sender == ReduceToSelected)
+            {
+                ReduceImageQuality(MagickFormat.Jpg, quality: Convert.ToInt32(ReduceToQuality.Value), keep_name: true);
             }
             #endregion
             #region Add/Remove Image File(s) From List
@@ -6366,10 +6401,10 @@ namespace TouchMeta
 
                     if (files is IEnumerable<string> && files.Count() > 0)
                     {
-                        Dispatcher.BeginInvoke(new Action(() =>
+                        Dispatcher.InvokeAsync(() =>
                         {
                             LoadFiles((files as IEnumerable<string>).ToArray());
-                        }));
+                        });
                     }
                 }
                 catch (Exception ex) { ShowMessage(ex.Message, "ERROR"); }
@@ -6547,6 +6582,25 @@ namespace TouchMeta
                     ShowMessage(string.Join(Environment.NewLine, lines), "Usage", width: 640);
                 }
             }
+        }
+
+        private void ReduceToQuality_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            try
+            {
+                Dispatcher.InvokeAsync(() =>
+                {
+                    if (IsLoaded)
+                    {
+                        var quality = Convert.ToInt32(ReduceToQuality.Value);
+                        ReduceToQuality.ToolTip = $"Reduce Quality: { quality }";
+                        ReduceToQualityValue.Text = $"{ quality }";
+                        ReduceToQualityValue.ToolTip = ReduceToQuality.ToolTip;
+                        ReduceToQualityPanel.ToolTip = ReduceToQuality.ToolTip;
+                    }
+                });
+            }
+            catch (Exception ex) { Log(ex.Message); }
         }
     }
 }
