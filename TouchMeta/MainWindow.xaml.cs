@@ -264,7 +264,7 @@ namespace TouchMeta
 
         private static void ClearLog()
         {
-            //Application.Current.Dispatcher.InvokeAsync(() =>
+            //Application.Current.Dispatcher.Invoke(() =>
             //{
             try { _log_.Clear(); }
             catch (Exception ex) { ShowMessage(ex.Message, "ERROR"); }
@@ -325,10 +325,18 @@ namespace TouchMeta
             });
         }
 
+        private static Func<string, string, MessageBoxResult> ShowConfirmFunc = (content, caption) => {
+            return(Xceed.Wpf.Toolkit.MessageBox.Show(Application.Current.MainWindow, content, caption, MessageBoxButton.YesNo, MessageBoxImage.Question));
+        };
+
         private static bool ShowConfirm(string text, string title)
         {
-            var ret = Xceed.Wpf.Toolkit.MessageBox.Show(Application.Current.MainWindow, text, title, MessageBoxButton.YesNo, MessageBoxImage.Question);
-            return (ret == MessageBoxResult.Yes ? true : false);
+            //var ret = Application.Current.Dispatcher.Invoke(Func<out MessageBoxResult>() => { 
+            //    var ret = Xceed.Wpf.Toolkit.MessageBox.Show(Application.Current.MainWindow, text, title, MessageBoxButton.YesNo, MessageBoxImage.Question);
+            //    return(ret);
+            //});
+            var ret = Application.Current.Dispatcher.Invoke(ShowConfirmFunc, text, title);
+            return (ret is MessageBoxResult && (MessageBoxResult)ret == MessageBoxResult.Yes ? true : false);
         }
 
         private string ShowInput(UIElement form, string input, string title = null)
@@ -620,7 +628,7 @@ namespace TouchMeta
             List<string> files = new List<string>();
             if (element is ListBox && element.Items.Count > 0)
             {
-                element.Dispatcher.InvokeAsync(() =>
+                element.Dispatcher.Invoke(() =>
                 {
                     foreach (var item in element.SelectedItems.Count > 0 ? element.SelectedItems : element.Items) files.Add(item as string);
                 });
@@ -2110,7 +2118,7 @@ namespace TouchMeta
                 {
                     meta.Keywords = string.Empty;
                 }
-                if (!string.IsNullOrEmpty(meta.Keywords)) meta.Keywords += ";";
+                if (!string.IsNullOrEmpty(meta.Keywords) && meta.Keywords.EndsWith(";")) meta.Keywords += ";";
             }
             return (meta);
         }
@@ -2193,7 +2201,7 @@ namespace TouchMeta
                 {
                     meta.Authors = string.Empty;
                 }
-                if (!string.IsNullOrEmpty(meta.Authors)) meta.Authors += ";";
+                if (!string.IsNullOrEmpty(meta.Authors) && meta.Authors.EndsWith(";")) meta.Authors += ";";
             }
             return (meta);
         }
@@ -2236,7 +2244,7 @@ namespace TouchMeta
                 {
                     meta.Copyrights = string.Empty;
                 }
-                if (!string.IsNullOrEmpty(meta.Copyrights)) meta.Copyrights += ";";
+                if (!string.IsNullOrEmpty(meta.Copyrights) && meta.Copyrights.EndsWith(";")) meta.Copyrights += ";";
             }
             return (meta);
         }
@@ -4912,6 +4920,7 @@ namespace TouchMeta
                                 result = name;
                             }
                         }
+                        else Log("Action Has Being Canceled!");
                     }
                     catch (Exception ex) { Log(ex.Message); }
                 }
@@ -5874,8 +5883,11 @@ namespace TouchMeta
 
         private void FilesList_MouseDoubleClick(object sender, MouseButtonEventArgs e)
         {
-            var alt = Keyboard.Modifiers == ModifierKeys.Shift;
-            OpenFiles(alt);
+            if (e.ChangedButton == MouseButton.Left)
+            {
+                var alt = Keyboard.Modifiers == ModifierKeys.Shift;
+                OpenFiles(alt);
+            }
         }
 
         private void FilesList_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -6597,6 +6609,37 @@ namespace TouchMeta
                         ReduceToQualityValue.Text = $"{ quality }";
                         ReduceToQualityValue.ToolTip = ReduceToQuality.ToolTip;
                         ReduceToQualityPanel.ToolTip = ReduceToQuality.ToolTip;
+                    }
+                });
+            }
+            catch (Exception ex) { Log(ex.Message); }
+        }
+
+        private void ReduceToQuality_MouseWheel(object sender, MouseWheelEventArgs e)
+        {
+            try
+            {
+                Dispatcher.InvokeAsync(() =>
+                {
+                    if (IsLoaded)
+                    {
+                        var value = ReduceToQuality.Value;
+                        var m = value % ReduceToQuality.LargeChange;                        
+                        var offset = 0.0;
+                        if (e.Delta < 0)
+                        {
+                            m = m == 0 ? ReduceToQuality.LargeChange : ReduceToQuality.LargeChange - m;
+                            offset = value + m;
+                        }
+                        else if (e.Delta > 0)
+                        {
+                            m = m == 0 ? ReduceToQuality.LargeChange : m;
+                            offset = value - m;
+                        }
+                        ReduceToQuality.Value = offset;
+#if DEBUG
+                        Debug.WriteLine($"{e.Delta}, {m}, {offset}");
+#endif
                     }
                 });
             }
