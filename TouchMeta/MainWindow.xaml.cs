@@ -325,21 +325,39 @@ namespace TouchMeta
             });
         }
 
-        private static Func<string, string, MessageBoxResult> ShowConfirmFunc = (content, caption) => {
-            return(Xceed.Wpf.Toolkit.MessageBox.Show(Application.Current.MainWindow, content, caption, MessageBoxButton.YesNo, MessageBoxImage.Question));
+        private static bool ConfirmToAll { get; set; } = false;
+        private static bool ConfirmNoToAll { get; set; } = false;
+        private static bool ConfirmYesToAll { get; set; } = false;
+        private static Func<string, string, MessageBoxResult> ShowConfirmFunc = (content, caption) =>
+        {
+            ConfirmToAll = false;
+            ConfirmNoToAll = false;
+            ConfirmYesToAll = false;
+            content = $"{content}{Environment.NewLine}{Environment.NewLine}[Click Button with SHIFT will Apply To All!]";
+            var ret = Xceed.Wpf.Toolkit.MessageBox.Show(Application.Current.MainWindow, content, caption, MessageBoxButton.YesNo, MessageBoxImage.Question);
+            ConfirmToAll = Keyboard.Modifiers.HasFlag(ModifierKeys.Shift) ? true : false;
+            return(ret);
         };
 
         private static bool ShowConfirm(string text, string title)
         {
-            //var ret = Application.Current.Dispatcher.Invoke(Func<out MessageBoxResult>() => { 
-            //    var ret = Xceed.Wpf.Toolkit.MessageBox.Show(Application.Current.MainWindow, text, title, MessageBoxButton.YesNo, MessageBoxImage.Question);
-            //    return(ret);
-            //});
+            var result = false;
+
+            if (ConfirmNoToAll) return (false);
+            if (ConfirmYesToAll) return (true);
+
             var ret = Application.Current.Dispatcher.Invoke(ShowConfirmFunc, text, title);
-            return (ret is MessageBoxResult && (MessageBoxResult)ret == MessageBoxResult.Yes ? true : false);
+            result = ret is MessageBoxResult && (MessageBoxResult)ret == MessageBoxResult.Yes ? true : false;
+            if (ConfirmToAll)
+            {
+                ConfirmYesToAll = result;
+                ConfirmNoToAll = !result;
+            }
+
+            return (result);
         }
 
-        private string ShowInput(UIElement form, string input, string title = null)
+        private string ShowCustomForm(UIElement form, string input, string title = null)
         {
             var result = input;
             Application.Current.Dispatcher.InvokeAsync(() =>
@@ -391,6 +409,10 @@ namespace TouchMeta
 
         private void RunBgWorker(Action<string, bool> action, bool showlog = true)
         {
+            ConfirmToAll = false;
+            ConfirmNoToAll = false;
+            ConfirmYesToAll = false;
+
             if (action is Action<string, bool> && bgWorker is BackgroundWorker && !bgWorker.IsBusy)
             {
                 IList<string> files = GetFiles(FilesList);
@@ -4846,12 +4868,11 @@ namespace TouchMeta
                 var dm = fi.LastWriteTime;
                 var da = fi.LastAccessTime;
 
-
                 using (var ms = new MemoryStream(File.ReadAllBytes(fi.FullName)))
                 {
                     try
                     {
-                        if (!GuessAlpha(ms) || ShowConfirm("Image Has Alpha, Continue?", "Confirm"))
+                        if (ConfirmYesToAll || !GuessAlpha(ms) || ShowConfirm($"Image File \"{fi.FullName}\" Has Alpha, {Environment.NewLine}Continue?", "Confirm"))
                         {
                             if (ms.CanSeek) ms.Seek(0, SeekOrigin.Begin);
 
@@ -4897,22 +4918,6 @@ namespace TouchMeta
                                     nfi.LastAccessTime = da;
 
                                     Log($"Convert {file} => {name}");
-
-                                    //try
-                                    //{
-                                    //    var exifdata_n = new ExifData(name);
-                                    //    exifdata_n.ReplaceAllTagsBy(exifdata);
-                                    //    if (meta.Attributes.ContainsKey("Software"))
-                                    //        exifdata_n.SetTagValue(CompactExifLib.ExifTag.Software, meta.Attributes["Software"], StrCoding.Utf8);
-                                    //    exifdata_n.Save(name);                                    
-                                    //}
-                                    //catch (Exception ex) { Log(ex.Message); }
-
-                                    //if (meta is MetaInfo)
-                                    //{
-                                    //    Log("~".PadRight(ExtendedMessageWidth, '~'));
-                                    //    TouchMeta(name, dtc: dc, dtm: dm, dta: da, meta: meta);
-                                    //}
                                 }
                                 else
                                     Log($"Convert {file} to {fmt_info.MimeType.ToString()}");
@@ -5598,7 +5603,7 @@ namespace TouchMeta
                 var file = FilesList.SelectedItem as string;
                 var filename = Path.GetFileName(file);
 #if DEBUG
-                var ret = ShowInput(FileRenameInputPopupCanvas, filename);
+                var ret = ShowCustomForm(FileRenameInputPopupCanvas, filename);
                 if (!ret.Equals(filename, StringComparison.CurrentCultureIgnoreCase))
                 {
                     RenameFileName(file, ret);
