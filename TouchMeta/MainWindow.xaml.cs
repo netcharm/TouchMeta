@@ -399,7 +399,11 @@ namespace TouchMeta
         private int NormallyMessageWidth = 75;
         private void ProgressReset()
         {
-            Dispatcher.InvokeAsync(() => { Progress.Value = 0; });
+            Dispatcher.InvokeAsync(() => {
+                Progress.Value = 0;
+
+                Common.TaskbarManager.ResetProgress(Progress.Value, Progress.Maximum);
+            });
         }
 
         private void ProgressReport(double count, double total, string tooltip)
@@ -438,6 +442,7 @@ namespace TouchMeta
                             ProgressReport(++count, files.Count, file);
                         }
                         if (showlog) ShowLog();
+                        Common.TaskbarManager.ResetProgress();
                     }));
                 }
             }
@@ -492,6 +497,8 @@ namespace TouchMeta
                 Progress.Minimum = 0;
                 Progress.Maximum = 100;
                 Progress.Value = 0;
+                Common.TaskbarManager.SetProgressValue(Progress.Value, Progress.Maximum);
+
                 ReportProgress = new Action<double, double, string>((count, total, tooltip) =>
                 {
                     Dispatcher.InvokeAsync(async () =>
@@ -504,8 +511,13 @@ namespace TouchMeta
                             else if (percent <= 0) Progress.ToolTip = $"0% : {tooltip}";
                             else Progress.ToolTip = $"{percent:P1} : {tooltip}";
 
-                            if (percent >= 1 || percent <= 0) Title = DefaultTitle;
+                            if (percent > 1 || percent < 0) Title = DefaultTitle;
                             else SetTitle($"[{percent:P1} - {count}/{total}]");
+
+                            Common.TaskbarManager.SetProgressValue(percent*100);
+#if DEBUG
+                            Debug.WriteLine($"{count}, {total}, {percent:P1}, {100}");
+#endif
                         }
                         catch { }
 
@@ -5888,7 +5900,8 @@ namespace TouchMeta
 
         private void FilesList_MouseDoubleClick(object sender, MouseButtonEventArgs e)
         {
-            if (e.ChangedButton == MouseButton.Left)
+            if (e.ChangedButton == MouseButton.Left && 
+               (e.OriginalSource is ScrollViewer || e.OriginalSource is TextBlock))
             {
                 var alt = Keyboard.Modifiers == ModifierKeys.Shift;
                 OpenFiles(alt);
