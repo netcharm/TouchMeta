@@ -5900,9 +5900,14 @@ namespace TouchMeta
 
         private void FilesList_MouseDoubleClick(object sender, MouseButtonEventArgs e)
         {
-            if (e.ChangedButton == MouseButton.Left && 
-               (e.OriginalSource is ScrollViewer || e.OriginalSource is TextBlock))
+#if DEBUG
+            Debug.WriteLine($"{e.OriginalSource.ToString()} => {e.Source}, {e.ClickCount}");
+#endif
+            if (e.ChangedButton == MouseButton.Left &&
+               (e.OriginalSource is ScrollViewer || e.OriginalSource is TextBlock || 
+               (e.OriginalSource is Border && (e.OriginalSource as Border).DataContext != null)))
             {
+                e.Handled = true;
                 var alt = Keyboard.Modifiers == ModifierKeys.Shift;
                 OpenFiles(alt);
             }
