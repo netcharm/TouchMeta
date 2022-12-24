@@ -192,7 +192,7 @@
                         <Slider x:Name="ReduceToQuality" x:Uid="ReduceToQuality" MinWidth="160" MaxWidth="240" 
                                 HorizontalAlignment="Stretch" VerticalAlignment="Center"
                             TickFrequency="1" TickPlacement="Both" SmallChange="1" LargeChange="5" IsSnapToTickEnabled="True"
-                            Minimum="50" Maximum="100" Value="85" ValueChanged="ReduceToQuality_ValueChanged" MouseWheel="ReduceToQuality_MouseWheel" >
+                            Minimum="25" Maximum="100" Value="85" ValueChanged="ReduceToQuality_ValueChanged" MouseWheel="ReduceToQuality_MouseWheel" >
                             <Slider.ToolTip>
                                 <ToolTip Content="{Binding RelativeSource={RelativeSource Self}, Path=PlacementTarget.Value}" ContentStringFormat="Reduce Quality: {0:F0}" />
                             </Slider.ToolTip>

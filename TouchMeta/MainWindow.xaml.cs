@@ -85,6 +85,7 @@ namespace TouchMeta
         private static string AppName = Path.GetFileNameWithoutExtension(AppPath);
         private static string CachePath =  "cache";
 
+        private const string ViewImageApp = "ViewImageApp";
         private const string ConvertBGColorKey = "ConvertBGColor";
         private const string ConvertQualityKey = "ConvertQuality";
         private const string ReduceQualityKey = "ReduceQuality";
@@ -101,6 +102,7 @@ namespace TouchMeta
 
         private string DefaultTitle = null;
         private string[] LineBreak = new string[] { Environment.NewLine, "\r\n", "\n\r", "\n", "\r" };
+        private List<string> exts_image = new List<string>();
 
         //private static string Symbol_Rating_Star_Empty = "\uE8D9";
         private static string Symbol_Rating_Star_Outline = "\uE1CE";
@@ -5450,6 +5452,15 @@ namespace TouchMeta
                 //MagickNET.SupportedFormats
                 SupportedFormats = ((MagickFormat[])Enum.GetValues(typeof(MagickFormat))).Select(e => $".{e.ToString().ToLower()}").ToList();
                 SupportedFormats.AddRange(new string[] { ".spa", ".sph" });
+
+                foreach (var fmt in MagickNET.SupportedFormats)
+                {
+                    if (fmt.IsReadable)
+                    {
+                        if (fmt.MimeType != null && fmt.MimeType.StartsWith("image", StringComparison.CurrentCultureIgnoreCase))
+                            exts_image.Add($".{fmt.Format.ToString().ToLower()}");
+                    }
+                }
             }
             catch (Exception ex) { Log(ex.Message); }
         }
@@ -5529,7 +5540,7 @@ namespace TouchMeta
             FilesList.CommandBindings.Add(new CommandBinding(cmd_Display, (obj, evt) =>
             {
                 evt.Handled = true;
-                OpenFiles(Keyboard.Modifiers == ModifierKeys.Shift ? true : false);
+                OpenFiles(Keyboard.Modifiers == ModifierKeys.Shift ? true : false, Keyboard.Modifiers == ModifierKeys.Control);
             }));
             ViewSelected.InputGestureText = string.Join(", ", cmd_Display.InputGestures.OfType<KeyGesture>().Select(k => k.DisplayString));
         }
@@ -5597,14 +5608,18 @@ namespace TouchMeta
             catch (Exception ex) { ShowMessage(ex.Message, "ERROR"); }
         }
 
-        private void OpenFiles(bool alt = false)
+        private void OpenFiles(bool alt = false, bool use_default = false)
         {
+            var viewer = GetConfigValue(ViewImageApp);
             RunBgWorker(new Action<string, bool>((file, show_xmp) =>
             {
+                var is_img = exts_image.Contains(Path.GetExtension(file).ToLower());
                 if (alt)
                     Process.Start("OpenWith.exe", file);
+                else if (string.IsNullOrEmpty(viewer) || !is_img || use_default)
+                    Process.Start($"\"{file}\"");
                 else
-                    Process.Start(file);
+                    Process.Start(viewer, $"\"{file}\"");
             }), showlog: false);
         }
 
@@ -5909,6 +5924,7 @@ namespace TouchMeta
             {
                 e.Handled = true;
                 var alt = Keyboard.Modifiers == ModifierKeys.Shift;
+                var def = Keyboard.Modifiers == ModifierKeys.Control;
                 OpenFiles(alt);
             }
         }
@@ -6401,7 +6417,7 @@ namespace TouchMeta
             #region View/Rename/Reduce Image File(s)
             else if (sender == ViewSelected)
             {
-                OpenFiles(alt);
+                OpenFiles(alt, force);
             }
             else if (sender == RenameSelected)
             {
