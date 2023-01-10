@@ -432,6 +432,7 @@ namespace TouchMeta
                         double count = 0;
                         foreach (var file in files)
                         {
+                            if (bgWorker.CancellationPending) break;
                             ProgressReport(count, files.Count, file);
                             Log($"{file}");
                             Log("-".PadRight(ExtendedMessageWidth, '-'));
@@ -1741,9 +1742,9 @@ namespace TouchMeta
             set
             {
                 _current_meta_ = value;
-                Dispatcher.InvokeAsync(() =>
+                if (_current_meta_ != null)
                 {
-                    if (_current_meta_ != null)
+                    Dispatcher.Invoke(() =>
                     {
                         DateCreated.SelectedDate = _current_meta_.DateAcquired ?? _current_meta_.DateTaken ?? DateCreated.SelectedDate;
                         DateModified.SelectedDate = _current_meta_.DateAcquired ?? _current_meta_.DateTaken ?? DateModified.SelectedDate;
@@ -1760,8 +1761,8 @@ namespace TouchMeta
                         MetaInputAuthorText.Text = _current_meta_.Authors;
                         MetaInputCopyrightText.Text = _current_meta_.Copyrights;
                         CurrentMetaRating = _current_meta_.RatingPercent ?? RankingToRating(_current_meta_.Rating);
-                    }
-                });
+                    });
+                }
             }
         }
 
@@ -2181,15 +2182,15 @@ namespace TouchMeta
             {
                 if (mode == ChangePropertyMode.Append)
                 {
-                    meta.Comment = $"{meta.Comment}; {comment}";
+                    meta.Comment = string.IsNullOrEmpty(meta.Comment) || string.IsNullOrEmpty(meta.Comment.Trim()) ? comment.Trim() : $"{meta.Comment.TrimEnd()}{Environment.NewLine}{Environment.NewLine}{comment.Trim()}";
                 }
                 else if (mode == ChangePropertyMode.Remove)
                 {
-                    meta.Comment = meta.Comment.Replace(comment, "");
+                    meta.Comment = meta.Comment.Replace(comment.Trim(), "");
                 }
                 else if (mode == ChangePropertyMode.Replace)
                 {
-                    meta.Comment = comment;
+                    meta.Comment = comment.Trim();
                 }
                 else if (mode == ChangePropertyMode.Empty)
                 {
@@ -5762,7 +5763,7 @@ namespace TouchMeta
             {
                 if (FileRenameInputPopup.IsOpen) FileRenameInputPopup.IsOpen = false;
                 if (MetaInputPopup.IsOpen) MetaInputPopup.IsOpen = false;
-                //if (show)
+                if (bgWorker is BackgroundWorker && bgWorker.IsBusy) bgWorker.CancelAsync();
             }
         }
 
