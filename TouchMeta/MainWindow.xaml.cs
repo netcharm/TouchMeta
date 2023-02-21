@@ -82,7 +82,7 @@ namespace TouchMeta
     {
         private static string AppExec = Application.ResourceAssembly.CodeBase.ToString().Replace("file:///", "").Replace("/", "\\");
         private static string AppPath = Path.GetDirectoryName(AppExec);
-        private static string AppName = Path.GetFileNameWithoutExtension(AppPath);
+        private static string AppName = Path.GetFileNameWithoutExtension(AppExec);
         private static string CachePath =  "cache";
 
         private const string ViewImageApp = "ViewImageApp";
@@ -3077,6 +3077,8 @@ namespace TouchMeta
                 var ulink = xml.GetElementsByTagName("userlink").Count > 0 ? xml.GetElementsByTagName("userlink")[0].InnerText : string.Empty;
                 var author = xml.GetElementsByTagName("author").Count > 0 ? xml.GetElementsByTagName("author")[0].InnerText : string.Empty;
                 var copyright = xml.GetElementsByTagName("copyright").Count > 0 ? xml.GetElementsByTagName("copyright")[0].InnerText : string.Empty;
+                var rating = xml.GetElementsByTagName("rating").Count > 0 ? xml.GetElementsByTagName("rating")[0].InnerText : string.Empty;
+                var ranking = xml.GetElementsByTagName("ranking").Count > 0 ? xml.GetElementsByTagName("ranking")[0].InnerText : string.Empty;
 
                 DateTime dt = result.DateAcquired ?? result.DateTaken ?? result.DateModified ?? result.DateCreated ?? result.DateAccesed ?? DateTime.Now;
                 if (DateTime.TryParse(date, out dt))
@@ -3094,9 +3096,17 @@ namespace TouchMeta
                 result.Comment = string.IsNullOrEmpty(subject) ? desc : (string.IsNullOrEmpty(id) ? desc : $"{desc}{Environment.NewLine}{Environment.NewLine}{link}");
                 result.Authors = string.IsNullOrEmpty(author) ? string.IsNullOrEmpty(uid) ? $"{user}" : $"{user}; uid:{uid}" : author;
                 result.Copyrights = string.IsNullOrEmpty(copyright) ? result.Authors : copyright;
-
-                bool fav = false;
-                if (bool.TryParse(favor, out fav)) result.RatingPercent = fav ? 75 : 0;
+                result.RatingPercent = string.IsNullOrEmpty(rating) ? 0 : int.Parse(rating);
+                result.Rating = string.IsNullOrEmpty(ranking) ? 0 : int.Parse(ranking);
+                if (result.RatingPercent <= 0 && result.Rating > 0)
+                    result.RatingPercent = RankingToRating(result.Rating);
+                else if (result.Rating <= 0 && result.RatingPercent > 0)
+                    result.Rating = RatingToRanking(result.RatingPercent);
+                else
+                {
+                    bool fav = false;
+                    if (bool.TryParse(favor, out fav)) result.RatingPercent = fav ? 75 : 0;
+                }
             }
             return (result);
         }
@@ -5745,6 +5755,9 @@ namespace TouchMeta
             };
             #endregion
 
+            TemplateLoad.Items.Add(new MenuItem() { Header = "Empty", IsEnabled = false });
+            TemplateRemove.Items.Add(new MenuItem() { Header = "Empty", IsEnabled = false });
+
             Dispatcher.InvokeAsync(() => { ReduceToQuality.Value = ReduceQuality; });            
 
             var args = Environment.GetCommandLineArgs();
@@ -6000,7 +6013,7 @@ namespace TouchMeta
             else if (sender == GetClipboardMetaInfo)
             {
                 #region Get Metadata Infomation From Clipboard
-                CurrentMeta = GetMetaInfoFromClipboard(CurrentMeta);
+                CurrentMeta = GetMetaInfoFromClipboard(CurrentMeta);                
                 #endregion
             }
             else if (sender == SetClipboardMetaInfo)
@@ -6684,6 +6697,87 @@ namespace TouchMeta
                 });
             }
             catch (Exception ex) { Log(ex.Message); }
+        }
+
+        private void TemplateLoad_SubmenuOpened(object sender, RoutedEventArgs e)
+        {
+            if (sender is MenuItem)
+            {
+                var menu = sender as MenuItem;
+                menu.Items.Clear();
+                var templates = Directory.EnumerateFiles(AppPath, $"{AppName}_Template_*.xml", SearchOption.TopDirectoryOnly);
+                if (templates.Count() > 0)
+                {
+                    foreach (var template in templates.OrderBy(t => t))
+                    {
+                        var item = new MenuItem() { Header = Path.GetFileNameWithoutExtension(template).Replace($"{AppName}_Template_", ""), Tag = template };
+                        item.Click += TemplateItem_Click;
+                        menu.Items.Add(item);
+                    }
+                }
+                else
+                {
+                    menu.Items.Add(new MenuItem() { Header = "Empty", IsEnabled = false });
+                }
+            }
+        }
+
+        private void TemplateItem_Click(object sender, RoutedEventArgs e)
+        {
+            var item = sender is MenuItem ? (sender as MenuItem).Header as string : string.Empty;
+            var parent = sender is MenuItem ? (sender as MenuItem).Parent : null;
+            if (parent is MenuItem && !string.IsNullOrEmpty(item))
+            {
+                var menu = parent as MenuItem;
+                var file = Path.ChangeExtension(Path.Combine(AppPath, $"{AppName}_Template_{item}"), ".xml");
+                if (File.Exists(file))
+                {
+                    if (menu == TemplateLoad)
+                    {
+                        var log = new List<string>();
+                        var content = File.ReadAllText(file);
+                        var xml = new XmlDocument();
+                        xml.LoadXml(content);
+                        CurrentMeta = XmlToMeta(xml, CurrentMeta);
+                        log.Add($"Load Metadata Template {item} Successed!");
+                    }
+                    else if (menu == TemplateRemove)
+                    {
+                        menu.Items.Remove(sender);
+                        File.Delete(file);
+                    }
+                }
+            }            
+        }
+
+        private void TemplateSave_Click(object sender, RoutedEventArgs e)
+        {
+            var log = new List<string>();
+            var meta = CurrentMeta;
+            var is_fav = meta.Rating >= 4;
+            var dm = meta.DateTaken ?? meta.DateAcquired ?? meta.DateModified ?? meta.DateCreated ?? null;
+            var dm_str = dm.HasValue ? dm.Value.ToString("yyyy-MM-ddTHH:mm:ss") : string.Empty;
+
+            var sb_xml = new StringBuilder();
+            sb_xml.AppendLine("<?xml version='1.0' standalone='no'?>");
+            sb_xml.AppendLine("<root>");
+            sb_xml.AppendLine($"  <date>{dm_str}</date>");
+            sb_xml.AppendLine($"  <title>{meta.Title}</title>");
+            sb_xml.AppendLine($"  <subject>{meta.Subject}</subject>");
+            sb_xml.AppendLine($"  <tags>{meta.Keywords}</tags>");
+            sb_xml.AppendLine($"  <description>{meta.Comment}</description>");
+            sb_xml.AppendLine($"  <user>{meta.Authors}</user>");
+            sb_xml.AppendLine($"  <copyright>{meta.Authors}</copyright>");
+            sb_xml.AppendLine($"  <ranking>{meta.Rating}</ranking>");
+            sb_xml.AppendLine($"  <rating>{meta.RatingPercent}</rating>");
+            sb_xml.AppendLine($"  <favorited>{is_fav}</favorited>");
+            sb_xml.AppendLine("</root>");
+            var xml = sb_xml.ToString();
+
+            var file = Path.Combine(AppPath, $"{AppName}_Template_{meta.Subject}.xml");
+            File.WriteAllText(file, xml);
+            log.Add($"Load Metadata Template {meta.Subject} Successed!");
+
         }
     }
 }
