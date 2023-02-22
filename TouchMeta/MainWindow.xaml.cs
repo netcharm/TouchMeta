@@ -2074,6 +2074,7 @@ namespace TouchMeta
                     meta.Title = string.Empty;
                 }
             }
+            if (!string.IsNullOrEmpty(meta.Title)) meta.Title = meta.Title.Trim().TrimStart(';').Trim();
             return (meta);
         }
 
@@ -2114,6 +2115,7 @@ namespace TouchMeta
                     meta.Subject = string.Empty;
                 }
             }
+            if (!string.IsNullOrEmpty(meta.Subject)) meta.Subject = meta.Subject.Trim().TrimStart(';').Trim();
             return (meta);
         }
 
@@ -2155,7 +2157,7 @@ namespace TouchMeta
                 {
                     meta.Keywords = string.Empty;
                 }
-                if (!string.IsNullOrEmpty(meta.Keywords) && meta.Keywords.EndsWith(";")) meta.Keywords += ";";
+                if (!string.IsNullOrEmpty(meta.Keywords) && !meta.Keywords.TrimEnd().EndsWith(";")) meta.Keywords += ";";
             }
             return (meta);
         }
@@ -2197,6 +2199,7 @@ namespace TouchMeta
                     meta.Comment = string.Empty;
                 }
             }
+            if (!string.IsNullOrEmpty(meta.Comment)) meta.Comment = meta.Comment.Trim().TrimStart(';').Trim();
             return (meta);
         }
 
@@ -2238,7 +2241,7 @@ namespace TouchMeta
                 {
                     meta.Authors = string.Empty;
                 }
-                if (!string.IsNullOrEmpty(meta.Authors) && meta.Authors.EndsWith(";")) meta.Authors += ";";
+                if (!string.IsNullOrEmpty(meta.Authors) && !meta.Authors.TrimEnd().EndsWith(";")) meta.Authors += ";";
             }
             return (meta);
         }
@@ -2281,7 +2284,7 @@ namespace TouchMeta
                 {
                     meta.Copyrights = string.Empty;
                 }
-                if (!string.IsNullOrEmpty(meta.Copyrights) && meta.Copyrights.EndsWith(";")) meta.Copyrights += ";";
+                if (!string.IsNullOrEmpty(meta.Copyrights) && !meta.Copyrights.TrimEnd().EndsWith(";")) meta.Copyrights += ";";
             }
             return (meta);
         }
@@ -2408,6 +2411,7 @@ namespace TouchMeta
                             meta.ChangeProperties |= ChangePropertyType.Authors;
                         if (!string.IsNullOrEmpty(meta_new.Copyrights) || mode == ChangePropertyMode.Empty)
                             meta.ChangeProperties |= ChangePropertyType.Copyrights;
+                        type = meta.ChangeProperties;
                     }
                     else meta.ChangeProperties = type;
 
