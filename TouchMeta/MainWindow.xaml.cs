@@ -2142,16 +2142,15 @@ namespace TouchMeta
                 var tags_old = string.IsNullOrEmpty(meta.Keywords) ? new string[] { } :  meta.Keywords.Split(';');
                 if (mode == ChangePropertyMode.Append)
                 {
-                    meta.Keywords = string.Join("; ", tags_old.Select(t => t.Trim()).Union(keywords.Select(t => t.Trim())));
+                    meta.Keywords = string.Join("; ", tags_old.Select(t => t.Trim()).Union(keywords.Select(t => t.Trim())).Where(t => !string.IsNullOrEmpty(t)));
                 }
                 else if (mode == ChangePropertyMode.Remove)
                 {
-                    //meta.Keywords = string.Join("; ", tags_old.Select(t => t.Trim()).Where(t => !(tags.Select(k => k.Trim())).Contains(t)));
-                    meta.Keywords = string.Join("; ", tags_old.Select(t => t.Trim()).Except(keywords.Select(t => t.Trim())));
+                    meta.Keywords = string.Join("; ", tags_old.Select(t => t.Trim()).Except(keywords.Select(t => t.Trim())).Where(t => !string.IsNullOrEmpty(t)));
                 }
                 else if (mode == ChangePropertyMode.Replace)
                 {
-                    meta.Keywords = string.Join("; ", keywords.Select(t => t.Trim()));
+                    meta.Keywords = string.Join("; ", keywords.Select(t => t.Trim()).Where(t => !string.IsNullOrEmpty(t)));
                 }
                 else if (mode == ChangePropertyMode.Empty)
                 {
@@ -2226,16 +2225,15 @@ namespace TouchMeta
                 var authors_old = string.IsNullOrEmpty(meta.Authors) ? new string[] { } : meta.Authors.Split(';');
                 if (mode == ChangePropertyMode.Append)
                 {
-                    meta.Authors = string.Join("; ", authors_old.Select(t => t.Trim()).Union(authors.Select(t => t.Trim())));
+                    meta.Authors = string.Join("; ", authors_old.Select(t => t.Trim()).Union(authors.Select(t => t.Trim())).Where(t => !string.IsNullOrEmpty(t)));
                 }
                 else if (mode == ChangePropertyMode.Remove)
                 {
-                    //meta.Author = string.Join("; ", authors_old.Select(t => t.Trim()).Where(t => !(authors.Select(k => k.Trim())).Contains(t)));
-                    meta.Authors = string.Join("; ", authors_old.Select(t => t.Trim()).Except(authors.Select(t => t.Trim())));
+                    meta.Authors = string.Join("; ", authors_old.Select(t => t.Trim()).Except(authors.Select(t => t.Trim())).Where(t => !string.IsNullOrEmpty(t)));
                 }
                 else if (mode == ChangePropertyMode.Replace)
                 {
-                    meta.Authors = string.Join("; ", authors.Select(t => t.Trim()));
+                    meta.Authors = string.Join("; ", authors.Select(t => t.Trim()).Where(t => !string.IsNullOrEmpty(t)));
                 }
                 else if (mode == ChangePropertyMode.Empty)
                 {
@@ -2269,16 +2267,15 @@ namespace TouchMeta
                 var copyrights_old = string.IsNullOrEmpty(meta.Copyrights) ? new string[] { } : meta.Copyrights.Split(';');
                 if (mode == ChangePropertyMode.Append)
                 {
-                    meta.Copyrights = string.Join("; ", copyrights_old.Select(t => t.Trim()).Union(copyrights.Select(t => t.Trim())));
+                    meta.Copyrights = string.Join("; ", copyrights_old.Select(t => t.Trim()).Union(copyrights.Select(t => t.Trim())).Where(t => !string.IsNullOrEmpty(t)));
                 }
                 else if (mode == ChangePropertyMode.Remove)
                 {
-                    //meta.Copyright = string.Join("; ", copyrights_old.Select(t => t.Trim()).Where(t => !(copyrights.Select(k => k.Trim())).Contains(t)));
-                    meta.Copyrights = string.Join("; ", copyrights_old.Select(t => t.Trim()).Except(copyrights.Select(t => t.Trim())));
+                    meta.Copyrights = string.Join("; ", copyrights_old.Select(t => t.Trim()).Except(copyrights.Select(t => t.Trim())).Where(t => !string.IsNullOrEmpty(t)));
                 }
                 else if (mode == ChangePropertyMode.Replace)
                 {
-                    meta.Copyrights = string.Join("; ", copyrights.Select(t => t.Trim()));
+                    meta.Copyrights = string.Join("; ", copyrights.Select(t => t.Trim()).Where(t => !string.IsNullOrEmpty(t)));
                 }
                 else if (mode == ChangePropertyMode.Empty)
                 {
