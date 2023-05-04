@@ -646,7 +646,16 @@ namespace TouchMeta
                         info.Add($"Accessed Time : {fi.LastAccessTime.ToString()} => {DateAccessed.SelectedDate}");
                         FileTimeInfo.Text = string.Join(Environment.NewLine, info);
                     }
+                    else if(Directory.Exists(file))
+                    {
+                        var fi = new DirectoryInfo(file);
 
+                        List<string> info = new List<string>();
+                        info.Add($"Created  Time : {fi.CreationTime.ToString()} => {DateCreated.SelectedDate}");
+                        info.Add($"Modified Time : {fi.LastWriteTime.ToString()} => {DateModified.SelectedDate}");
+                        info.Add($"Accessed Time : {fi.LastAccessTime.ToString()} => {DateAccessed.SelectedDate}");
+                        FileTimeInfo.Text = string.Join(Environment.NewLine, info);
+                    }
                 }
                 catch (Exception ex) { ShowMessage(ex.Message, "ERROR"); }
             });
@@ -6063,6 +6072,11 @@ namespace TouchMeta
                     if (File.Exists(file))
                     {
                         var fi = new FileInfo(file);
+                        SetCustomDateTime(dtc: fi.CreationTime, dtm: fi.LastWriteTime, dta: fi.LastAccessTime);
+                    }
+                    else if(Directory.Exists(file))
+                    {
+                        var fi = new DirectoryInfo(file);
                         SetCustomDateTime(dtc: fi.CreationTime, dtm: fi.LastWriteTime, dta: fi.LastAccessTime);
                     }
                     #endregion
