@@ -401,9 +401,9 @@ namespace TouchMeta
         private int NormallyMessageWidth = 75;
         private void ProgressReset()
         {
-            Dispatcher.InvokeAsync(() => {
+            Dispatcher.InvokeAsync(() =>
+            {
                 Progress.Value = 0;
-
                 Common.TaskbarManager.ResetProgress(Progress.Value, Progress.Maximum);
             });
         }
@@ -436,7 +436,7 @@ namespace TouchMeta
                             ProgressReport(count, files.Count, file);
                             Log($"{file}");
                             Log("-".PadRight(ExtendedMessageWidth, '-'));
-                            if (File.Exists(file)) action.Invoke(file, files.Count == 1);
+                            if (File.Exists(file) || Directory.Exists(file)) action.Invoke(file, files.Count == 1);
                             if (file.Equals(selected_file, StringComparison.CurrentCultureIgnoreCase))
                             {
                                 UpdateFileTimeInfo(file);
@@ -517,7 +517,7 @@ namespace TouchMeta
                             if (percent > 1 || percent < 0) Title = DefaultTitle;
                             else SetTitle($"[{percent:P1} - {count}/{total}]");
 
-                            Common.TaskbarManager.SetProgressValue(percent*100);
+                            Common.TaskbarManager.SetProgressValue(percent * 100);
 #if DEBUG
                             Debug.WriteLine($"{count}, {total}, {percent:P1}, {100}");
 #endif
@@ -576,7 +576,7 @@ namespace TouchMeta
             return (result);
         }
 
-        private bool LoadFiles(IEnumerable<string> files)
+        private bool LoadFiles(IEnumerable<string> files, bool with_folder = false)
         {
             var result = false;
             try
@@ -584,14 +584,16 @@ namespace TouchMeta
                 var flist = new List<string>();
                 foreach (var file in files)
                 {
-                    flist.AddRange(Directory.GetFileSystemEntries(Path.IsPathRooted(file) ? Path.GetDirectoryName(file) : Directory.GetCurrentDirectory(), Path.GetFileName(file), SearchOption.TopDirectoryOnly));
+                    var entries = Directory.GetFileSystemEntries(Path.GetDirectoryName(Path.GetFullPath(file)), Path.GetFileName(file), SearchOption.TopDirectoryOnly);
+                    flist.AddRange(NaturlSort(entries, true));
                 }
 
                 foreach (var file in flist)
                 {
                     if (Directory.Exists(file))
                     {
-                        var fs = Directory.EnumerateFiles(file);
+                        if (with_folder) FilesList.Items.Add(file);
+                        var fs = NaturlSort(Directory.EnumerateFiles(file), false);
                         foreach (var f in fs) if (FilesList.Items.IndexOf(f) < 0) FilesList.Items.Add(f);
                     }
                     else if (FilesList.Items.IndexOf(file) < 0) FilesList.Items.Add(file);
@@ -603,7 +605,7 @@ namespace TouchMeta
             return (result);
         }
 
-        public bool LoadFiles()
+        public bool LoadFiles(bool with_folder = false)
         {
             var result = false;
             try
@@ -613,7 +615,7 @@ namespace TouchMeta
                 if (dlgOpen.ShowDialog() ?? false)
                 {
                     var files = dlgOpen.FileNames;
-                    result = new Func<bool>(() => { return (LoadFiles(files)); }).Invoke();
+                    result = new Func<bool>(() => { return (LoadFiles(files, with_folder)); }).Invoke();
                 }
             }
             catch (Exception ex) { ShowMessage(ex.Message, "ERROR"); }
@@ -660,7 +662,7 @@ namespace TouchMeta
             });
         }
 
-        private Func<ListBox, IList<string>> GetFiles = (element)=>
+        private Func<ListBox, IList<string>> GetFiles = (element) =>
         {
             List<string> files = new List<string>();
             if (element is ListBox && element.Items.Count > 0)
@@ -684,6 +686,72 @@ namespace TouchMeta
                 });
             }
             return (files);
+        }
+
+        private void FilesFromClipboard()
+        {
+            try
+            {
+                var ctrl = Keyboard.Modifiers == ModifierKeys.Control;
+                string[] files = new string[] { };
+                if (Clipboard.ContainsFileDropList())
+                {
+                    var flist = Clipboard.GetFileDropList();
+                    files = new string[flist.Count];
+                    flist.CopyTo(files, 0);
+                }
+                else if (Clipboard.ContainsText())
+                {
+                    files = Clipboard.GetText().Split();
+                }
+
+                if (files is IEnumerable<string> && files.Count() > 0)
+                {
+                    Dispatcher.InvokeAsync(() =>
+                    {
+                        LoadFiles((files as IEnumerable<string>).ToArray(), with_folder: ctrl);
+                    });
+                }
+            }
+            catch (Exception ex) { ShowMessage(ex.Message, "ERROR"); }
+        }
+
+        private void FilesToClipboard()
+        {
+            try
+            {
+                var items = GetFiles(FilesList);
+                var files = items.OfType<string>().ToArray();
+
+                DataObject dp = new DataObject();
+                var fd = new StringCollection();
+                fd.AddRange(files);
+
+                dp.SetFileDropList(fd);
+                dp.SetText(string.Join(Environment.NewLine, files));
+
+                Clipboard.SetDataObject(dp);
+            }
+            catch (Exception ex) { ShowMessage(ex.Message, "ERROR"); }
+        }
+
+        private void OrderFiles(bool descending = true)
+        {
+            try
+            {
+                var files = GetFiles(FilesList);
+                IEnumerable<string> result = NaturlSort(files, descending);
+                //if (descending)
+                //    result = files.OrderByDescending(f => Regex.Replace(f, @"\d+", m => m.Value.PadLeft(16, '0')));
+                //else
+                //    result = files.OrderBy(f => Regex.Replace(f, @"\d+", m => m.Value.PadLeft(16, '0')));
+
+                for (var i = 0; i < files.Count; i++)
+                {
+                    FilesList.Items[i] = result.ElementAt(i);
+                }
+            }
+            catch (Exception ex) { ShowMessage(ex.Message, "ERROR"); }
         }
         #endregion
 
@@ -4282,6 +4350,7 @@ namespace TouchMeta
                     catch (Exception ex) { Log($"{ex.Message}{Environment.NewLine}{ex.StackTrace}"); }
                 }
             }
+            else if (Directory.Exists(file)) TouchFolder(file, dt, force, dtc, dtm, dta, meta);
             else Log($"File \"{file}\" not exists!");
         }
 
@@ -4529,7 +4598,7 @@ namespace TouchMeta
                                         else
                                             note = Encoding.UTF8.GetString(value);
                                     }
-                                    catch { note = Encoding.UTF8.GetString(value.Where(c => c != 0x00).ToArray()); }                                    
+                                    catch { note = Encoding.UTF8.GetString(value.Where(c => c != 0x00).ToArray()); }
                                 }
                                 if (!string.IsNullOrEmpty(note)) exif.SetTagValue(CompactExifLib.ExifTag.Software, note, StrCoding.Utf8);
                             }
@@ -4616,8 +4685,10 @@ namespace TouchMeta
                         ExifData exifdata = null;
                         try { exifdata = new ExifData(ms); } catch { }
                         ms.Seek(0, SeekOrigin.Begin);
-                        using (MagickImage image = new MagickImage(ms))
+                        //using (MagickImage image = new MagickImage(ms))
+                        using (MagickImage image = new MagickImage())
                         {
+                            image.Ping(ms);
                             if (image.FormatInfo.IsReadable)
                             {
                                 if (exifdata is ExifData && image.Endian == Endian.Undefined) image.Endian = exifdata.ByteOrder == ExifByteOrder.BigEndian ? Endian.MSB : Endian.LSB;
@@ -5212,7 +5283,7 @@ namespace TouchMeta
             if (quality <= 0)
             {
                 //int.TryParse(GetConfigValue(ReduceQualityKey, ReduceQuality), out ReduceQuality);
-                return (ReduceImageQuality(file, fmt.ToString().ToLower(), ReduceQuality, keep_name));                
+                return (ReduceImageQuality(file, fmt.ToString().ToLower(), ReduceQuality, keep_name));
             }
             else
                 return (ReduceImageQuality(file, fmt.ToString().ToLower(), quality, keep_name));
@@ -5445,6 +5516,14 @@ namespace TouchMeta
         #endregion
 
         #region Common Helper
+        private Func<IEnumerable<string>, bool, IEnumerable<string>> NaturlSort = (list, descending) =>
+        {
+            if(descending)
+                return (list.OrderByDescending(f => Regex.Replace(f, @"\d+", m => m.Value.PadLeft(16, '0'))));
+            else
+                return (list.OrderBy(f => Regex.Replace(f, @"\d+", m => m.Value.PadLeft(16, '0'))));
+        };
+
         private void InitMagicK()
         {
             try
@@ -5574,7 +5653,7 @@ namespace TouchMeta
             catch { }
         }
 
-        private IEnumerable<string> GetDropedFiles(object sc)
+        private IEnumerable<string> GetDropedFiles(object sc, bool order = true, bool descending = true)
         {
             var result = new List<string>();
             try
@@ -5589,6 +5668,15 @@ namespace TouchMeta
                         result.AddRange(sa);
                     }
                     else result.AddRange(sc as IEnumerable<string>);
+
+                    if (order) result = NaturlSort(result, descending).ToList();
+                    //if (order)
+                    //{
+                    //    if (descending)
+                    //        result = result.OrderByDescending(f => Regex.Replace(f, @"\d+", m => m.Value.PadLeft(16, '0'))).ToList();
+                    //    else
+                    //        result = result.OrderBy(f => Regex.Replace(f, @"\d+", m => m.Value.PadLeft(16, '0'))).ToList();
+                    //}
                 }
             }
             catch (Exception ex) { Log(ex.Message); }
@@ -5759,10 +5847,10 @@ namespace TouchMeta
             TemplateLoad.Items.Add(new MenuItem() { Header = "Empty", IsEnabled = false });
             TemplateRemove.Items.Add(new MenuItem() { Header = "Empty", IsEnabled = false });
 
-            Dispatcher.InvokeAsync(() => { ReduceToQuality.Value = ReduceQuality; });            
+            Dispatcher.InvokeAsync(() => { ReduceToQuality.Value = ReduceQuality; });
 
             var args = Environment.GetCommandLineArgs();
-            LoadFiles(args.Skip(1).ToArray());
+            LoadFiles(GetDropedFiles(args.Skip(1)), with_folder: Keyboard.Modifiers == ModifierKeys.Control);
         }
 
         private void Window_LocationChanged(object sender, EventArgs e)
@@ -5778,6 +5866,11 @@ namespace TouchMeta
                 if (FileRenameInputPopup.IsOpen) FileRenameInputPopup.IsOpen = false;
                 if (MetaInputPopup.IsOpen) MetaInputPopup.IsOpen = false;
                 if (bgWorker is BackgroundWorker && bgWorker.IsBusy) bgWorker.CancelAsync();
+            }
+            else if (e.Key == Key.F2)
+            {
+                var descending = Keyboard.Modifiers == ModifierKeys.None ? true : (Keyboard.Modifiers == ModifierKeys.Shift ? false : true);
+                OrderFiles(descending);
             }
         }
 
@@ -5805,6 +5898,7 @@ namespace TouchMeta
 
         private void Window_Drop(object sender, DragEventArgs e)
         {
+            var ctrl = Keyboard.Modifiers == ModifierKeys.Control;
             var fmts = e.Data.GetFormats(true);
             if (fmts.Contains("Downloaded"))
             {
@@ -5812,7 +5906,7 @@ namespace TouchMeta
                 {
                     var files = e.Data.GetData("Downloaded");
                     var dl = GetDropedFiles(files);
-                    if (dl.Count() > 0) LoadFiles(dl);
+                    if (dl.Count() > 0) LoadFiles(dl, with_folder: ctrl);
                 });
             }
             else if (fmts.Contains("FileDrop"))
@@ -5821,7 +5915,7 @@ namespace TouchMeta
                 {
                     var files = e.Data.GetData("FileDrop");
                     var dl = GetDropedFiles(files);
-                    if (dl.Count() > 0) LoadFiles(dl);
+                    if (dl.Count() > 0) LoadFiles(dl, with_folder: ctrl);
                 });
             }
             else if (fmts.Contains("Text"))
@@ -5831,7 +5925,7 @@ namespace TouchMeta
                     var files = (e.Data.GetData("Text") as string).Split();
                     if (files is IEnumerable<string> && files.Count() > 0)
                     {
-                        LoadFiles((files as IEnumerable<string>).ToArray());
+                        LoadFiles((files as IEnumerable<string>).ToArray(), with_folder: ctrl);
                     }
                 });
             }
@@ -5934,7 +6028,7 @@ namespace TouchMeta
             Debug.WriteLine($"{e.OriginalSource.ToString()} => {e.Source}, {e.ClickCount}");
 #endif
             if (e.ChangedButton == MouseButton.Left &&
-               (e.OriginalSource is ScrollViewer || e.OriginalSource is TextBlock || 
+               (e.OriginalSource is ScrollViewer || e.OriginalSource is TextBlock ||
                (e.OriginalSource is Border && (e.OriginalSource as Border).DataContext != null)))
             {
                 e.Handled = true;
@@ -6014,7 +6108,7 @@ namespace TouchMeta
             else if (sender == GetClipboardMetaInfo)
             {
                 #region Get Metadata Infomation From Clipboard
-                CurrentMeta = GetMetaInfoFromClipboard(CurrentMeta);                
+                CurrentMeta = GetMetaInfoFromClipboard(CurrentMeta);
                 #endregion
             }
             else if (sender == SetClipboardMetaInfo)
@@ -6451,29 +6545,13 @@ namespace TouchMeta
             else if (sender == AddFromClipboard)
             {
                 #region Add Files From Clipboard
-                try
-                {
-                    string[] files = new string[] { };
-                    if (Clipboard.ContainsFileDropList())
-                    {
-                        var flist = Clipboard.GetFileDropList();
-                        files = new string[flist.Count];
-                        flist.CopyTo(files, 0);
-                    }
-                    else if (Clipboard.ContainsText())
-                    {
-                        files = Clipboard.GetText().Split();
-                    }
-
-                    if (files is IEnumerable<string> && files.Count() > 0)
-                    {
-                        Dispatcher.InvokeAsync(() =>
-                        {
-                            LoadFiles((files as IEnumerable<string>).ToArray());
-                        });
-                    }
-                }
-                catch (Exception ex) { ShowMessage(ex.Message, "ERROR"); }
+                FilesFromClipboard();
+                #endregion
+            }
+            else if (sender == CopyToClipboard)
+            {
+                #region Copy Files To Clipboard
+                FilesToClipboard();
                 #endregion
             }
             else if (sender == RemoveSelected)
@@ -6574,7 +6652,7 @@ namespace TouchMeta
             }
             else if (sender == BtnAddFile)
             {
-                LoadFiles();
+                LoadFiles(with_folder: Keyboard.Modifiers == ModifierKeys.Control);
             }
             else if (sender == FileRenameInputClose)
             {
@@ -6678,7 +6756,7 @@ namespace TouchMeta
                     if (IsLoaded)
                     {
                         var value = ReduceToQuality.Value;
-                        var m = value % ReduceToQuality.LargeChange;                        
+                        var m = value % ReduceToQuality.LargeChange;
                         var offset = 0.0;
                         if (e.Delta < 0)
                         {
@@ -6748,7 +6826,7 @@ namespace TouchMeta
                         File.Delete(file);
                     }
                 }
-            }            
+            }
         }
 
         private void TemplateSave_Click(object sender, RoutedEventArgs e)
