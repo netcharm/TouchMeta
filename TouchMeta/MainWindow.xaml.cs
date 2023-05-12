@@ -584,7 +584,8 @@ namespace TouchMeta
                 var flist = new List<string>();
                 foreach (var file in files)
                 {
-                    var entries = Directory.GetFileSystemEntries(Path.GetDirectoryName(Path.GetFullPath(file)), Path.GetFileName(file), SearchOption.TopDirectoryOnly);
+                    //var entries = Directory.GetFileSystemEntries(Path.GetDirectoryName(Path.GetFullPath(file)), Path.GetFileName(file), SearchOption.TopDirectoryOnly);
+                    var entries = Directory.GetFileSystemEntries(Path.IsPathRooted(file) ? Path.GetDirectoryName(file) : Directory.GetCurrentDirectory(), Path.GetFileName(file), SearchOption.TopDirectoryOnly);
                     flist.AddRange(NaturlSort(entries, true));
                 }
 

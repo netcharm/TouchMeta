@@ -107,7 +107,7 @@
                 <StaticResource ResourceKey="AlternatingWithTriggers"/>
             </ListBox.ItemContainerStyle>
             <ListBox.ContextMenu>
-                <ContextMenu>
+                <ContextMenu x:Name="ActionListMenu">
                     <MenuItem x:Name="GetFileTimeFromSelected" x:Uid="GetFileTimeFromSelected" Header="Get File Time From Selected File" Click="FilesListAction_Click"/>
                     <MenuItem x:Name="GetMetaTimeFromSelected" x:Uid="GetMetaTimeFromSelected" Header="Get Meta Time From Selected File" Click="FilesListAction_Click"/>
                     <Separator/>
@@ -186,9 +186,6 @@
                     <MenuItem x:Name="ReduceSelected" x:Uid="ReduceSelected" Header="Reduce Selected Files" Click="FilesListAction_Click"/>
                     <MenuItem x:Name="ReduceToSelected" x:Uid="ReduceToSelected" Header="Reduce Selected Files To" Click="FilesListAction_Click"/>
                     <StackPanel x:Name="ReduceToQualityPanel" x:Uid="ReduceToQualityPanel" Orientation="Horizontal" HorizontalAlignment="Stretch" Width="auto">
-                        <!--<StackPanel.ToolTip>
-                            <ToolTip Content="{Binding ElementName=ReduceToQuality, Path=ToolTip, Mode=OneWay}" />
-                        </StackPanel.ToolTip>-->
                         <Slider x:Name="ReduceToQuality" x:Uid="ReduceToQuality" MinWidth="160" MaxWidth="320" 
                                 HorizontalAlignment="Stretch" VerticalAlignment="Center"
                             TickFrequency="1" TickPlacement="Both" SmallChange="1" LargeChange="5" IsSnapToTickEnabled="True"
@@ -210,7 +207,9 @@
             </ListBox.ContextMenu>
         </ListBox>
 
-        <TextBlock Grid.Row="4" x:Name="FileTimeInfo" x:Uid="FileTimeInfo" Height="56" Margin="6" HorizontalAlignment="Stretch" VerticalAlignment="Center"/>
+        <TextBlock Grid.Row="4" x:Name="FileTimeInfo" x:Uid="FileTimeInfo" Height="56" Margin="6" 
+                   HorizontalAlignment="Stretch" VerticalAlignment="Center"
+                   ContextMenu="{Binding ContextMenu, ElementName=FilesList}"/>
 
         <Grid Grid.Row="5" Margin="2" HorizontalAlignment="Stretch" VerticalAlignment="Bottom">
             <Grid.ColumnDefinitions>
