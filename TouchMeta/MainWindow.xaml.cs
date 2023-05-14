@@ -1018,11 +1018,13 @@ namespace TouchMeta
             {"rdf", "http://www.w3.org/1999/02/22-rdf-syntax-ns#" },
             {"xmp", "http://ns.adobe.com/xap/1.0/" },
             {"dc", "http://purl.org/dc/elements/1.1/" },
+            {"lr", "http://ns.adobe.com/lightroom/1.0/" },
             //{"iptc", "http://ns.adobe.com/iptc/1.0/" },
             {"exif", "http://ns.adobe.com/exif/1.0/" },
             {"tiff", "http://ns.adobe.com/tiff/1.0/" },
             {"photoshop", "http://ns.adobe.com/photoshop/1.0/" },
             {"MicrosoftPhoto", "http://ns.microsoft.com/photo/1.0" },
+            //{"MicrosoftPhoto_1_", "http://ns.microsoft.com/photo/1.0" },
             //{"MicrosoftPhoto", "http://ns.microsoft.com/photo/1.0/" },
             //{"MicrosoftPhoto", "http://ns.microsoft.com/photo/1.2/" },
         };
@@ -1317,6 +1319,13 @@ namespace TouchMeta
                             desc.AppendChild(xml_doc.CreateElement("dc:subject", "dc"));
                             root_node.AppendChild(desc);
                         }
+                        if (xml_doc.GetElementsByTagName("lr:hierarchicalSubject").Count <= 0)
+                        {
+                            var desc = xml_doc.CreateElement("rdf:Description", "rdf");
+                            desc.SetAttribute("xmlns:lr", xmp_ns_lookup["lr"]);
+                            desc.AppendChild(xml_doc.CreateElement("lr:hierarchicalSubject", "lr"));
+                            root_node.AppendChild(desc);
+                        }
                         if (xml_doc.GetElementsByTagName("MicrosoftPhoto:LastKeywordXMP").Count <= 0)
                         {
                             var desc = xml_doc.CreateElement("rdf:Description", "rdf");
@@ -1589,6 +1598,7 @@ namespace TouchMeta
                                     child.AppendChild(node_rights);
                                 }
                                 else if (child.Name.Equals("dc:subject", StringComparison.CurrentCultureIgnoreCase) ||
+                                    child.Name.Equals("lr:hierarchicalSubject", StringComparison.CurrentCultureIgnoreCase) ||
                                     child.Name.StartsWith("MicrosoftPhoto:LastKeyword", StringComparison.CurrentCultureIgnoreCase))
                                 {
                                     child.RemoveAll();
@@ -3811,6 +3821,13 @@ namespace TouchMeta
                                             desc.AppendChild(xml_doc.CreateElement("dc:subject", "dc"));
                                             root_node.AppendChild(desc);
                                         }
+                                        if (xml_doc.GetElementsByTagName("lr:hierarchicalSubject").Count <= 0)
+                                        {
+                                            var desc = xml_doc.CreateElement("rdf:Description", "rdf");
+                                            desc.SetAttribute("xmlns:lr", xmp_ns_lookup["lr"]);
+                                            desc.AppendChild(xml_doc.CreateElement("lr:hierarchicalSubject", "lr"));
+                                            root_node.AppendChild(desc);
+                                        }
                                         if (xml_doc.GetElementsByTagName("MicrosoftPhoto:LastKeywordXMP").Count <= 0)
                                         {
                                             var desc = xml_doc.CreateElement("rdf:Description", "rdf");
@@ -3977,6 +3994,14 @@ namespace TouchMeta
                                                 root_node.AppendChild(desc);
                                             }
                                         }
+                                        //if (xml_doc.GetElementsByTagName("MicrosoftPhoto_1_:DateAcquired").Count <= 0)
+                                        //{
+                                        //    var desc = xml_doc.CreateElement("rdf:Description", "rdf");
+                                        //    desc.SetAttribute("rdf:about", "uuid:faf5bdd5-ba3d-11da-ad31-d33d75182f1b");
+                                        //    desc.SetAttribute("xmlns:MicrosoftPhoto_1_", xmp_ns_lookup["MicrosoftPhoto_1_"]);
+                                        //    desc.AppendChild(xml_doc.CreateElement("MicrosoftPhoto_1_:DateAcquired", "MicrosoftPhoto_1_"));
+                                        //    root_node.AppendChild(desc);
+                                        //}
                                         #endregion
                                         #region Remove duplicate node
                                         var all_elements = new List<string>()
@@ -4082,6 +4107,7 @@ namespace TouchMeta
                                                     child.AppendChild(node_rights);
                                                 }
                                                 else if (child.Name.Equals("dc:subject", StringComparison.CurrentCultureIgnoreCase) ||
+                                                    child.Name.Equals("lr:hierarchicalSubject", StringComparison.CurrentCultureIgnoreCase) ||
                                                     child.Name.StartsWith("MicrosoftPhoto:LastKeyword", StringComparison.CurrentCultureIgnoreCase))
                                                 {
                                                     child.RemoveAll();
@@ -4116,6 +4142,8 @@ namespace TouchMeta
                                                     child.InnerText = dm_msxmp;
                                                 else if (child.Name.Equals("MicrosoftPhoto:DateTaken", StringComparison.CurrentCultureIgnoreCase))
                                                     child.InnerText = dm_msxmp;
+                                                //else if (child.Name.Equals("MicrosoftPhoto_1_:DateAcquired", StringComparison.CurrentCultureIgnoreCase))
+                                                //    child.InnerText = dm_msxmp;
                                                 else if (child.Name.Equals("exif:DateTimeDigitized", StringComparison.CurrentCultureIgnoreCase))
                                                     child.InnerText = dm_ms;
                                                 else if (child.Name.Equals("exif:DateTimeOriginal", StringComparison.CurrentCultureIgnoreCase))
@@ -4160,11 +4188,17 @@ namespace TouchMeta
                                     #endregion
                                     #region MS Photo DateAcquired
                                     var pattern_ms_da = @"(<MicrosoftPhoto:DateAcquired>).*?(</MicrosoftPhoto:DateAcquired>)";
+                                    //var pattern_ms_da_1 = @"(<MicrosoftPhoto_1_:DateAcquired>).*?(</MicrosoftPhoto_1_:DateAcquired>)";
                                     if (Regex.IsMatch(xml, pattern_ms_da, RegexOptions.IgnoreCase))
                                     {
                                         xml = Regex.Replace(xml, pattern_ms_da, $"$1{dm_msxmp}$2", RegexOptions.IgnoreCase);
                                         xml = xml.Replace("$1", "<MicrosoftPhoto:DateAcquired>");
                                     }
+                                    //else if (Regex.IsMatch(xml, pattern_ms_da_1, RegexOptions.IgnoreCase))
+                                    //{
+                                    //    xml = Regex.Replace(xml, pattern_ms_da, $"$1{dm_msxmp}$2", RegexOptions.IgnoreCase);
+                                    //    xml = xml.Replace("$1", "<MicrosoftPhoto_1_:DateAcquired>");
+                                    //}
                                     else
                                     {
                                         var msda_xml = $"<rdf:Description rdf:about=\"uuid:faf5bdd5-ba3d-11da-ad31-d33d75182f1b\" xmlns:MicrosoftPhoto=\"http://ns.microsoft.com/photo/1.0/\"><MicrosoftPhoto:DateAcquired>{dm_msxmp}</MicrosoftPhoto:DateAcquired></rdf:Description>";
@@ -4829,8 +4863,12 @@ namespace TouchMeta
                                             }
                                             if (child.Name.Equals("dc:title", StringComparison.CurrentCultureIgnoreCase))
                                                 Log($"{"    dc:Title".PadRight(cw)}= {child.InnerText}");
-                                            else if (child.Name.Equals("xmp:creator") || child.Name.Equals("dc:creator") || child.Name.Equals("dc:rights") ||
-                                                child.Name.Equals("dc:subject") || child.Name.StartsWith("MicrosoftPhoto:LastKeyword"))
+                                            else if (child.Name.Equals("xmp:creator", StringComparison.CurrentCultureIgnoreCase) || 
+                                                     child.Name.Equals("dc:creator", StringComparison.CurrentCultureIgnoreCase) || 
+                                                     child.Name.Equals("dc:rights", StringComparison.CurrentCultureIgnoreCase) ||
+                                                     child.Name.Equals("dc:subject", StringComparison.CurrentCultureIgnoreCase) || 
+                                                     child.Name.Equals("lr:hierarchicalSubject", StringComparison.CurrentCultureIgnoreCase)  || 
+                                                     child.Name.StartsWith("MicrosoftPhoto:LastKeyword", StringComparison.CurrentCultureIgnoreCase))
                                             {
                                                 var contents = new List<string>();
                                                 foreach (XmlNode subchild in child.ChildNodes)
