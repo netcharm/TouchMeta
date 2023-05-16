@@ -5459,6 +5459,8 @@ namespace TouchMeta
         ///Menu Ids for our custom menu items
         private const int _ItemTopMostMenuId = 1000;
         private const int _ItemAboutMenuID = 1001;
+        private const int _ItemForkInstanceMenuID = 1002;
+        private const int _ItemForkCmdMenuID = 1003;
 
         /// <summary>
         /// 
@@ -5466,21 +5468,25 @@ namespace TouchMeta
         /// <param name="topmost"></param>
         private void InitHookWndProc(bool topmost = false)
         {
-            IntPtr windowhandle = new WindowInteropHelper(this).Handle;
-            HwndSource hwndSource = HwndSource.FromHwnd(windowhandle);
+            IntPtr WindowHandle = new WindowInteropHelper(this).Handle;
+            HwndSource HwndSource = HwndSource.FromHwnd(WindowHandle);
 
             //Get the handle for the system menu
-            IntPtr systemMenuHandle = GetSystemMenu(windowhandle, false);
+            IntPtr SystemMenuHandle = GetSystemMenu(WindowHandle, false);
 
             //Insert our custom menu items
-            InsertMenu(systemMenuHandle, 5, MF_BYPOSITION | MF_SEPARATOR, 0, string.Empty); //Add a menu seperator
+            InsertMenu(SystemMenuHandle, 5, MF_BYPOSITION | MF_SEPARATOR, 0, string.Empty); //Add a menu seperator
             if (topmost)
-                InsertMenu(systemMenuHandle, 6, MF_BYPOSITION | MFS_CHECKED, _ItemTopMostMenuId, "Always On Top"); //Add a setting menu item
+                InsertMenu(SystemMenuHandle, 6, MF_BYPOSITION | MFS_CHECKED, _ItemTopMostMenuId, "Always On Top"); //Add a setting menu item
             else
-                InsertMenu(systemMenuHandle, 6, MF_BYPOSITION | MFS_UNCHECKED, _ItemTopMostMenuId, "Always On Top"); //Add a setting menu item
-            InsertMenu(systemMenuHandle, 7, MF_BYPOSITION, _ItemAboutMenuID, "About"); //add an About menu item
+                InsertMenu(SystemMenuHandle, 6, MF_BYPOSITION | MFS_UNCHECKED, _ItemTopMostMenuId, "Always On Top"); //Add a setting menu item
 
-            hwndSource.AddHook(new HwndSourceHook(WndProc));
+            InsertMenu(SystemMenuHandle, 7, MF_BYPOSITION, _ItemForkInstanceMenuID, "Open New Instance"); //add an About menu item
+            InsertMenu(SystemMenuHandle, 8, MF_BYPOSITION, _ItemForkCmdMenuID, "Open Command Window"); //add an About menu item
+
+            InsertMenu(SystemMenuHandle, 9, MF_BYPOSITION, _ItemAboutMenuID, "About"); //add an About menu item
+
+            HwndSource.AddHook(new HwndSourceHook(WndProc));
         }
 
         /// <summary>
@@ -5552,6 +5558,16 @@ namespace TouchMeta
                         SetConfigValue(AlwaysTopMostKey, AlwaysTopMost);
                         SetMenuTopMostState(AlwaysTopMost);
                         handled = true;
+                        break;
+                    case _ItemForkInstanceMenuID:
+                        handled = true;
+                        Process.Start(AppExec);
+                        break;
+                    case _ItemForkCmdMenuID:
+                        handled = true;
+                        var cmd = Environment.GetEnvironmentVariable("ComSpec");
+                        if (string.IsNullOrEmpty(cmd)) cmd = "cmd.exe";
+                        Process.Start(cmd);
                         break;
                     case _ItemAboutMenuID:
                         //MessageBox.Show("Item 2 was clicked");
