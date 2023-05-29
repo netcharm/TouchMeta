@@ -1956,6 +1956,25 @@ namespace TouchMeta
                     Type exiftag_type = typeof(ImageMagick.ExifTag);
 
                     result = attr.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(attr)) : image.GetAttribute(attr);
+                    if (attr.Contains("WinXP"))
+                    {
+                        if (image.GetAttribute(attr).Length >= 4090)
+                        {
+                            var tag_name = $"XP{attr.Substring(11)}";
+                            dynamic tag_property = exiftag_type.GetProperty(tag_name) ?? exiftag_type.GetProperty($"{tag_name}s") ?? exiftag_type.GetProperty(tag_name.Substring(0, tag_name.Length-1));
+                            if (tag_property != null)
+                            {
+                                IExifValue tag_value = exif.GetValue(tag_property.GetValue(exif));
+                                if (tag_value != null)
+                                {
+                                    if (tag_value.DataType == ExifDataType.String)
+                                        result = tag_value.GetValue() as string;
+                                    else if (tag_value.DataType == ExifDataType.Byte)
+                                        result = Encoding.Unicode.GetString(tag_value.GetValue() as byte[]);
+                                }
+                            }
+                        }                     
+                    }
                     if (attr.StartsWith("exif:") && !attr.Contains("WinXP"))
                     {
                         var tag_name =  attr.Contains("WinXP") ? $"XP{attr.Substring(11)}" : attr.Substring(5);
