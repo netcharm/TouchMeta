@@ -5545,6 +5545,8 @@ namespace TouchMeta
         /// <returns></returns>
         private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
         {
+            var shift = Keyboard.Modifiers == ModifierKeys.Shift;
+
             // Check if the SystemCommand message has been executed
             if (msg == WM_SYSCOMMAND)
             {
@@ -5565,6 +5567,7 @@ namespace TouchMeta
                         break;
                     case _ItemForkCmdMenuID:
                         handled = true;
+                        if (shift) FilesToClipboard();
                         var cmd = Environment.GetEnvironmentVariable("ComSpec");
                         if (string.IsNullOrEmpty(cmd)) cmd = "cmd.exe";
                         Process.Start(cmd);
@@ -6872,6 +6875,8 @@ namespace TouchMeta
 
         private void TemplateItem_Click(object sender, RoutedEventArgs e)
         {
+            var shift = Keyboard.Modifiers == ModifierKeys.Shift;
+
             var item = sender is MenuItem ? (sender as MenuItem).Header as string : string.Empty;
             var parent = sender is MenuItem ? (sender as MenuItem).Parent : null;
             if (parent is MenuItem && !string.IsNullOrEmpty(item))
@@ -6882,12 +6887,19 @@ namespace TouchMeta
                 {
                     if (menu == TemplateLoad)
                     {
-                        var log = new List<string>();
-                        var content = File.ReadAllText(file);
-                        var xml = new XmlDocument();
-                        xml.LoadXml(content);
-                        CurrentMeta = XmlToMeta(xml, CurrentMeta);
-                        log.Add($"Load Metadata Template {item} Successed!");
+                        if (shift)
+                        {
+                            Process.Start(file);
+                        }
+                        else
+                        {
+                            var log = new List<string>();
+                            var content = File.ReadAllText(file);
+                            var xml = new XmlDocument();
+                            xml.LoadXml(content);
+                            CurrentMeta = XmlToMeta(xml, CurrentMeta);
+                            log.Add($"Load Metadata Template {item} Successed!");
+                        }
                     }
                     else if (menu == TemplateRemove)
                     {
@@ -6925,7 +6937,6 @@ namespace TouchMeta
             var file = Path.Combine(AppPath, $"{AppName}_Template_{meta.Subject}.xml");
             File.WriteAllText(file, xml);
             log.Add($"Load Metadata Template {meta.Subject} Successed!");
-
         }
     }
 }
