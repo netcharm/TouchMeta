@@ -2166,7 +2166,9 @@ namespace TouchMeta
             {
                 if (mode == ChangePropertyMode.Append)
                 {
-                    meta.Title = $"{meta.Title}; {title}";
+                    if (meta.Title.EndsWith(title)) { }
+                    else if (title.StartsWith("-")) meta.Title = $"{meta.Title.TrimEnd()} {title}";
+                    else meta.Title = $"{meta.Title}; {title}";
                 }
                 else if (mode == ChangePropertyMode.Remove)
                 {
@@ -2207,7 +2209,9 @@ namespace TouchMeta
             {
                 if (mode == ChangePropertyMode.Append)
                 {
-                    meta.Subject = $"{meta.Subject}; {subject}";
+                    if (meta.Subject.EndsWith(subject)) { }
+                    else if (subject.StartsWith("-")) meta.Subject = $"{meta.Subject.TrimEnd()} {subject}";
+                    else meta.Subject = $"{meta.Subject}; {subject}";
                 }
                 else if (mode == ChangePropertyMode.Remove)
                 {
@@ -2491,7 +2495,7 @@ namespace TouchMeta
             }
         }
 
-        public static void ChangeProperties(string file, MetaInfo meta_new, ChangePropertyType type = ChangePropertyType.None, ChangePropertyMode mode = ChangePropertyMode.None)
+        public static void ChangeProperties(string file, MetaInfo meta_new, ChangePropertyType type = ChangePropertyType.None, ChangePropertyMode mode = ChangePropertyMode.None, bool using_filename = false)
         {
             if (File.Exists(file))
             {
@@ -2499,6 +2503,8 @@ namespace TouchMeta
                 {
                     var meta = GetMetaInfo(file);
                     meta.TouchProfiles = false;
+
+                    var filename = using_filename ? Path.GetFileNameWithoutExtension(file) : string.Empty;
 
                     if (type == ChangePropertyType.Smart)
                     {
@@ -2520,17 +2526,17 @@ namespace TouchMeta
                     else meta.ChangeProperties = type;
 
                     if (type.HasFlag(ChangePropertyType.Title))
-                        meta = ChangeTitle(meta, meta_new.Title, mode);
+                        meta = ChangeTitle(meta, using_filename ? $"- {filename}" : meta_new.Title, mode);
                     if (type.HasFlag(ChangePropertyType.Subject))
-                        meta = ChangeSubject(meta, meta_new.Subject, mode);
+                        meta = ChangeSubject(meta, using_filename ? $"- {filename}" : meta_new.Subject, mode);
                     if (type.HasFlag(ChangePropertyType.Keywords))
-                        meta = ChangeKeywords(meta, meta_new.Keywords.Split(';'), mode);
+                        meta = ChangeKeywords(meta, using_filename ? filename.Split(';') : meta_new.Keywords.Split(';'), mode);
                     if (type.HasFlag(ChangePropertyType.Comment))
-                        meta = ChangeComment(meta, meta_new.Comment, mode);
+                        meta = ChangeComment(meta, using_filename ? filename : meta_new.Comment, mode);
                     if (type.HasFlag(ChangePropertyType.Authors))
-                        meta = ChangeAuthors(meta, meta_new.Authors.Split(';'), mode);
+                        meta = ChangeAuthors(meta, using_filename ? filename.Split(';') : meta_new.Authors.Split(';'), mode);
                     if (type.HasFlag(ChangePropertyType.Copyrights))
-                        meta = ChangeCopyrights(meta, meta_new.Copyrights.Split(';'), mode);
+                        meta = ChangeCopyrights(meta, using_filename ? filename.Split(';') : meta_new.Copyrights.Split(';'), mode);
                     if (type.HasFlag(ChangePropertyType.Rating))
                         meta = ChangeRating(meta, meta_new.RatingPercent ?? 0, mode);
                     if (type.HasFlag(ChangePropertyType.Ranking))
@@ -6584,6 +6590,107 @@ namespace TouchMeta
             #region 
             #endregion
             #endregion
+            #region Add/Replace Image File(s) FileName To Metadata
+            #region Title
+            else if (sender == FileNameToMetaTitleAppend)
+            {
+                RunBgWorker(new Action<string, bool>((file, show_xmp) =>
+                {
+                    ChangeProperties(file, CurrentMeta, ChangePropertyType.Title, ChangePropertyMode.Append, using_filename: true);
+                }));
+            }
+            else if (sender == FileNameToMetaTitleReplace)
+            {
+                RunBgWorker(new Action<string, bool>((file, show_xmp) =>
+                {
+                    ChangeProperties(file, CurrentMeta, ChangePropertyType.Title, ChangePropertyMode.Replace, using_filename: true);
+                }));
+            }
+            #endregion
+            #region Subject
+            else if (sender == FileNameToMetaSubjectAppend)
+            {
+                RunBgWorker(new Action<string, bool>((file, show_xmp) =>
+                {
+                    ChangeProperties(file, CurrentMeta, ChangePropertyType.Subject, ChangePropertyMode.Append, using_filename: true);
+                }));
+            }
+            else if (sender == FileNameToMetaSubjectReplace)
+            {
+                RunBgWorker(new Action<string, bool>((file, show_xmp) =>
+                {
+                    ChangeProperties(file, CurrentMeta, ChangePropertyType.Subject, ChangePropertyMode.Replace, using_filename: true);
+                }));
+            }
+            #endregion
+            #region Keywords
+            else if (sender == FileNameToMetaKeywordsAppend)
+            {
+                RunBgWorker(new Action<string, bool>((file, show_xmp) =>
+                {
+                    ChangeProperties(file, CurrentMeta, ChangePropertyType.Keywords, ChangePropertyMode.Append, using_filename: true);
+                }));
+            }
+            else if (sender == FileNameToMetaKeywordsReplace)
+            {
+                RunBgWorker(new Action<string, bool>((file, show_xmp) =>
+                {
+                    ChangeProperties(file, CurrentMeta, ChangePropertyType.Keywords, ChangePropertyMode.Replace, using_filename: true);
+                }));
+            }
+            #endregion
+            #region Comment
+            else if (sender == FileNameToMetaCommentAppend)
+            {
+                RunBgWorker(new Action<string, bool>((file, show_xmp) =>
+                {
+                    ChangeProperties(file, CurrentMeta, ChangePropertyType.Comment, ChangePropertyMode.Append, using_filename: true);
+                }));
+            }
+            else if (sender == FileNameToMetaCommentReplace)
+            {
+                RunBgWorker(new Action<string, bool>((file, show_xmp) =>
+                {
+                    ChangeProperties(file, CurrentMeta, ChangePropertyType.Comment, ChangePropertyMode.Replace, using_filename: true);
+                }));
+            }
+            #endregion
+            #region Authors
+            else if (sender == FileNameToMetaAuthorsAppend)
+            {
+                RunBgWorker(new Action<string, bool>((file, show_xmp) =>
+                {
+                    ChangeProperties(file, CurrentMeta, ChangePropertyType.Authors, ChangePropertyMode.Append, using_filename: true);
+                }));
+            }
+            else if (sender == FileNameToMetaAuthorsReplace)
+            {
+                RunBgWorker(new Action<string, bool>((file, show_xmp) =>
+                {
+                    ChangeProperties(file, CurrentMeta, ChangePropertyType.Authors, ChangePropertyMode.Replace, using_filename: true);
+                }));
+            }
+            #endregion
+            #region Copyrights
+            else if (sender == FileNameToMetaCopyrightsAppend)
+            {
+                RunBgWorker(new Action<string, bool>((file, show_xmp) =>
+                {
+                    ChangeProperties(file, CurrentMeta, ChangePropertyType.Copyrights, ChangePropertyMode.Append, using_filename: true);
+                }));
+            }
+            else if (sender == FileNameToMetaCopyrightsReplace)
+            {
+                RunBgWorker(new Action<string, bool>((file, show_xmp) =>
+                {
+                    ChangeProperties(file, CurrentMeta, ChangePropertyType.Copyrights, ChangePropertyMode.Replace, using_filename: true);
+                }));
+            }
+            #endregion
+            #region 
+            #endregion
+            #endregion
+
             #region Convert Image File Format
             else if (sender == ConvertSelectedToJpg)
             {

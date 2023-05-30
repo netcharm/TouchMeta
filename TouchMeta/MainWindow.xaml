@@ -172,6 +172,25 @@
                         <MenuItem x:Name="ChangeMetaSmartReplace" x:Uid="ChangeMetaSmartgReplace" Header="Smart Change" Click="FilesListAction_Click" />
                         <MenuItem x:Name="ChangeMetaSmartEmpty" x:Uid="ChangeMetaSmartgEmpty" Header="Smart Empty" Click="FilesListAction_Click" />
                     </MenuItem>
+                    <MenuItem x:Name="FileNameToMeta" x:Uid="FileNameToMeta" Header="Append/Change FileName To Meta Info">
+                        <MenuItem x:Name="FileNameToMetaTitleAppend" x:Uid="FileNameToMetaTitleAppend" Header="Append Title" Click="FilesListAction_Click" />
+                        <MenuItem x:Name="FileNameToMetaTitleReplace" x:Uid="FileNameToMetaTitleReplace" Header="Change Title" Click="FilesListAction_Click" />
+                        <Separator/>
+                        <MenuItem x:Name="FileNameToMetaSubjectAppend" x:Uid="FileNameToMetaSubjectAppend" Header="Append Subject" Click="FilesListAction_Click" />
+                        <MenuItem x:Name="FileNameToMetaSubjectReplace" x:Uid="FileNameToMetaSubjectReplace" Header="Change Subject" Click="FilesListAction_Click" />
+                        <Separator/>
+                        <MenuItem x:Name="FileNameToMetaKeywordsAppend" x:Uid="FileNameToMetaKeywordsAppend" Header="Append Keywords" Click="FilesListAction_Click" />
+                        <MenuItem x:Name="FileNameToMetaKeywordsReplace" x:Uid="FileNameToMetaKeywordsReplace" Header="Change Keywords" Click="FilesListAction_Click" />
+                        <Separator/>
+                        <MenuItem x:Name="FileNameToMetaCommentAppend" x:Uid="FileNameToMetaCommentAppend" Header="Append Comments" Click="FilesListAction_Click" />
+                        <MenuItem x:Name="FileNameToMetaCommentReplace" x:Uid="FileNameToMetaCommentReplace" Header="Change Comments" Click="FilesListAction_Click" />
+                        <Separator/>
+                        <MenuItem x:Name="FileNameToMetaAuthorsAppend" x:Uid="FileNameToMetaAuthorsAppend" Header="Append Authors" Click="FilesListAction_Click" />
+                        <MenuItem x:Name="FileNameToMetaAuthorsReplace" x:Uid="FileNameToMetaAuthorsReplace" Header="Change Authors" Click="FilesListAction_Click" />
+                        <Separator/>
+                        <MenuItem x:Name="FileNameToMetaCopyrightsAppend" x:Uid="FileNameToMetaCopyrightsAppend" Header="Append Copyrights" Click="FilesListAction_Click" />
+                        <MenuItem x:Name="FileNameToMetaCopyrightsReplace" x:Uid="ChangeMetaFileNameCopyrightsReplace" Header="Change Copyrights" Click="FilesListAction_Click" />
+                    </MenuItem>
                     <Separator/>
                     <MenuItem x:Name="ConvertSelectedToJpg" x:Uid="ConvertSelectedToJpg" Header="Convert Selected Files to JPG" Click="FilesListAction_Click"/>
                     <MenuItem x:Name="ConvertSelectedToPng" x:Uid="ConvertSelectedToPng" Header="Convert Selected Files to PNG" Click="FilesListAction_Click"/>
