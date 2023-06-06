@@ -30,6 +30,8 @@ namespace TouchMeta
 {
     public class MetaInfo
     {
+        private static string _attr_key_software_ = "exif:Software";
+
         public bool ShowXMP { get; set; } = false;
         public bool TouchProfiles { get; set; } = true;
         public ChangePropertyType ChangeProperties { get; set; } = ChangePropertyType.All;
@@ -51,6 +53,16 @@ namespace TouchMeta
         public int? RatingPercent { get; set; } = null;
         public int? Rating { get; set; } = null;
 
+        public string Software
+        {
+            get { return (Attributes is Dictionary<string, string> && Attributes.ContainsKey(_attr_key_software_) ? Attributes[_attr_key_software_].Trim() : string.Empty); }
+            set
+            {
+                if (Attributes is Dictionary<string, string>) Attributes[_attr_key_software_] = value;
+                if (string.IsNullOrEmpty(value)) Attributes.Remove(_attr_key_software_);
+            }
+        }
+
         public Dictionary<string, string> Attributes { get; set; } = new Dictionary<string, string>();
         public Dictionary<string, IImageProfile> Profiles { get; set; } = new Dictionary<string, IImageProfile>();
     }
@@ -70,6 +82,8 @@ namespace TouchMeta
         Rating = 0x0040, //0b01000000,
         Ranking = 0x0080, //0b10000000,
 
+        Software = 0x1000,
+
         DateTime = 0x4000,
         Smart = 0x8000,
         All = 0xFFFF,
@@ -84,6 +98,8 @@ namespace TouchMeta
         private static string AppPath = Path.GetDirectoryName(AppExec);
         private static string AppName = Path.GetFileNameWithoutExtension(AppExec);
         private static string CachePath =  "cache";
+
+        private static string _attr_key_software_ = "exif:Software";
 
         private const string ViewImageApp = "ViewImageApp";
         private const string ConvertBGColorKey = "ConvertBGColor";
@@ -2167,7 +2183,7 @@ namespace TouchMeta
                 if (mode == ChangePropertyMode.Append)
                 {
                     if (meta.Title.EndsWith(title)) { }
-                    else if (title.StartsWith("-")) meta.Title = $"{meta.Title.TrimEnd()} {title}";
+                    else if (title.StartsWith("-")) meta.Title = string.IsNullOrEmpty(meta.Title.Trim()) ? $"{title.TrimStart('-').Trim()}" : $"{meta.Title.TrimEnd()} {title}";
                     else meta.Title = $"{meta.Title}; {title}";
                 }
                 else if (mode == ChangePropertyMode.Remove)
@@ -2189,7 +2205,7 @@ namespace TouchMeta
 
         public static void ChangeTitle(string file, string title, ChangePropertyMode mode = ChangePropertyMode.None)
         {
-            if (File.Exists(file) && !string.IsNullOrEmpty(title))
+            if (File.Exists(file) && (!string.IsNullOrEmpty(title) || mode == ChangePropertyMode.Empty))
             {
                 try
                 {
@@ -2210,7 +2226,7 @@ namespace TouchMeta
                 if (mode == ChangePropertyMode.Append)
                 {
                     if (meta.Subject.EndsWith(subject)) { }
-                    else if (subject.StartsWith("-")) meta.Subject = $"{meta.Subject.TrimEnd()} {subject}";
+                    else if (subject.StartsWith("-")) meta.Subject = string.IsNullOrEmpty(meta.Subject.Trim()) ? $"{subject.TrimStart('-').Trim()}" : $"{meta.Subject.TrimEnd()} {subject}";
                     else meta.Subject = $"{meta.Subject}; {subject}";
                 }
                 else if (mode == ChangePropertyMode.Remove)
@@ -2232,7 +2248,7 @@ namespace TouchMeta
 
         public static void ChangeSubject(string file, string subject, ChangePropertyMode mode = ChangePropertyMode.None)
         {
-            if (File.Exists(file) && !string.IsNullOrEmpty(subject))
+            if (File.Exists(file) && (!string.IsNullOrEmpty(subject) || mode == ChangePropertyMode.Empty))
             {
                 try
                 {
@@ -2274,7 +2290,7 @@ namespace TouchMeta
 
         public static void ChangeKeywords(string file, string[] keywords, ChangePropertyMode mode = ChangePropertyMode.None)
         {
-            if (File.Exists(file) && keywords is string[] && keywords.Length > 0)
+            if (File.Exists(file) && ((keywords is string[] && keywords.Length > 0) || mode == ChangePropertyMode.Empty))
             {
                 try
                 {
@@ -2315,7 +2331,7 @@ namespace TouchMeta
 
         public static void ChangeComment(string file, string comment, ChangePropertyMode mode = ChangePropertyMode.None)
         {
-            if (File.Exists(file) && !string.IsNullOrEmpty(comment))
+            if (File.Exists(file) && (!string.IsNullOrEmpty(comment) || mode == ChangePropertyMode.Empty))
             {
                 try
                 {
@@ -2357,7 +2373,7 @@ namespace TouchMeta
 
         public static void ChangeAuthors(string file, string[] authors, ChangePropertyMode mode = ChangePropertyMode.None)
         {
-            if (File.Exists(file) && authors is string[] && authors.Length > 0)
+            if (File.Exists(file) && ((authors is string[] && authors.Length > 0) || mode == ChangePropertyMode.Empty))
             {
                 try
                 {
@@ -2399,7 +2415,7 @@ namespace TouchMeta
 
         public static void ChangeCopyrights(string file, string[] copyrights, ChangePropertyMode mode = ChangePropertyMode.None)
         {
-            if (File.Exists(file) && copyrights is string[] && copyrights.Length > 0)
+            if (File.Exists(file) && ((copyrights is string[] && copyrights.Length > 0) || mode == ChangePropertyMode.Empty))
             {
                 try
                 {
@@ -2495,6 +2511,51 @@ namespace TouchMeta
             }
         }
 
+        public static MetaInfo ChangeSoftware(MetaInfo meta, string software, ChangePropertyMode mode = ChangePropertyMode.None)
+        {
+            if (meta is MetaInfo && mode != ChangePropertyMode.None)
+            {
+                var meta_soft = meta.Software;
+
+                if (mode == ChangePropertyMode.Append)
+                {
+                    if (meta.Software.EndsWith(software)) { }
+                    else if (software.StartsWith("-")) meta.Software = string.IsNullOrEmpty(meta.Software) ? $"{software.TrimStart('-').Trim()}" : $"{meta.Software} {software}";
+                    else meta.Software = $"{meta.Software}; {software}";
+                }
+                else if (mode == ChangePropertyMode.Remove)
+                {
+                    meta.Software = meta.Software.Replace(software, "");
+                }
+                else if (mode == ChangePropertyMode.Replace)
+                {
+                    meta.Software = software;
+                }
+                else if (mode == ChangePropertyMode.Empty)
+                {
+                    meta.Software = string.Empty;                    
+                }
+            }
+            if (!string.IsNullOrEmpty(meta.Software)) meta.Software = meta.Software.Trim().TrimStart(';').Trim();
+            return (meta);
+        }
+
+        public static void ChangeSoftware(string file, string software, ChangePropertyMode mode = ChangePropertyMode.None)
+        {
+            if (File.Exists(file) && (!string.IsNullOrEmpty(software) || mode == ChangePropertyMode.Empty))
+            {
+                try
+                {
+                    var meta = GetMetaInfo(file);
+                    meta.TouchProfiles = false;
+                    meta.ChangeProperties = ChangePropertyType.Software;
+                    meta = ChangeSoftware(meta, software, mode);
+                    TouchMeta(file, force: true, meta: meta);
+                }
+                catch (Exception ex) { Log(ex.Message); }
+            }
+        }
+
         public static void ChangeProperties(string file, MetaInfo meta_new, ChangePropertyType type = ChangePropertyType.None, ChangePropertyMode mode = ChangePropertyMode.None, bool using_filename = false)
         {
             if (File.Exists(file))
@@ -2521,6 +2582,8 @@ namespace TouchMeta
                             meta.ChangeProperties |= ChangePropertyType.Authors;
                         if (!string.IsNullOrEmpty(meta_new.Copyrights) || mode == ChangePropertyMode.Empty)
                             meta.ChangeProperties |= ChangePropertyType.Copyrights;
+                        if (meta_new.Attributes.ContainsKey(_attr_key_software_) || mode == ChangePropertyMode.Empty)
+                            meta.ChangeProperties |= ChangePropertyType.Software;
                         type = meta.ChangeProperties;
                     }
                     else meta.ChangeProperties = type;
@@ -2541,6 +2604,8 @@ namespace TouchMeta
                         meta = ChangeRating(meta, meta_new.RatingPercent ?? 0, mode);
                     if (type.HasFlag(ChangePropertyType.Ranking))
                         meta = ChangeRanking(meta, meta_new.Rating ?? 0, mode);
+                    if (type.HasFlag(ChangePropertyType.Software))
+                        meta = ChangeSoftware(meta, meta_new.Software, mode);
 
                     TouchMeta(file, force: true, meta: meta);
                 }
@@ -3185,7 +3250,7 @@ namespace TouchMeta
                 var tags = xml.GetElementsByTagName("tags").Count > 0 ? xml.GetElementsByTagName("tags")[0].InnerText : string.Empty;
                 var favor = xml.GetElementsByTagName("favorited").Count > 0 ? xml.GetElementsByTagName("favorited")[0].InnerText : string.Empty;
                 var down = xml.GetElementsByTagName("downloaded").Count > 0 ? xml.GetElementsByTagName("downloaded")[0].InnerText : string.Empty;
-                var link = xml.GetElementsByTagName("weblink").Count > 0 ? xml.GetElementsByTagName("weblink")[0].InnerText : $"https://www.pixiv.net/artworks/{id}";
+                var link = xml.GetElementsByTagName("weblink").Count > 0 ? xml.GetElementsByTagName("weblink")[0].InnerText : (string.IsNullOrEmpty(id) ? string.Empty : $"https://www.pixiv.net/artworks/{id}");
                 var user = xml.GetElementsByTagName("user").Count > 0 ? xml.GetElementsByTagName("user")[0].InnerText : string.Empty;
                 var uid = xml.GetElementsByTagName("userid").Count > 0 ? xml.GetElementsByTagName("userid")[0].InnerText : string.Empty;
                 var ulink = xml.GetElementsByTagName("userlink").Count > 0 ? xml.GetElementsByTagName("userlink")[0].InnerText : string.Empty;
@@ -3193,6 +3258,7 @@ namespace TouchMeta
                 var copyright = xml.GetElementsByTagName("copyright").Count > 0 ? xml.GetElementsByTagName("copyright")[0].InnerText : string.Empty;
                 var rating = xml.GetElementsByTagName("rating").Count > 0 ? xml.GetElementsByTagName("rating")[0].InnerText : string.Empty;
                 var ranking = xml.GetElementsByTagName("ranking").Count > 0 ? xml.GetElementsByTagName("ranking")[0].InnerText : string.Empty;
+                var software = xml.GetElementsByTagName("software").Count > 0 ? xml.GetElementsByTagName("software")[0].InnerText : string.Empty;
 
                 DateTime dt = result.DateAcquired ?? result.DateTaken ?? result.DateModified ?? result.DateCreated ?? result.DateAccesed ?? DateTime.Now;
                 if (DateTime.TryParse(date, out dt))
@@ -3221,6 +3287,7 @@ namespace TouchMeta
                     bool fav = false;
                     if (bool.TryParse(favor, out fav)) result.RatingPercent = fav ? 75 : 0;
                 }
+                if (!string.IsNullOrEmpty(software)) result.Software = software;
             }
             return (result);
         }
@@ -3275,6 +3342,7 @@ namespace TouchMeta
             return (result);
         }
 
+        private static Func<string, string> NormStr = text => { return(string.IsNullOrEmpty(text) ? text : text.TrimEnd()); };
         public static void SetMetaInfoToClipboard(MetaInfo meta)
         {
             try
@@ -3285,28 +3353,32 @@ namespace TouchMeta
 
                 var sb_json = new StringBuilder();
                 sb_json.AppendLine("{");
-                sb_json.AppendLine($"  \"date\": \"{dm_str}\",");
-                sb_json.AppendLine($"  \"title\": \"{meta.Title}\",");
-                sb_json.AppendLine($"  \"subject\": \"{meta.Subject}\",");
-                sb_json.AppendLine($"  \"tags\": \"{meta.Keywords}\",");
-                sb_json.AppendLine($"  \"description\": \"{meta.Comment}\",");
-                sb_json.AppendLine($"  \"user\": \"{meta.Authors}\",");
-                sb_json.AppendLine($"  \"copyright\": \"{meta.Authors}\",");
+                sb_json.AppendLine($"  \"date\": \"{NormStr(dm_str)}\",");
+                sb_json.AppendLine($"  \"title\": \"{NormStr(meta.Title)}\",");
+                sb_json.AppendLine($"  \"subject\": \"{NormStr(meta.Subject)}\",");
+                sb_json.AppendLine($"  \"tags\": \"{NormStr(meta.Keywords)}\",");
+                sb_json.AppendLine($"  \"description\": \"{NormStr(meta.Comment)}\",");
+                sb_json.AppendLine($"  \"user\": \"{NormStr(meta.Authors)}\",");
+                sb_json.AppendLine($"  \"author\": \"{NormStr(meta.Authors)}\",");
+                sb_json.AppendLine($"  \"copyright\": \"{NormStr(meta.Authors)}\",");
                 sb_json.AppendLine($"  \"favorited\": {is_fav.ToString()},");
+                sb_json.AppendLine($"  \"software\": \"{meta.Software}\",");
                 sb_json.AppendLine("}");
                 var json = sb_json.ToString();
 
                 var sb_xml = new StringBuilder();
                 sb_xml.AppendLine("<?xml version='1.0' standalone='no'?>");
                 sb_xml.AppendLine("<root>");
-                sb_xml.AppendLine($"  <date>{dm_str}</date>");
-                sb_xml.AppendLine($"  <title>{meta.Title}</title>");
-                sb_xml.AppendLine($"  <subject>{meta.Subject}</subject>");
-                sb_xml.AppendLine($"  <tags>{meta.Keywords}</tags>");
-                sb_xml.AppendLine($"  <description>{meta.Comment}</description>");
-                sb_xml.AppendLine($"  <user>{meta.Authors}</user>");
-                sb_xml.AppendLine($"  <copyright>{meta.Authors}</copyright>");
+                sb_xml.AppendLine($"  <date>{NormStr(dm_str)}</date>");
+                sb_xml.AppendLine($"  <title>{NormStr(meta.Title)}</title>");
+                sb_xml.AppendLine($"  <subject>{NormStr(meta.Subject)}</subject>");
+                sb_xml.AppendLine($"  <tags>{NormStr(meta.Keywords)}</tags>");
+                sb_xml.AppendLine($"  <description>{NormStr(meta.Comment)}</description>");
+                sb_xml.AppendLine($"  <user>{NormStr(meta.Authors)}</user>");
+                sb_xml.AppendLine($"  <author>{NormStr(meta.Authors)}</user>");
+                sb_xml.AppendLine($"  <copyright>{NormStr(meta.Authors)}</copyright>");
                 sb_xml.AppendLine($"  <favorited>{is_fav}</favorited>");
+                sb_xml.AppendLine($"  <software>{meta.Software}</software>");
                 sb_xml.AppendLine("</root>");
                 var xml = sb_xml.ToString();
 
@@ -3400,12 +3472,14 @@ namespace TouchMeta
                     var keywords = meta is MetaInfo ? meta.Keywords : string.Empty;
                     var comment = meta is MetaInfo ? meta.Comment : string.Empty;
                     var rating = meta is MetaInfo ? meta.RatingPercent : null;
-                    if (!string.IsNullOrEmpty(title)) title.Replace("\0", string.Empty).TrimEnd('\0');
-                    if (!string.IsNullOrEmpty(subject)) subject.Replace("\0", string.Empty).TrimEnd('\0');
-                    if (!string.IsNullOrEmpty(authors)) authors.Replace("\0", string.Empty).TrimEnd('\0');
-                    if (!string.IsNullOrEmpty(copyrights)) copyrights.Replace("\0", string.Empty).TrimEnd('\0');
-                    if (!string.IsNullOrEmpty(keywords)) keywords.Replace("\0", string.Empty).TrimEnd('\0');
-                    if (!string.IsNullOrEmpty(comment)) comment.Replace("\0", string.Empty).TrimEnd('\0');
+                    var software = meta is MetaInfo ? meta.Software : null;
+                    if (!string.IsNullOrEmpty(title)) title = title.Replace("\0", string.Empty).TrimEnd('\0');
+                    if (!string.IsNullOrEmpty(subject)) subject = subject.Replace("\0", string.Empty).TrimEnd('\0');
+                    if (!string.IsNullOrEmpty(authors)) authors = authors.Replace("\0", string.Empty).TrimEnd('\0');
+                    if (!string.IsNullOrEmpty(copyrights)) copyrights = copyrights.Replace("\0", string.Empty).TrimEnd('\0');
+                    if (!string.IsNullOrEmpty(keywords)) keywords = keywords.Replace("\0", string.Empty).TrimEnd('\0');
+                    if (!string.IsNullOrEmpty(comment)) comment = comment.Replace("\0", string.Empty).TrimEnd('\0');
+                    if (!string.IsNullOrEmpty(software)) software = software.Replace("\0", string.Empty).TrimEnd('\0');
 
                     var keyword_list = string.IsNullOrEmpty(keywords) ? new List<string>() : keywords.Split(new char[] { ';', '#' }, StringSplitOptions.RemoveEmptyEntries).Select(k => k.Trim()).Where(k => !string.IsNullOrEmpty(k)).Distinct();
                     keywords = string.Join("; ", keyword_list);
@@ -3760,9 +3834,9 @@ namespace TouchMeta
                             #region touch software
                             var tag_software = "Software";
                             if (image.AttributeNames.Contains(tag_software) && !image.AttributeNames.Contains($"exif:{tag_software}"))
-                                SetAttribute(image, $"exif:{tag_software}", GetAttribute(image, tag_software));
+                                SetAttribute(image, $"exif:{tag_software}", string.IsNullOrEmpty(software) ? GetAttribute(image, tag_software) : software);
                             if (!image.AttributeNames.Contains(tag_software) && image.AttributeNames.Contains($"exif:{tag_software}"))
-                                SetAttribute(image, tag_software, GetAttribute(image, $"exif:{tag_software}"));
+                                SetAttribute(image, $"exif:{tag_software}", string.IsNullOrEmpty(software) ? GetAttribute(image, $"exif:{tag_software}") : software);
                             if (string.IsNullOrEmpty(GetAttribute(image, $"exif:{tag_software}")) &&
                                 string.IsNullOrEmpty(GetAttribute(image, $"{tag_software}")) &&
                                 !string.IsNullOrEmpty(GetAttribute(image, $"exif:MakerNote")))
@@ -5486,6 +5560,7 @@ namespace TouchMeta
         private const int _ItemAboutMenuID = 1001;
         private const int _ItemForkInstanceMenuID = 1002;
         private const int _ItemForkCmdMenuID = 1003;
+        private const string _ClipboardName_ = "ClipBoard";
 
         /// <summary>
         /// 
@@ -5588,7 +5663,10 @@ namespace TouchMeta
                         break;
                     case _ItemForkInstanceMenuID:
                         handled = true;
-                        Process.Start(AppExec);
+                        if (shift)
+                            Process.Start(AppExec, _ClipboardName_);
+                        else
+                            Process.Start(AppExec);
                         break;
                     case _ItemForkCmdMenuID:
                         handled = true;
@@ -5941,8 +6019,11 @@ namespace TouchMeta
 
             Dispatcher.InvokeAsync(() => { ReduceToQuality.Value = ReduceQuality; });
 
-            var args = Environment.GetCommandLineArgs();
-            LoadFiles(GetDropedFiles(args.Skip(1)), with_folder: Keyboard.Modifiers == ModifierKeys.Control);
+            var args = Environment.GetCommandLineArgs().Skip(1);
+            if (args.Count() == 1 && args.First().Equals(_ClipboardName_, StringComparison.CurrentCultureIgnoreCase))
+                FilesFromClipboard();
+            else
+                LoadFiles(GetDropedFiles(args), with_folder: Keyboard.Modifiers == ModifierKeys.Control);
         }
 
         private void Window_LocationChanged(object sender, EventArgs e)
@@ -6557,6 +6638,36 @@ namespace TouchMeta
                 }));
             }
             #endregion
+            #region Software
+            else if (sender == ChangeMetaSoftwareAppend)
+            {
+                RunBgWorker(new Action<string, bool>((file, show_xmp) =>
+                {
+                    ChangeProperties(file, CurrentMeta, ChangePropertyType.Software, ChangePropertyMode.Append);
+                }));
+            }
+            else if (sender == ChangeMetaSoftwareRemove)
+            {
+                RunBgWorker(new Action<string, bool>((file, show_xmp) =>
+                {
+                    ChangeProperties(file, CurrentMeta, ChangePropertyType.Software, ChangePropertyMode.Remove);
+                }));
+            }
+            else if (sender == ChangeMetaSoftwareReplace)
+            {
+                RunBgWorker(new Action<string, bool>((file, show_xmp) =>
+                {
+                    ChangeProperties(file, CurrentMeta, ChangePropertyType.Software, ChangePropertyMode.Replace);
+                }));
+            }
+            else if (sender == ChangeMetaSoftwareEmpty)
+            {
+                RunBgWorker(new Action<string, bool>((file, show_xmp) =>
+                {
+                    ChangeProperties(file, CurrentMeta, ChangePropertyType.Software, ChangePropertyMode.Empty);
+                }));
+            }
+            #endregion
             #region Smart
             else if (sender == ChangeMetaSmartAppend)
             {
@@ -6687,10 +6798,25 @@ namespace TouchMeta
                 }));
             }
             #endregion
+            #region Software
+            else if (sender == FileNameToMetaSoftwareAppend)
+            {
+                RunBgWorker(new Action<string, bool>((file, show_xmp) =>
+                {
+                    ChangeProperties(file, CurrentMeta, ChangePropertyType.Software, ChangePropertyMode.Append, using_filename: true);
+                }));
+            }
+            else if (sender == FileNameToMetaSoftwareReplace)
+            {
+                RunBgWorker(new Action<string, bool>((file, show_xmp) =>
+                {
+                    ChangeProperties(file, CurrentMeta, ChangePropertyType.Software, ChangePropertyMode.Replace, using_filename: true);
+                }));
+            }
+            #endregion
             #region 
             #endregion
             #endregion
-
             #region Convert Image File Format
             else if (sender == ConvertSelectedToJpg)
             {

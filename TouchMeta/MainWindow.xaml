@@ -167,6 +167,11 @@
                         <MenuItem x:Name="ChangeMetaRatingReplace" x:Uid="ChangeMetaRatingReplace" Header="Change Rating" Click="FilesListAction_Click" />
                         <MenuItem x:Name="ChangeMetaRatingEmpty" x:Uid="ChangeMetaRatingEmpty" Header="Empty Rating" Click="FilesListAction_Click" />
                         <Separator/>
+                        <MenuItem x:Name="ChangeMetaSoftwareAppend" x:Uid="ChangeMetaSoftwareAppend" Header="Append Software" Click="FilesListAction_Click" />
+                        <MenuItem x:Name="ChangeMetaSoftwareRemove" x:Uid="ChangeMetaSoftwareRemove" Header="Remove Software" Click="FilesListAction_Click" />
+                        <MenuItem x:Name="ChangeMetaSoftwareReplace" x:Uid="ChangeMetaSoftwareReplace" Header="Change Software" Click="FilesListAction_Click" />
+                        <MenuItem x:Name="ChangeMetaSoftwareEmpty" x:Uid="ChangeMetaSoftwareEmpty" Header="Empty Software" Click="FilesListAction_Click" />
+                        <Separator/>
                         <MenuItem x:Name="ChangeMetaSmartAppend" x:Uid="ChangeMetaSmartAppend" Header="Smart Append" Click="FilesListAction_Click" />
                         <MenuItem x:Name="ChangeMetaSmartRemove" x:Uid="ChangeMetaSmartgRemove" Header="Smart Remove" Click="FilesListAction_Click" />
                         <MenuItem x:Name="ChangeMetaSmartReplace" x:Uid="ChangeMetaSmartgReplace" Header="Smart Change" Click="FilesListAction_Click" />
@@ -190,6 +195,9 @@
                         <Separator/>
                         <MenuItem x:Name="FileNameToMetaCopyrightsAppend" x:Uid="FileNameToMetaCopyrightsAppend" Header="Append Copyrights" Click="FilesListAction_Click" />
                         <MenuItem x:Name="FileNameToMetaCopyrightsReplace" x:Uid="ChangeMetaFileNameCopyrightsReplace" Header="Change Copyrights" Click="FilesListAction_Click" />
+                        <Separator/>
+                        <MenuItem x:Name="FileNameToMetaSoftwareAppend" x:Uid="FileNameToMetaSoftwareAppend" Header="Append Software" Click="FilesListAction_Click" />
+                        <MenuItem x:Name="FileNameToMetaSoftwareReplace" x:Uid="ChangeMetaFileNameSoftwareReplace" Header="Change Software" Click="FilesListAction_Click" />
                     </MenuItem>
                     <Separator/>
                     <MenuItem x:Name="ConvertSelectedToJpg" x:Uid="ConvertSelectedToJpg" Header="Convert Selected Files to JPG" Click="FilesListAction_Click"/>
