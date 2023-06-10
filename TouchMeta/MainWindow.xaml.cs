@@ -1974,7 +1974,7 @@ namespace TouchMeta
                     result = attr.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(attr)) : image.GetAttribute(attr);
                     if (attr.Contains("WinXP"))
                     {
-                        if (image.GetAttribute(attr).Length >= 4090)
+                        if (image.AttributeNames.Contains(attr) && image.GetAttribute(attr).Length >= 4090)
                         {
                             var tag_name = $"XP{attr.Substring(11)}";
                             dynamic tag_property = exiftag_type.GetProperty(tag_name) ?? exiftag_type.GetProperty($"{tag_name}s") ?? exiftag_type.GetProperty(tag_name.Substring(0, tag_name.Length-1));
