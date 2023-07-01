@@ -89,6 +89,8 @@ namespace TouchMeta
         All = 0xFFFF,
     };
 
+    public enum RotateMode { None, C090, C180, C270, C000, FlipH, FlipV, Clear, Reset };
+
     /// <summary>
     /// MainWindow.xaml 的交互逻辑
     /// </summary>
@@ -138,6 +140,7 @@ namespace TouchMeta
             }
         }
 
+        private MagickFormat[] ExifImageFormats = new MagickFormat[] { MagickFormat.Jpg, MagickFormat.Jpeg };
         private static Encoding DBCS = Encoding.GetEncoding("GB18030");
         private static Encoding UTF8 = Encoding.UTF8;
         private static Encoding UNICODE = Encoding.Unicode;
@@ -663,7 +666,7 @@ namespace TouchMeta
                         info.Add($"Accessed Time : {fi.LastAccessTime.ToString()} => {DateAccessed.SelectedDate}");
                         FileTimeInfo.Text = string.Join(Environment.NewLine, info);
                     }
-                    else if(Directory.Exists(file))
+                    else if (Directory.Exists(file))
                     {
                         var fi = new DirectoryInfo(file);
 
@@ -1989,7 +1992,7 @@ namespace TouchMeta
                                         result = Encoding.Unicode.GetString(tag_value.GetValue() as byte[]);
                                 }
                             }
-                        }                     
+                        }
                     }
                     if (attr.StartsWith("exif:") && !attr.Contains("WinXP"))
                     {
@@ -2533,7 +2536,7 @@ namespace TouchMeta
                 }
                 else if (mode == ChangePropertyMode.Empty)
                 {
-                    meta.Software = string.Empty;                    
+                    meta.Software = string.Empty;
                 }
             }
             if (!string.IsNullOrEmpty(meta.Software)) meta.Software = meta.Software.Trim().TrimStart(';').Trim();
@@ -4962,11 +4965,11 @@ namespace TouchMeta
                                             }
                                             if (child.Name.Equals("dc:title", StringComparison.CurrentCultureIgnoreCase))
                                                 Log($"{"    dc:Title".PadRight(cw)}= {child.InnerText}");
-                                            else if (child.Name.Equals("xmp:creator", StringComparison.CurrentCultureIgnoreCase) || 
-                                                     child.Name.Equals("dc:creator", StringComparison.CurrentCultureIgnoreCase) || 
+                                            else if (child.Name.Equals("xmp:creator", StringComparison.CurrentCultureIgnoreCase) ||
+                                                     child.Name.Equals("dc:creator", StringComparison.CurrentCultureIgnoreCase) ||
                                                      child.Name.Equals("dc:rights", StringComparison.CurrentCultureIgnoreCase) ||
-                                                     child.Name.Equals("dc:subject", StringComparison.CurrentCultureIgnoreCase) || 
-                                                     child.Name.Equals("lr:hierarchicalSubject", StringComparison.CurrentCultureIgnoreCase)  || 
+                                                     child.Name.Equals("dc:subject", StringComparison.CurrentCultureIgnoreCase) ||
+                                                     child.Name.Equals("lr:hierarchicalSubject", StringComparison.CurrentCultureIgnoreCase) ||
                                                      child.Name.StartsWith("MicrosoftPhoto:LastKeyword", StringComparison.CurrentCultureIgnoreCase))
                                             {
                                                 var contents = new List<string>();
@@ -5455,6 +5458,100 @@ namespace TouchMeta
                 List<string> files = new List<string>();
                 foreach (var item in FilesList.SelectedItems.Count > 0 ? FilesList.SelectedItems : FilesList.Items) files.Add(item as string);
                 ReduceImageQuality(files, fmt, quality, keep_name);
+            }
+        }
+
+        public bool RotateImage(string file, RotateMode mode = RotateMode.None, bool using_exif = true)
+        {
+            var result = false;
+            if (!string.IsNullOrEmpty(file) && File.Exists(file))
+            {
+                try
+                {
+                    if (mode == RotateMode.None) { result = true; return (result); }
+
+                    var fi = new FileInfo(file);
+                    var dc = fi.CreationTime;
+                    var dm = fi.LastWriteTime;
+                    var da = fi.LastAccessTime;
+
+                    var bi = File.ReadAllBytes(file);
+                    using (var image = new MagickImage(bi))
+                    {
+                        var _mod_ = true;
+                        var exif_supported = ExifImageFormats.Contains(image.Format);
+                        switch (mode)
+                        {
+                            case RotateMode.Clear:
+                                image.Orientation = OrientationType.Undefined;
+                                var exif = image.HasProfile("exif") ? image.GetExifProfile() : null;
+                                if (exif is ExifProfile && exif.RemoveValue(ImageMagick.ExifTag.Orientation)) image.SetProfile(exif);
+                                image.RemoveAttribute("Orientation");
+                                break;
+                            case RotateMode.Reset:
+                                if (exif_supported && using_exif) image.Orientation = OrientationType.Undefined;
+                                break;
+                            case RotateMode.C000:
+                                if (exif_supported && using_exif) image.Orientation = OrientationType.TopLeft;
+                                break;
+                            case RotateMode.C090:
+                                if (exif_supported && using_exif) image.Orientation = OrientationType.LeftTop;
+                                else image.Rotate(90);
+                                break;
+                            case RotateMode.C180:
+                                if (exif_supported && using_exif) image.Orientation = OrientationType.BottomRight;
+                                else image.Rotate(180);
+                                break;
+                            case RotateMode.C270:
+                                if (exif_supported && using_exif) image.Orientation = OrientationType.BottomLeft;
+                                else image.Rotate(270);
+                                break;
+                            case RotateMode.FlipH:
+                                if (exif_supported && using_exif) image.Orientation = OrientationType.RightTop;
+                                else image.Flop();
+                                break;
+                            case RotateMode.FlipV:
+                                if (exif_supported && using_exif) image.Orientation = OrientationType.BottomLeft;
+                                else image.Flip();
+                                break;
+                        }
+                        if (_mod_) image.Write(file);
+                    }                    
+
+                    var fo = new FileInfo(file);
+                    fo.CreationTime = dc;
+                    fo.LastWriteTime = dm;
+                    fo.LastAccessTime = da;
+
+                    result = true;
+                    Log($"Rotate {file} Success!");
+                }
+                catch (Exception ex)
+                {
+                    Log(ex.Message);
+                }
+            }
+            return (result);
+        }
+
+        public void RotateImage(IEnumerable<string> files, RotateMode mode = RotateMode.None, bool using_exif = true)
+        {
+            if (files is IEnumerable<string>)
+            {
+                RunBgWorker(new Action<string, bool>((file, show_xmp) =>
+                {
+                    var ret = RotateImage(file, mode, using_exif);
+                }));
+            }
+        }
+
+        public void RotateImage(RotateMode mode = RotateMode.None, bool using_exif = true)
+        {
+            if (FilesList.Items.Count >= 1)
+            {
+                List<string> files = new List<string>();
+                foreach (var item in FilesList.SelectedItems.Count > 0 ? FilesList.SelectedItems : FilesList.Items) files.Add(item as string);
+                RotateImage(files, mode, using_exif);
             }
         }
         #endregion
@@ -6238,7 +6335,7 @@ namespace TouchMeta
                         var fi = new FileInfo(file);
                         SetCustomDateTime(dtc: fi.CreationTime, dtm: fi.LastWriteTime, dta: fi.LastAccessTime);
                     }
-                    else if(Directory.Exists(file))
+                    else if (Directory.Exists(file))
                     {
                         var fi = new DirectoryInfo(file);
                         SetCustomDateTime(dtc: fi.CreationTime, dtm: fi.LastWriteTime, dta: fi.LastAccessTime);
@@ -6863,6 +6960,36 @@ namespace TouchMeta
             else if (sender == ReduceToSelected)
             {
                 ReduceImageQuality(MagickFormat.Jpg, quality: Convert.ToInt32(ReduceToQuality.Value), keep_name: true);
+            }
+            #endregion
+            #region Rotate Image File(s)
+            else if (sender == RotateSelected_Clear)
+            {
+                RotateImage(mode: RotateMode.Clear, using_exif: RotateSelected_UseExif.IsChecked);
+            }
+            else if (sender == RotateSelected_Reset)
+            {
+                RotateImage(mode: RotateMode.Reset, using_exif: RotateSelected_UseExif.IsChecked);
+            }
+            else if (sender == RotateSelected_090)
+            {
+                RotateImage(mode: RotateMode.C090, using_exif: RotateSelected_UseExif.IsChecked);
+            }
+            else if (sender == RotateSelected_180)
+            {
+                RotateImage(mode: RotateMode.C180, using_exif: RotateSelected_UseExif.IsChecked);
+            }
+            else if (sender == RotateSelected_270)
+            {
+                RotateImage(mode: RotateMode.C270, using_exif: RotateSelected_UseExif.IsChecked);
+            }
+            else if (sender == RotateSelected_FlipH)
+            {
+                RotateImage(mode: RotateMode.FlipH, using_exif: RotateSelected_UseExif.IsChecked);
+            }
+            else if (sender == RotateSelected_FlipV)
+            {
+                RotateImage(mode: RotateMode.FlipV, using_exif: RotateSelected_UseExif.IsChecked);
             }
             #endregion
             #region Add/Remove Image File(s) From List
