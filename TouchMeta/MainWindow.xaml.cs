@@ -30,7 +30,11 @@ namespace TouchMeta
 {
     public class MetaInfo
     {
-        private static string _attr_key_software_ = "exif:Software";
+        private static string[] tag_software = new string[] {
+          "exif:Software",
+          "tiff:Software",
+          "Software",
+        };
 
         public bool ShowXMP { get; set; } = false;
         public bool TouchProfiles { get; set; } = true;
@@ -55,11 +59,11 @@ namespace TouchMeta
 
         public string Software
         {
-            get { return (Attributes is Dictionary<string, string> && Attributes.ContainsKey(_attr_key_software_) ? Attributes[_attr_key_software_].Trim() : string.Empty); }
+            get { return (Attributes is Dictionary<string, string> && Attributes.Count(a => tag_software.Contains(a.Key)) > 0 ? Attributes.First(a => tag_software.Contains(a.Key)).Value.Trim() : string.Empty); }
             set
             {
-                if (Attributes is Dictionary<string, string>) Attributes[_attr_key_software_] = value;
-                if (string.IsNullOrEmpty(value)) Attributes.Remove(_attr_key_software_);
+                if (Attributes is Dictionary<string, string>) foreach(var key in tag_software) Attributes[key] = value;
+                if (string.IsNullOrEmpty(value)) foreach (var key in tag_software) Attributes.Remove(key);
             }
         }
 
@@ -101,7 +105,8 @@ namespace TouchMeta
         private static string AppName = Path.GetFileNameWithoutExtension(AppExec);
         private static string CachePath =  "cache";
 
-        private static string _attr_key_software_ = "exif:Software";
+        private static char[] InvalidFileNameChars = Path.GetInvalidFileNameChars();
+        private static char[] InvalidPathChars = Path.GetInvalidPathChars();
 
         private const string ViewImageApp = "ViewImageApp";
         private const string ConvertBGColorKey = "ConvertBGColor";
@@ -732,6 +737,7 @@ namespace TouchMeta
                 else if (Clipboard.ContainsText())
                 {
                     files = Clipboard.GetText().Split();
+                    files = files.Where(f => InvalidFileNameChars.Count(c => f.Contains(c)) <= 0).ToArray();
                 }
 
                 if (files is IEnumerable<string> && files.Count() > 0)
@@ -1814,6 +1820,11 @@ namespace TouchMeta
           "MicrosoftPhoto:Rating",
           "xmp:Rating",
         };
+        private static string[] tag_software = new string[] {
+          "Software",
+          "exif:Software",
+          "tiff:Software",
+        };
         #endregion
 
         #region Metadata Helper
@@ -2191,7 +2202,8 @@ namespace TouchMeta
                 }
                 else if (mode == ChangePropertyMode.Remove)
                 {
-                    meta.Title = meta.Title.Replace(title, "");
+                    if (!string.IsNullOrEmpty(title))
+                        meta.Title = string.IsNullOrEmpty(meta.Title) ? string.Empty : meta.Title.Replace(title, string.Empty);
                 }
                 else if (mode == ChangePropertyMode.Replace)
                 {
@@ -2234,7 +2246,8 @@ namespace TouchMeta
                 }
                 else if (mode == ChangePropertyMode.Remove)
                 {
-                    meta.Subject = meta.Subject.Replace(subject, "");
+                    if (!string.IsNullOrEmpty(subject))
+                        meta.Subject = string.IsNullOrEmpty(meta.Subject) ? string.Empty : meta.Subject.Replace(subject, string.Empty);
                 }
                 else if (mode == ChangePropertyMode.Replace)
                 {
@@ -2317,7 +2330,8 @@ namespace TouchMeta
                 }
                 else if (mode == ChangePropertyMode.Remove)
                 {
-                    meta.Comment = meta.Comment.Replace(comment.Trim(), "");
+                    if (!string.IsNullOrEmpty(comment.Trim()))
+                        meta.Comment = string.IsNullOrEmpty(meta.Comment) ? string.Empty : meta.Comment.Replace(comment.Trim(), string.Empty);
                 }
                 else if (mode == ChangePropertyMode.Replace)
                 {
@@ -2528,7 +2542,8 @@ namespace TouchMeta
                 }
                 else if (mode == ChangePropertyMode.Remove)
                 {
-                    meta.Software = meta.Software.Replace(software, "");
+                    if (!string.IsNullOrEmpty(software))
+                        meta.Software = string.IsNullOrEmpty(meta.Software) ? string.Empty : meta.Software.Replace(software, string.Empty);
                 }
                 else if (mode == ChangePropertyMode.Replace)
                 {
@@ -2585,7 +2600,7 @@ namespace TouchMeta
                             meta.ChangeProperties |= ChangePropertyType.Authors;
                         if (!string.IsNullOrEmpty(meta_new.Copyrights) || mode == ChangePropertyMode.Empty)
                             meta.ChangeProperties |= ChangePropertyType.Copyrights;
-                        if (meta_new.Attributes.ContainsKey(_attr_key_software_) || mode == ChangePropertyMode.Empty)
+                        if (meta_new.Attributes.Where(a => tag_software.Contains(a.Key)).Count() > 0 || mode == ChangePropertyMode.Empty)
                             meta.ChangeProperties |= ChangePropertyType.Software;
                         type = meta.ChangeProperties;
                     }
@@ -3837,9 +3852,11 @@ namespace TouchMeta
                             #region touch software
                             var tag_software = "Software";
                             if (image.AttributeNames.Contains(tag_software) && !image.AttributeNames.Contains($"exif:{tag_software}"))
-                                SetAttribute(image, $"exif:{tag_software}", string.IsNullOrEmpty(software) ? GetAttribute(image, tag_software) : software);
+                                //SetAttribute(image, $"exif:{tag_software}", string.IsNullOrEmpty(software) ? GetAttribute(image, tag_software) : software);
+                                SetAttribute(image, $"exif:{tag_software}", software);
                             if (!image.AttributeNames.Contains(tag_software) && image.AttributeNames.Contains($"exif:{tag_software}"))
-                                SetAttribute(image, $"exif:{tag_software}", string.IsNullOrEmpty(software) ? GetAttribute(image, $"exif:{tag_software}") : software);
+                                //SetAttribute(image, $"exif:{tag_software}", string.IsNullOrEmpty(software) ? GetAttribute(image, $"exif:{tag_software}") : software);
+                                SetAttribute(image, $"exif:{tag_software}", software);
                             if (string.IsNullOrEmpty(GetAttribute(image, $"exif:{tag_software}")) &&
                                 string.IsNullOrEmpty(GetAttribute(image, $"{tag_software}")) &&
                                 !string.IsNullOrEmpty(GetAttribute(image, $"exif:MakerNote")))
