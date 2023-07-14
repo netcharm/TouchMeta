@@ -985,6 +985,22 @@ namespace TouchMeta
             return (DBCS.GetString(UTF8.GetBytes(text)));
         }
 
+        private static double[] StringToDoubleArray(string text, char split_char = ',')
+        {
+            var result = new List<double>();
+            if (!string.IsNullOrEmpty(text))
+            {
+                try
+                {
+                    double v;
+                    var ds = text.Split(split_char);
+                    result = ds.Where(d => double.TryParse(d, out v)).Select(d => double.Parse(d)).ToList();
+                }
+                catch (Exception ex) { Log(ex.Message); }
+            }
+            return (result.ToArray());
+        }
+
         private static double VALUE_GB = 1024 * 1024 * 1024;
         private static double VALUE_MB = 1024 * 1024;
         private static double VALUE_KB = 1024;
@@ -2025,7 +2041,7 @@ namespace TouchMeta
                                     {
                                         var ri = r.Numerator / r.Denominator;
                                         var rf = r.ToDouble();
-                                        rr.Add(ri == rf ? $"{ri}" : (rf > 0 ? $"{rf:F1}" : $"{r.Numerator}/{r.Denominator}"));
+                                        rr.Add(ri == rf ? $"{ri}" : (rf > 0 ? $"{rf:F8}" : $"{r.Numerator}/{r.Denominator}"));
                                     }
                                     result = string.Join(", ", rr);
                                 }
@@ -2036,7 +2052,7 @@ namespace TouchMeta
                                     var rf = r.ToDouble();
                                     result = ri == rf ? $"{ri}" : (rf > 0 ? $"{rf:F1}" : $"{r.Numerator}/{r.Denominator}");
                                 }
-                                else if (tag_value.DataType == ExifDataType.Rational && tag_value.IsArray)
+                                else if (tag_value.DataType == ExifDataType.SignedRational && tag_value.IsArray)
                                 {
                                     var rs = (SignedRational[])(tag_value.GetValue());
                                     var rr = new List<string>();
@@ -2044,7 +2060,7 @@ namespace TouchMeta
                                     {
                                         var ri = r.Numerator / r.Denominator;
                                         var rf = r.ToDouble();
-                                        rr.Add(ri == rf ? $"{ri}" : (rf > 0 ? $"{rf:F1}" : $"{r.Numerator}/{r.Denominator}"));
+                                        rr.Add(ri == rf ? $"{ri}" : (rf > 0 ? $"{rf:F8}" : $"{r.Numerator}/{r.Denominator}"));
                                     }
                                     result = string.Join(", ", rr);
                                 }
@@ -2147,7 +2163,7 @@ namespace TouchMeta
                                 if (tag_name.Equals("UserComment")) v = Encoding.ASCII.GetBytes("UNICODE\0").Concat(v).ToArray();
                                 exif.SetValue(tag_property.GetValue(exif), v);
                             }
-                            else if (tag_type == typeof(ushort) || tag_type == typeof(ushort))
+                            else if (tag_type == typeof(ushort))
                             {
                                 ushort v;
                                 if (ushort.TryParse(value, out v)) exif.SetValue(tag_property.GetValue(exif), v);
@@ -2164,12 +2180,38 @@ namespace TouchMeta
                                 uint v;
                                 if (uint.TryParse(value, out v)) exif.SetValue(tag_property.GetValue(exif), new Number(v));
                             }
-                            else
-                                exif.SetValue(tag_property.GetValue(exif), value);
+                            else if (tag_type == typeof(Rational[]) && value is string)
+                            {
+                                double[] v = StringToDoubleArray(value);
+                                exif.SetValue(tag_property.GetValue(exif), v.Select(d => new Rational(d)).ToArray());
+                            }
+                            else if (tag_type == typeof(SignedRational[]) && value is string)
+                            {
+                                double[] v = StringToDoubleArray(value);
+                                exif.SetValue(tag_property.GetValue(exif), v.Select(d => new SignedRational(d)).ToArray());
+                            }
+                            else if (tag_type == typeof(Rational[]) && value is IEnumerable<double>)
+                            {
+                                exif.SetValue(tag_property.GetValue(exif), (value as IEnumerable<double>).ToArray());
+                            }
+                            else if (tag_type == typeof(SignedRational[]) && value is IEnumerable<double>)
+                            {
+                                exif.SetValue(tag_property.GetValue(exif), (value as IEnumerable<double>).ToArray());
+                            }
+                            else if (tag_type == typeof(Rational))
+                            {
+                                double v;
+                                if (double.TryParse(value, out v)) exif.SetValue(tag_property.GetValue(exif), new Rational(v));
+                            }
+                            else if (tag_type == typeof(SignedRational))
+                            {
+                                double v;
+                                if (double.TryParse(value, out v)) exif.SetValue(tag_property.GetValue(exif), new SignedRational(v));
+                            }
+                            else exif.SetValue(tag_property.GetValue(exif), value);
                         }
                         //if (!image.HasProfile("exif"))
-                        if (exif is ExifProfile && exif.Values.Count() > 0)
-                            image.SetProfile(exif);
+                        if (exif is ExifProfile && exif.Values.Count() > 0) image.SetProfile(exif);
                     }
                     else if (attr.StartsWith("iptc:"))
                     {
@@ -2181,8 +2223,7 @@ namespace TouchMeta
                             iptc.SetValue(tag_property, value);
                         }
                         //if (!image.HasProfile("iptc"))
-                        if (iptc is IptcProfile && iptc.Values.Count() > 0)
-                            image.SetProfile(iptc);
+                        if (iptc is IptcProfile && iptc.Values.Count() > 0) image.SetProfile(iptc);
                     }
                 }
             }
