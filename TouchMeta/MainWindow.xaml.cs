@@ -124,7 +124,7 @@ namespace TouchMeta
         private static bool SystemEndianLSB = BitConverter.IsLittleEndian ? true : false;
 
         private string DefaultTitle = null;
-        private string[] LineBreak = new string[] { Environment.NewLine, "\r\n", "\n\r", "\n", "\r" };
+        private static string[] LineBreak = new string[] { Environment.NewLine, "\r\n", "\n\r", "\n", "\r" };
         private List<string> exts_image = new List<string>();
 
         //private static string Symbol_Rating_Star_Empty = "\uE8D9";
@@ -2039,7 +2039,7 @@ namespace TouchMeta
                                     var rr = new List<string>();
                                     foreach (var r in rs)
                                     {
-                                        var ri = r.Numerator / r.Denominator;
+                                        var ri = r.Numerator == 0 ? 0 : r.Numerator / r.Denominator;
                                         var rf = r.ToDouble();
                                         rr.Add(ri == rf ? $"{ri}" : (rf > 0 ? $"{rf:F8}" : $"{r.Numerator}/{r.Denominator}"));
                                     }
@@ -2048,7 +2048,7 @@ namespace TouchMeta
                                 else if (tag_value.DataType == ExifDataType.Rational)
                                 {
                                     var r = (Rational)(tag_value.GetValue());
-                                    var ri = r.Numerator / r.Denominator;
+                                    var ri = r.Numerator == 0 ? 0 : r.Numerator / r.Denominator;
                                     var rf = r.ToDouble();
                                     result = ri == rf ? $"{ri}" : (rf > 0 ? $"{rf:F1}" : $"{r.Numerator}/{r.Denominator}");
                                 }
@@ -2058,7 +2058,7 @@ namespace TouchMeta
                                     var rr = new List<string>();
                                     foreach (var r in rs)
                                     {
-                                        var ri = r.Numerator / r.Denominator;
+                                        var ri = r.Numerator == 0 ? 0 : r.Numerator / r.Denominator;
                                         var rf = r.ToDouble();
                                         rr.Add(ri == rf ? $"{ri}" : (rf > 0 ? $"{rf:F8}" : $"{r.Numerator}/{r.Denominator}"));
                                     }
@@ -2067,7 +2067,7 @@ namespace TouchMeta
                                 else if (tag_value.DataType == ExifDataType.SignedRational)
                                 {
                                     var r = (SignedRational)(tag_value.GetValue());
-                                    var ri = r.Numerator / r.Denominator;
+                                    var ri = r.Numerator == 0 ? 0 : r.Numerator / r.Denominator;
                                     var rf = r.ToDouble();
                                     result = ri == rf ? $"{ri}" : (rf > 0 ? $"{rf:F0}" : $"{r.Numerator}/{r.Denominator}");
                                 }
@@ -3055,11 +3055,11 @@ namespace TouchMeta
                         var attr = kv.Key;
                         if (attr.StartsWith("date:")) continue;
                         if (force || !image.AttributeNames.Contains(attr))
-                        {
+                        {                            
                             var old_value = image.AttributeNames.Contains(attr) ?  GetAttribute(image, attr) : "NULL";
                             var value = kv.Value;
                             SetAttribute(image, attr, value);
-                            Log($"{$"{attr}".PadRight(32)}= {old_value} => {value}");
+                            Log($"{$"{attr}".PadRight(32)}= {old_value.Replace("\0", string.Empty)} => {value.Replace("\0", string.Empty)}");
                         }
                     }
                     catch (Exception ex) { Log(ex.Message); }
@@ -3556,8 +3556,8 @@ namespace TouchMeta
                             #region touch attributes and profiles
                             if (meta is MetaInfo && meta.TouchProfiles)
                             {
-                                if (meta.Profiles != null && meta.Profiles.Count > 0) TouchProfile(image, meta.Profiles, force);
                                 if (meta.Attributes != null && meta.Attributes.Count > 0) TouchAttribute(image, meta.Attributes, force);
+                                if (meta.Profiles != null && meta.Profiles.Count > 0) TouchProfile(image, meta.Profiles, force);
                             }
                             #endregion
 
@@ -4966,16 +4966,22 @@ namespace TouchMeta
                                             var b = $"[{image.ChromaBluePrimary.X:F5},{image.ChromaBluePrimary.Y:F5},{image.ChromaBluePrimary.Z:F5}]";
                                             value = $"R:{cr.ToString()}, G:{cg.ToString()}, B:{cb.ToString()}{Environment.NewLine}XYZ-R: {r}{Environment.NewLine}XYZ-G: {g}{Environment.NewLine}XYZ-B: {b}";
                                         }
-                                        var values = value.Split(new string[] { Environment.NewLine }, StringSplitOptions.RemoveEmptyEntries);
+                                        var values = value.Split(new string[] { Environment.NewLine }, StringSplitOptions.RemoveEmptyEntries).Select(t => t.Replace("\0", string.Empty).Trim());
                                         if (attr.Equals("exif:ExtensibleMetadataPlatform", StringComparison.CurrentCultureIgnoreCase) && !show_xmp)
                                         {
-                                            var text = $"{attr.PadRight(cw)}= { values.FirstOrDefault() } ...";
+                                            var text = $"{attr.PadRight(cw)}= { string.Join("", values.FirstOrDefault().Where(c => !LineBreak.Contains($"{c}")).Take(64)) } ...";
+                                            Log(text);
+                                            continue;
+                                        }
+                                        else if (attr.Equals("exif:MakerNote", StringComparison.CurrentCultureIgnoreCase) && !show_xmp)
+                                        {
+                                            var text = $"{attr.PadRight(cw)}= { string.Join("", values.FirstOrDefault().Where(c => !LineBreak.Contains($"{c}")).Take(64)) } ...";
                                             Log(text);
                                             continue;
                                         }
                                         foreach (var v in values)
                                         {
-                                            if (v.Length > 64) value = $"{v.Substring(0, 64)} ...";
+                                            if (v.Length > 64) value = $"{string.Join("", v.Where(c => !LineBreak.Contains($"{c}")).Take(64))} ...";
                                             var text = v.Equals(values.First()) ? $"{attr.PadRight(cw)}= { v }" : $"{" ".PadRight(cw+2)}{ v }";
                                             Log(text);
                                         }
@@ -7153,9 +7159,10 @@ namespace TouchMeta
                 }
                 #region Show Metadata
                 bool xmp_merge_nodes = Keyboard.Modifiers == ModifierKeys.Control;
+                bool xmp_not_show = Keyboard.Modifiers == ModifierKeys.Shift;
                 RunBgWorker(new Action<string, bool>((file, show_xmp) =>
                 {
-                    ShowMeta(file, xmp_merge_nodes, show_xmp: show_xmp);
+                    ShowMeta(file, xmp_merge_nodes, show_xmp: !xmp_not_show && show_xmp);
                 }));
                 #endregion
             }
