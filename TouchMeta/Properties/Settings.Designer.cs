@@ -58,5 +58,14 @@ namespace TouchMeta.Properties {
                 return ((global::System.Windows.Media.Color)(this["ConvertBGColor"]));
             }
         }
+        
+        [global::System.Configuration.ApplicationScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("")]
+        public string TextEditor {
+            get {
+                return ((string)(this["TextEditor"]));
+            }
+        }
     }
 }

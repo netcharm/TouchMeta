@@ -14,5 +14,8 @@
     <Setting Name="ConvertBGColor" Type="System.Windows.Media.Color" Scope="Application">
       <Value Profile="(Default)">#FF808080</Value>
     </Setting>
+    <Setting Name="TextEditor" Type="System.String" Scope="Application">
+      <Value Profile="(Default)" />
+    </Setting>
   </Settings>
 </SettingsFile>

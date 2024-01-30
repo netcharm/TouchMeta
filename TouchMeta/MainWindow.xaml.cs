@@ -67,6 +67,8 @@ namespace TouchMeta
             }
         }
 
+        public string ExifVersion { get; set; } = "0230";
+
         public Dictionary<string, string> Attributes { get; set; } = new Dictionary<string, string>();
         public Dictionary<string, IImageProfile> Profiles { get; set; } = new Dictionary<string, IImageProfile>();
     }
@@ -107,8 +109,10 @@ namespace TouchMeta
 
         private static char[] InvalidFileNameChars = Path.GetInvalidFileNameChars();
         private static char[] InvalidPathChars = Path.GetInvalidPathChars();
+        private static char[] InvalidChars = InvalidFileNameChars.Concat(InvalidPathChars).Distinct().ToArray();
 
-        private const string ViewImageApp = "ViewImageApp";
+        private const string ImageViewer = "ImageViewer";
+        private const string TextEditor = "TextEditor";
         private const string ConvertBGColorKey = "ConvertBGColor";
         private const string ConvertQualityKey = "ConvertQuality";
         private const string ReduceQualityKey = "ReduceQuality";
@@ -600,6 +604,25 @@ namespace TouchMeta
             return (result);
         }
 
+        private void OrderFiles(bool descending = true)
+        {
+            try
+            {
+                var files = GetFiles(FilesList);
+                IEnumerable<string> result = NaturlSort(files, descending);
+                //if (descending)
+                //    result = files.OrderByDescending(f => Regex.Replace(f, @"\d+", m => m.Value.PadLeft(16, '0')));
+                //else
+                //    result = files.OrderBy(f => Regex.Replace(f, @"\d+", m => m.Value.PadLeft(16, '0')));
+
+                for (var i = 0; i < files.Count; i++)
+                {
+                    FilesList.Items[i] = result.ElementAt(i);
+                }
+            }
+            catch (Exception ex) { ShowMessage(ex.Message, "ERROR"); }
+        }
+
         private bool LoadFiles(IEnumerable<string> files, bool with_folder = false)
         {
             var result = false;
@@ -737,7 +760,7 @@ namespace TouchMeta
                 else if (Clipboard.ContainsText())
                 {
                     files = Clipboard.GetText().Split();
-                    files = files.Where(f => InvalidFileNameChars.Count(c => f.Contains(c)) <= 0).ToArray();
+                    files = files.Where(f => !string.IsNullOrEmpty(f) && InvalidPathChars.Count(c => f.Contains(c)) <= 0).ToArray();
                 }
 
                 if (files is IEnumerable<string> && files.Count() > 0)
@@ -766,25 +789,6 @@ namespace TouchMeta
                 dp.SetText(string.Join(Environment.NewLine, files));
 
                 Clipboard.SetDataObject(dp);
-            }
-            catch (Exception ex) { ShowMessage(ex.Message, "ERROR"); }
-        }
-
-        private void OrderFiles(bool descending = true)
-        {
-            try
-            {
-                var files = GetFiles(FilesList);
-                IEnumerable<string> result = NaturlSort(files, descending);
-                //if (descending)
-                //    result = files.OrderByDescending(f => Regex.Replace(f, @"\d+", m => m.Value.PadLeft(16, '0')));
-                //else
-                //    result = files.OrderBy(f => Regex.Replace(f, @"\d+", m => m.Value.PadLeft(16, '0')));
-
-                for (var i = 0; i < files.Count; i++)
-                {
-                    FilesList.Items[i] = result.ElementAt(i);
-                }
             }
             catch (Exception ex) { ShowMessage(ex.Message, "ERROR"); }
         }
@@ -2161,6 +2165,7 @@ namespace TouchMeta
                             {
                                 byte[] v = !IsWinXP && image.Endian == Endian.MSB ? Encoding.BigEndianUnicode.GetBytes(value) : Encoding.Unicode.GetBytes(value);
                                 if (tag_name.Equals("UserComment")) v = Encoding.ASCII.GetBytes("UNICODE\0").Concat(v).ToArray();
+                                else if (tag_name.Equals("ExifVersion")) v = Encoding.UTF8.GetBytes(value);
                                 exif.SetValue(tag_property.GetValue(exif), v);
                             }
                             else if (tag_type == typeof(ushort))
@@ -3351,6 +3356,39 @@ namespace TouchMeta
             return (result);
         }
 
+        private static MetaInfo JsonToMeta(string json, MetaInfo meta = null)
+        {
+            MetaInfo result = meta is MetaInfo ? meta : new MetaInfo();
+            if (!string.IsNullOrEmpty(json))
+            {
+                var lines = json.Split(LineBreak, StringSplitOptions.RemoveEmptyEntries);
+                var lkvs = lines.Select(l => l.Split(new char[] { ':' }, StringSplitOptions.RemoveEmptyEntries));
+                var kvs = lkvs.Select(l => new KeyValuePair<string, string>(l[0].ToLower(), l[1]));
+                foreach (var kv in kvs)
+                {
+                    if (kv.Key.Equals("date"))
+                    {
+                        DateTime dt = result.DateAcquired ?? result.DateTaken ?? result.DateModified ?? result.DateCreated ?? result.DateAccesed ?? DateTime.Now;
+                        if (DateTime.TryParse(kv.Value, out dt))
+                        {
+                            result.DateCreated = dt;
+                            result.DateModified = dt;
+                            result.DateAccesed = dt;
+
+                            result.DateAcquired = dt;
+                            result.DateTaken = dt;
+                        }
+                    }
+                    else if(kv.Key.Equals("id"))
+                    {
+
+                    }
+                }
+                //var date = kvs.Count(kv => kv.Key.Equals("date")) > 0 ? kvs.First(kv => kv.Key.Equals("date")).Value : string.Empty;
+            }
+            return (result);
+        }
+
         public static MetaInfo GetMetaInfoFromClipboard(MetaInfo meta)
         {
             var result = meta;
@@ -3532,13 +3570,15 @@ namespace TouchMeta
                     var comment = meta is MetaInfo ? meta.Comment : string.Empty;
                     var rating = meta is MetaInfo ? meta.RatingPercent : null;
                     var software = meta is MetaInfo ? meta.Software : null;
-                    if (!string.IsNullOrEmpty(title)) title = title.Replace("\0", string.Empty).TrimEnd('\0');
-                    if (!string.IsNullOrEmpty(subject)) subject = subject.Replace("\0", string.Empty).TrimEnd('\0');
-                    if (!string.IsNullOrEmpty(authors)) authors = authors.Replace("\0", string.Empty).TrimEnd('\0');
-                    if (!string.IsNullOrEmpty(copyrights)) copyrights = copyrights.Replace("\0", string.Empty).TrimEnd('\0');
-                    if (!string.IsNullOrEmpty(keywords)) keywords = keywords.Replace("\0", string.Empty).TrimEnd('\0');
-                    if (!string.IsNullOrEmpty(comment)) comment = comment.Replace("\0", string.Empty).TrimEnd('\0');
-                    if (!string.IsNullOrEmpty(software)) software = software.Replace("\0", string.Empty).TrimEnd('\0');
+                    var exifversion = meta is MetaInfo ? meta.ExifVersion : "0230";
+                    if (!string.IsNullOrEmpty(title)) title = title.Replace("\0", string.Empty).TrimEnd('\0').TrimStart(';');
+                    if (!string.IsNullOrEmpty(subject)) subject = subject.Replace("\0", string.Empty).TrimEnd('\0').TrimStart(';');
+                    if (!string.IsNullOrEmpty(authors)) authors = authors.Replace("\0", string.Empty).TrimEnd('\0').TrimStart(';');
+                    if (!string.IsNullOrEmpty(copyrights)) copyrights = copyrights.Replace("\0", string.Empty).TrimEnd('\0').TrimStart(';');
+                    if (!string.IsNullOrEmpty(keywords)) keywords = keywords.Replace("\0", string.Empty).TrimEnd('\0').TrimStart(';');
+                    if (!string.IsNullOrEmpty(comment)) comment = comment.Replace("\0", string.Empty).TrimEnd('\0').TrimStart(';');
+                    if (!string.IsNullOrEmpty(software)) software = software.Replace("\0", string.Empty).TrimEnd('\0').TrimStart(';');
+                    if (!string.IsNullOrEmpty(exifversion)) exifversion = exifversion.Replace("\0", string.Empty).TrimEnd('\0').TrimStart(';');
 
                     var keyword_list = string.IsNullOrEmpty(keywords) ? new List<string>() : keywords.Split(new char[] { ';', '#' }, StringSplitOptions.RemoveEmptyEntries).Select(k => k.Trim()).Where(k => !string.IsNullOrEmpty(k)).Distinct();
                     keywords = string.Join("; ", keyword_list);
@@ -3892,20 +3932,23 @@ namespace TouchMeta
                             #endregion
                             #region touch software
                             var tag_software = "Software";
-                            if (image.AttributeNames.Contains(tag_software) && !image.AttributeNames.Contains($"exif:{tag_software}"))
-                                //SetAttribute(image, $"exif:{tag_software}", string.IsNullOrEmpty(software) ? GetAttribute(image, tag_software) : software);
-                                SetAttribute(image, $"exif:{tag_software}", software);
-                            if (!image.AttributeNames.Contains(tag_software) && image.AttributeNames.Contains($"exif:{tag_software}"))
-                                //SetAttribute(image, $"exif:{tag_software}", string.IsNullOrEmpty(software) ? GetAttribute(image, $"exif:{tag_software}") : software);
-                                SetAttribute(image, $"exif:{tag_software}", software);
                             if (string.IsNullOrEmpty(GetAttribute(image, $"exif:{tag_software}")) &&
                                 string.IsNullOrEmpty(GetAttribute(image, $"{tag_software}")) &&
                                 !string.IsNullOrEmpty(GetAttribute(image, $"exif:MakerNote")))
                             {
                                 SetAttribute(image, $"exif:{tag_software}", GetAttribute(image, $"exif:MakerNote"));
-                                //SetAttribute(image, $"exif:MakerNote", GetAttribute(image, $"exif:MakerNote"));
                             }
+                            else SetAttribute(image, $"exif:{tag_software}", software);
                             #endregion
+                            #region exif version
+                            var tag_exifversion = "ExifVersion";
+                            if (string.IsNullOrEmpty(GetAttribute(image, $"exif:{tag_exifversion}")))
+                            {
+                                SetAttribute(image, $"exif:{tag_exifversion}", exifversion);
+                            }
+                            //exif.SetValue(ImageMagick.ExifTag.ExifVersion, Encoding.UTF8.GetBytes(exifversion));
+                            #endregion
+
                             Log($"{"Profiles".PadRight(32)}= {string.Join(", ", image.ProfileNames)}");
 
                             //if (exif != null) image.SetProfile(exif);
@@ -4810,6 +4853,8 @@ namespace TouchMeta
 
                         exif.SetTagValue(CompactExifLib.ExifTag.Rating, meta.Rating ?? 0, TagType: ExifTagType.UShort);
                         exif.SetTagValue(CompactExifLib.ExifTag.RatingPercent, meta.RatingPercent ?? 0, TagType: ExifTagType.UShort);
+
+                        exif.SetTagValue(CompactExifLib.ExifTag.ExifVersion, meta.ExifVersion, StrCoding.UsAscii_Undef);
                         #endregion
 
                         #region CompactExifLib Update XMP RAW data, not profile
@@ -5965,6 +6010,15 @@ namespace TouchMeta
                 OpenFiles(Keyboard.Modifiers == ModifierKeys.Shift ? true : false, Keyboard.Modifiers == ModifierKeys.Control);
             }));
             ViewSelected.InputGestureText = string.Join(", ", cmd_Display.InputGestures.OfType<KeyGesture>().Select(k => k.DisplayString));
+
+            RoutedCommand cmd_Sorting = new RoutedCommand();
+            cmd_Sorting.InputGestures.Add(new KeyGesture(Key.F3, ModifierKeys.None, Key.F3.ToString()));
+            FilesList.CommandBindings.Add(new CommandBinding(cmd_Sorting, (obj, evt) =>
+            {
+                evt.Handled = true;
+                OrderFiles(Keyboard.Modifiers == ModifierKeys.None ? true : (Keyboard.Modifiers == ModifierKeys.Shift ? false : true));
+            }));
+            //OrderSelected.InputGestureText = string.Join(", ", cmd_Sorting.InputGestures.OfType<KeyGesture>().Select(k => k.DisplayString));
         }
 
         private void PopupFlowWindowsLocation(Popup popup)
@@ -6041,7 +6095,7 @@ namespace TouchMeta
 
         private void OpenFiles(bool alt = false, bool use_default = false)
         {
-            var viewer = GetConfigValue(ViewImageApp);
+            var viewer = GetConfigValue(ImageViewer);
             RunBgWorker(new Action<string, bool>((file, show_xmp) =>
             {
                 var is_img = exts_image.Contains(Path.GetExtension(file).ToLower());
@@ -6176,6 +6230,7 @@ namespace TouchMeta
             #endregion
 
             TemplateLoad.Items.Add(new MenuItem() { Header = "Empty", IsEnabled = false });
+            TemplateEdit.Items.Add(new MenuItem() { Header = "Empty", IsEnabled = false });
             TemplateRemove.Items.Add(new MenuItem() { Header = "Empty", IsEnabled = false });
 
             Dispatcher.InvokeAsync(() => { ReduceToQuality.Value = ReduceQuality; });
@@ -6200,11 +6255,6 @@ namespace TouchMeta
                 if (FileRenameInputPopup.IsOpen) FileRenameInputPopup.IsOpen = false;
                 if (MetaInputPopup.IsOpen) MetaInputPopup.IsOpen = false;
                 if (bgWorker is BackgroundWorker && bgWorker.IsBusy) bgWorker.CancelAsync();
-            }
-            else if (e.Key == Key.F2)
-            {
-                var descending = Keyboard.Modifiers == ModifierKeys.None ? true : (Keyboard.Modifiers == ModifierKeys.Shift ? false : true);
-                OrderFiles(descending);
             }
         }
 
@@ -6325,6 +6375,11 @@ namespace TouchMeta
                 UpdateFileTimeInfo();
                 _time_changed_ = false;
             }
+        }
+
+        private void FilesList_MouseDown(object sender, MouseButtonEventArgs e)
+        {
+            FilesList.Focus();
         }
 
         private void FilesList_MouseMove(object sender, MouseEventArgs e)
@@ -7345,6 +7400,14 @@ namespace TouchMeta
                             log.Add($"Load Metadata Template {item} Successed!");
                         }
                     }
+                    else if (menu == TemplateEdit)
+                    {
+                        var editor = GetConfigValue(TextEditor);
+                        if (string.IsNullOrEmpty(editor))
+                            Process.Start($"\"{file}\"");
+                        else
+                            Process.Start(editor, $"\"{file}\"");
+                    }
                     else if (menu == TemplateRemove)
                     {
                         menu.Items.Remove(sender);
@@ -7378,9 +7441,11 @@ namespace TouchMeta
             sb_xml.AppendLine("</root>");
             var xml = sb_xml.ToString();
 
-            var file = Path.Combine(AppPath, $"{AppName}_Template_{meta.Subject}.xml");
+            var fn = string.IsNullOrEmpty(meta.Subject) ? $"Unnamed-{DateTime.Now.ToString("yyyyMMddHHmmss")}" : meta.Subject;
+            var file = Path.Combine(AppPath, $"{AppName}_Template_{fn}.xml");
             File.WriteAllText(file, xml);
             log.Add($"Load Metadata Template {meta.Subject} Successed!");
         }
+
     }
 }

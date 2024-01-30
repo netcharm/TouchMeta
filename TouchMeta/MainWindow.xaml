@@ -101,7 +101,7 @@
         <ListBox Grid.Row="3" x:Name="FilesList" x:Uid="FilesList" Margin="6" 
                  HorizontalAlignment="Stretch" VerticalAlignment="Stretch" 
                  AlternationCount="2" IsTabStop="True" SelectionMode="Extended"
-                 MouseMove="FilesList_MouseMove" MouseDoubleClick="FilesList_MouseDoubleClick"
+                 MouseDown="FilesList_MouseDown" MouseMove="FilesList_MouseMove" MouseDoubleClick="FilesList_MouseDoubleClick"
                  SelectionChanged="FilesList_SelectionChanged" >
             <ListBox.ItemContainerStyle>
                 <StaticResource ResourceKey="AlternatingWithTriggers"/>
@@ -263,6 +263,7 @@
                     <ContextMenu>
                         <MenuItem x:Name="TemplateLoad" x:Uid="TemplateLoad" Header="Load Template" SubmenuOpened="TemplateLoad_SubmenuOpened"/>
                         <MenuItem x:Name="TemplateSave" x:Uid="TemplateSave" Header="Save Template" Click="TemplateSave_Click"/>
+                        <MenuItem x:Name="TemplateEdit" x:Uid="TemplateEdit" Header="Edit Template" SubmenuOpened="TemplateLoad_SubmenuOpened"/>
                         <MenuItem x:Name="TemplateRemove" x:Uid="TemplateRemove" Header="Remove Template" SubmenuOpened="TemplateLoad_SubmenuOpened"/>
                     </ContextMenu>
                 </Button.ContextMenu>
