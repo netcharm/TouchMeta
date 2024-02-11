@@ -5263,6 +5263,8 @@ namespace TouchMeta
                                 //    image.SetAttribute("tiff:rows-per-strip", "512");
                                 //}
                                 image.Quality = ConvertQuality;
+                                // 将透明色替换成白色(这里不指定默认是黑色)
+                                //image.Opaque(Color.Transparent, new MagickColor(ConvertBGColor.R, ConvertBGColor.G, ConvertBGColor.B, ConvertBGColor.A));
                                 image.BackgroundColor = new MagickColor(ConvertBGColor.R, ConvertBGColor.G, ConvertBGColor.B, ConvertBGColor.A);
                                 image.Write(name, fmt);
 
@@ -6240,6 +6242,14 @@ namespace TouchMeta
                 FilesFromClipboard();
             else
                 LoadFiles(GetDropedFiles(args), with_folder: Keyboard.Modifiers == ModifierKeys.Control);
+
+            DataObject.AddPastingHandler(TimeStringContent, ClipboardStringContent_Paste);
+
+            DataObject.AddPastingHandler(MetaInputTitleText, ClipboardStringContent_Paste);
+            DataObject.AddPastingHandler(MetaInputSubjectText, ClipboardStringContent_Paste);
+            DataObject.AddPastingHandler(MetaInputKeywordsText, ClipboardStringContent_Paste);
+            DataObject.AddPastingHandler(MetaInputAuthorText, ClipboardStringContent_Paste);
+            DataObject.AddPastingHandler(MetaInputCopyrightText, ClipboardStringContent_Paste);
         }
 
         private void Window_LocationChanged(object sender, EventArgs e)
@@ -7447,5 +7457,37 @@ namespace TouchMeta
             log.Add($"Load Metadata Template {meta.Subject} Successed!");
         }
 
+        private void ClipboardStringContent_Paste(object sender, DataObjectPastingEventArgs e)
+        {
+            if (sender is TextBox)
+            {
+                var allow = new string[] { "System.String", "UnicodeText", "Text", "OEMText", "HTML" };
+                var fmts = e.DataObject.GetFormats();
+                foreach (var fmt in fmts.Where(fmt => allow.Contains(fmt, StringComparer.CurrentCultureIgnoreCase)))
+                {
+                    if (e.DataObject.GetDataPresent(fmt))
+                    {
+                        var text =  (e.DataObject.GetData(fmt) as string).Trim();
+                        var textbox = sender as TextBox;
+                        var idx = textbox.CaretIndex;
+                        var start = textbox.SelectionStart;
+                        var length = textbox.SelectionLength;
+                        if (length > 0)
+                        {
+                            textbox.Text = textbox.Text.Replace(textbox.SelectedText, text);
+                            textbox.CaretIndex = idx + text.Length;
+                            textbox.SelectionStart = start;
+                            textbox.SelectionLength = text.Length;
+                        }
+                        else
+                        {
+                            textbox.Text = textbox.Text.Insert(idx, text);
+                            textbox.CaretIndex = idx + text.Length;
+                        }
+                        break;
+                    }
+                }
+            }
+        }
     }
 }
