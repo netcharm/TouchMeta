@@ -7459,30 +7459,36 @@ namespace TouchMeta
 
         private void ClipboardStringContent_Paste(object sender, DataObjectPastingEventArgs e)
         {
+            e.Handled = true;
             if (sender is TextBox)
             {
-                var allow = new string[] { "System.String", "UnicodeText", "Text", "OEMText", "HTML" };
+                //var txt = (e.DataObject.GetData(e.FormatToApply) as string).Trim();
+                var allow = new string[] { "System.String", "UnicodeText", "Text", "OEMText", "HTML Format" };
                 var fmts = e.DataObject.GetFormats();
-                foreach (var fmt in fmts.Where(fmt => allow.Contains(fmt, StringComparer.CurrentCultureIgnoreCase)))
+                foreach (var fmt in allow.Where(fmt => fmts.Contains(fmt, StringComparer.CurrentCultureIgnoreCase)))
                 {
                     if (e.DataObject.GetDataPresent(fmt))
                     {
-                        var text =  (e.DataObject.GetData(fmt) as string).Trim();
-                        var textbox = sender as TextBox;
-                        var idx = textbox.CaretIndex;
-                        var start = textbox.SelectionStart;
-                        var length = textbox.SelectionLength;
-                        if (length > 0)
+                        var text = (e.DataObject.GetData(fmt) as string);
+                        if (Regex.IsMatch(text, @"^[\n\r]", RegexOptions.IgnoreCase))
                         {
-                            textbox.Text = textbox.Text.Replace(textbox.SelectedText, text);
-                            textbox.CaretIndex = idx + text.Length;
-                            textbox.SelectionStart = start;
-                            textbox.SelectionLength = text.Length;
-                        }
-                        else
-                        {
-                            textbox.Text = textbox.Text.Insert(idx, text);
-                            textbox.CaretIndex = idx + text.Length;
+                            var textbox = sender as TextBox;
+                            var idx = textbox.CaretIndex;
+                            var start = textbox.SelectionStart;
+                            var length = textbox.SelectionLength;
+                            if (length > 0)
+                            {
+                                textbox.Text = textbox.Text.Replace(textbox.SelectedText, text);
+                                textbox.CaretIndex = idx + text.Length;
+                                textbox.SelectionStart = start;
+                                textbox.SelectionLength = text.Length;
+                            }
+                            else
+                            {
+                                //if()
+                                textbox.Text = textbox.Text.Insert(idx, text);
+                                textbox.CaretIndex = idx + text.Length;
+                            }
                         }
                         break;
                     }
