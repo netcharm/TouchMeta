@@ -5267,7 +5267,15 @@ namespace TouchMeta
                                 //image.Opaque(Color.Transparent, new MagickColor(ConvertBGColor.R, ConvertBGColor.G, ConvertBGColor.B, ConvertBGColor.A));
                                 //image.BackgroundColor = new MagickColor(ConvertBGColor.R, ConvertBGColor.G, ConvertBGColor.B, ConvertBGColor.A);
                                 var bg = new MagickColor(ConvertBGColor.R, ConvertBGColor.G, ConvertBGColor.B, ConvertBGColor.A);
-                                if (fmt == MagickFormat.Jpg || fmt == MagickFormat.Jpeg || fmt == MagickFormat.Bmp) { image.ColorAlpha(image.BackgroundColor); image.BackgroundColor = bg; }
+                                if (fmt == MagickFormat.Jpg || fmt == MagickFormat.Jpeg || fmt == MagickFormat.Bmp)
+                                {
+                                    var profiles = new List<IImageProfile>();
+                                    foreach (var profile in image.ProfileNames) { if(image.HasProfile(profile)) profiles.Add(image.GetProfile(profile)); }
+                                    image.ColorAlpha(image.BackgroundColor);
+                                    image.BackgroundColor = bg;
+                                    image.MatteColor = bg;
+                                    foreach (var profile in profiles) image.SetProfile(profile);
+                                }
                                 image.Write(name, fmt);
 
                                 if (!keep_name && !name.Equals(fi.FullName, StringComparison.CurrentCultureIgnoreCase))
