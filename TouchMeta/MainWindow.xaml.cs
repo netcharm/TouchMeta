@@ -5265,7 +5265,9 @@ namespace TouchMeta
                                 image.Quality = ConvertQuality;
                                 // 将透明色替换成白色(这里不指定默认是黑色)
                                 //image.Opaque(Color.Transparent, new MagickColor(ConvertBGColor.R, ConvertBGColor.G, ConvertBGColor.B, ConvertBGColor.A));
-                                image.BackgroundColor = new MagickColor(ConvertBGColor.R, ConvertBGColor.G, ConvertBGColor.B, ConvertBGColor.A);
+                                //image.BackgroundColor = new MagickColor(ConvertBGColor.R, ConvertBGColor.G, ConvertBGColor.B, ConvertBGColor.A);
+                                var bg = new MagickColor(ConvertBGColor.R, ConvertBGColor.G, ConvertBGColor.B, ConvertBGColor.A);
+                                if (fmt == MagickFormat.Jpg || fmt == MagickFormat.Jpeg || fmt == MagickFormat.Bmp) { image.ColorAlpha(image.BackgroundColor); image.BackgroundColor = bg; }
                                 image.Write(name, fmt);
 
                                 if (!keep_name && !name.Equals(fi.FullName, StringComparison.CurrentCultureIgnoreCase))
@@ -7472,6 +7474,7 @@ namespace TouchMeta
                         var text = (e.DataObject.GetData(fmt) as string);
                         if (Regex.IsMatch(text, @"^[\n\r]", RegexOptions.IgnoreCase))
                         {
+                            text = text.Trim();
                             var textbox = sender as TextBox;
                             var idx = textbox.CaretIndex;
                             var start = textbox.SelectionStart;
@@ -7485,7 +7488,6 @@ namespace TouchMeta
                             }
                             else
                             {
-                                //if()
                                 textbox.Text = textbox.Text.Insert(idx, text);
                                 textbox.CaretIndex = idx + text.Length;
                             }
