@@ -5635,8 +5635,9 @@ namespace TouchMeta
                                 if (exif_supported && using_exif) image.Orientation = OrientationType.BottomLeft;
                                 else image.Flip();
                                 break;
+                            default: _mod_ = false; break;
                         }
-                        if (_mod_) image.Write(file);
+                        if (_mod_) { image.Write(file, image.Format); }
                     }                    
 
                     var fo = new FileInfo(file);
