@@ -5341,7 +5341,7 @@ namespace TouchMeta
             return null;
         }
 
-        public byte[] ReduceImageQuality(byte[] buffer, string fmt, int quality = 85)
+        public byte[] ReduceImageQuality(byte[] buffer, string fmt, int quality = 85, bool force = false)
         {
             byte[] result = buffer;
             try
@@ -5355,7 +5355,7 @@ namespace TouchMeta
                     else if (fmt.Equals("jpg")) pFmt = System.Drawing.Imaging.ImageFormat.Jpeg;
                     else return (buffer);
 
-                    if (!GuessAlpha(buffer))
+                    if (force || !GuessAlpha(buffer))
                     {
                         using (var mi = new MemoryStream(buffer))
                         {
@@ -5391,13 +5391,14 @@ namespace TouchMeta
                             }
                         }
                     }
+                    else { result = null; throw new WarningException($"Image Has Alpha!"); }
                 }
             }
             catch (Exception ex) { Log(ex.Message); }
             return (result);
         }
 
-        public string ReduceImageQuality(string file, string fmt, int quality = 75, bool keep_name = false)
+        public string ReduceImageQuality(string file, string fmt, int quality = 75, bool keep_name = false, bool force = false)
         {
             string result = string.Empty;
             try
@@ -5487,7 +5488,7 @@ namespace TouchMeta
                             }
                         }
 
-                        var bo = ReduceImageQuality(bi, fmt, quality: quality);
+                        var bo = ReduceImageQuality(bi, fmt, quality: quality, force: force);
                         if (bo is byte[] && bo.Length > 0)
                         {
                             using (var msp = new MemoryStream(bo))
@@ -5549,36 +5550,35 @@ namespace TouchMeta
             return (result);
         }
 
-        public string ReduceImageQuality(string file, MagickFormat fmt, int quality = 0, bool keep_name = false)
+        public string ReduceImageQuality(string file, MagickFormat fmt, int quality = 0, bool keep_name = false, bool force = false)
         {
             if (quality <= 0)
             {
-                //int.TryParse(GetConfigValue(ReduceQualityKey, ReduceQuality), out ReduceQuality);
-                return (ReduceImageQuality(file, fmt.ToString().ToLower(), ReduceQuality, keep_name));
+                return (ReduceImageQuality(file, fmt.ToString().ToLower(), ReduceQuality, keep_name, force: force));
             }
             else
-                return (ReduceImageQuality(file, fmt.ToString().ToLower(), quality, keep_name));
+                return (ReduceImageQuality(file, fmt.ToString().ToLower(), quality, keep_name, force: force));
         }
 
-        public void ReduceImageQuality(IEnumerable<string> files, MagickFormat fmt, int quality = 0, bool keep_name = false)
+        public void ReduceImageQuality(IEnumerable<string> files, MagickFormat fmt, int quality = 0, bool keep_name = false, bool force = false)
         {
             if (files is IEnumerable<string>)
             {
                 RunBgWorker(new Action<string, bool>((file, show_xmp) =>
                 {
-                    var ret = ReduceImageQuality(file, fmt, quality, keep_name);
+                    var ret = ReduceImageQuality(file, fmt, quality, keep_name, force: force);
                     if (!string.IsNullOrEmpty(ret) && File.Exists(ret) && !keep_name) AddFile(ret);
                 }));
             }
         }
 
-        public void ReduceImageQuality(MagickFormat fmt = MagickFormat.Jpg, int quality = 0, bool keep_name = true)
+        public void ReduceImageQuality(MagickFormat fmt = MagickFormat.Jpg, int quality = 0, bool keep_name = true, bool force = false)
         {
             if (FilesList.Items.Count >= 1)
             {
                 List<string> files = new List<string>();
                 foreach (var item in FilesList.SelectedItems.Count > 0 ? FilesList.SelectedItems : FilesList.Items) files.Add(item as string);
-                ReduceImageQuality(files, fmt, quality, keep_name);
+                ReduceImageQuality(files, fmt, quality, keep_name, force: force);
             }
         }
 
@@ -7095,11 +7095,11 @@ namespace TouchMeta
             }
             else if (sender == ReduceSelected)
             {
-                ReduceImageQuality(MagickFormat.Jpg, keep_name: true);
+                ReduceImageQuality(MagickFormat.Jpg, keep_name: true, force: force);
             }
             else if (sender == ReduceToSelected)
             {
-                ReduceImageQuality(MagickFormat.Jpg, quality: Convert.ToInt32(ReduceToQuality.Value), keep_name: true);
+                ReduceImageQuality(MagickFormat.Jpg, quality: Convert.ToInt32(ReduceToQuality.Value), keep_name: true, force: force);
             }
             #endregion
             #region Rotate Image File(s)
