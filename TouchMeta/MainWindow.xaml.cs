@@ -5341,6 +5341,11 @@ namespace TouchMeta
             return null;
         }
 
+        private bool ValidExifData(ExifData exif)
+        {
+            return (exif is ExifData && exif.ImageType != ImageType.Unknown);
+        }
+
         public byte[] ReduceImageQuality(byte[] buffer, string fmt, int quality = 85, bool force = false)
         {
             byte[] result = buffer;
@@ -5478,7 +5483,8 @@ namespace TouchMeta
                                 }
 
                                 var meta = GetMetaInfo(image);
-                                if (meta is MetaInfo && meta.Profiles.ContainsKey("xmp") && exif_in is ExifData && !exif_in.TagExists(CompactExifLib.ExifTag.XmpMetadata))
+                                if (meta is MetaInfo && meta.Profiles.ContainsKey("xmp") && 
+                                    exif_in is ExifData && exif_in.ImageType != ImageType.Unknown && !exif_in.TagExists(CompactExifLib.ExifTag.XmpMetadata))
                                 {
                                     var xml = meta.Profiles["xmp"].GetData();
                                     exif_in.SetTagRawData(CompactExifLib.ExifTag.XmpMetadata, ExifTagType.Byte, xml.Length, xml);
@@ -5492,12 +5498,12 @@ namespace TouchMeta
                             using (var msp = new MemoryStream(bo))
                             {
                                 var exif_out = new ExifData(msp);
-                                if (exif_in is ExifData) exif_out.ReplaceAllTagsBy(exif_in);
+                                if (exif_in is ExifData && exif_in.ImageType != ImageType.Unknown) exif_out.ReplaceAllTagsBy(exif_in);
 
                                 DateTime dt;
-                                if (exif_in is ExifData && exif_in.GetDateTaken(out dt)) { exif_out.SetDateTaken(dt); dc = dt; }
-                                if (exif_in is ExifData && exif_in.GetDateDigitized(out dt)) { exif_out.SetDateDigitized(dt); dm = dt; }
-                                if (exif_in is ExifData && exif_in.GetDateChanged(out dt)) { exif_out.SetDateChanged(dt); da = dt; }
+                                if (exif_in is ExifData && exif_in.ImageType != ImageType.Unknown && exif_in.GetDateTaken(out dt)) { exif_out.SetDateTaken(dt); dc = dt; }
+                                if (exif_in is ExifData && exif_in.ImageType != ImageType.Unknown && exif_in.GetDateDigitized(out dt)) { exif_out.SetDateDigitized(dt); dm = dt; }
+                                if (exif_in is ExifData && exif_in.ImageType != ImageType.Unknown && exif_in.GetDateChanged(out dt)) { exif_out.SetDateChanged(dt); da = dt; }
 
                                 using (var mso = new MemoryStream())
                                 {
