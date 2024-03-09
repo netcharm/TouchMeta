@@ -5382,8 +5382,7 @@ namespace TouchMeta
                                         img.Save(mo, codec_info, encoderParams);
                                         img.Dispose();
                                     }
-                                    else
-                                        bmp.Save(mo, pFmt);
+                                    else bmp.Save(mo, pFmt);
 
                                     result = mo.ToArray();
                                     bmp.Dispose();
@@ -5418,7 +5417,7 @@ namespace TouchMeta
                         var exif_in = new ExifData(msi);
                         msi.Seek(0, SeekOrigin.Begin);
 
-                        if (exif_in.ImageType == ImageType.Png)
+                        if (exif_in is ExifData && exif_in.ImageType == ImageType.Png)
                         {
                             #region Get & Update PNG metadata
                             msi.Seek(0, SeekOrigin.Begin);
@@ -5479,12 +5478,11 @@ namespace TouchMeta
                                 }
 
                                 var meta = GetMetaInfo(image);
-                                if (meta is MetaInfo && meta.Profiles.ContainsKey("xmp") && !exif_in.TagExists(CompactExifLib.ExifTag.XmpMetadata))
+                                if (meta is MetaInfo && meta.Profiles.ContainsKey("xmp") && exif_in is ExifData && !exif_in.TagExists(CompactExifLib.ExifTag.XmpMetadata))
                                 {
                                     var xml = meta.Profiles["xmp"].GetData();
                                     exif_in.SetTagRawData(CompactExifLib.ExifTag.XmpMetadata, ExifTagType.Byte, xml.Length, xml);
                                 }
-
                             }
                         }
 
@@ -5494,12 +5492,12 @@ namespace TouchMeta
                             using (var msp = new MemoryStream(bo))
                             {
                                 var exif_out = new ExifData(msp);
-                                exif_out.ReplaceAllTagsBy(exif_in);
+                                if (exif_in is ExifData) exif_out.ReplaceAllTagsBy(exif_in);
 
                                 DateTime dt;
-                                if (exif_in.GetDateTaken(out dt)) { exif_out.SetDateTaken(dt); dc = dt; }
-                                if (exif_in.GetDateDigitized(out dt)) { exif_out.SetDateDigitized(dt); dm = dt; }
-                                if (exif_in.GetDateChanged(out dt)) { exif_out.SetDateChanged(dt); da = dt; }
+                                if (exif_in is ExifData && exif_in.GetDateTaken(out dt)) { exif_out.SetDateTaken(dt); dc = dt; }
+                                if (exif_in is ExifData && exif_in.GetDateDigitized(out dt)) { exif_out.SetDateDigitized(dt); dm = dt; }
+                                if (exif_in is ExifData && exif_in.GetDateChanged(out dt)) { exif_out.SetDateChanged(dt); da = dt; }
 
                                 using (var mso = new MemoryStream())
                                 {
