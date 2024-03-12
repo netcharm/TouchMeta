@@ -1824,10 +1824,13 @@ namespace TouchMeta
         };
         private static string[] tag_subject = new string[] {
           "exif:WinXP-Subject",
+          "tiff:subject",
         };
         private static string[] tag_comments = new string[] {
           "exif:WinXP-Comments",
-          "exif:UserComment"
+          "exif:UserComment",
+          "tiff:comment",
+          "tiff:comments",
         };
         private static string[] tag_keywords = new string[] {
           "exif:WinXP-Keywords",
@@ -2229,6 +2232,10 @@ namespace TouchMeta
                         }
                         //if (!image.HasProfile("iptc"))
                         if (iptc is IptcProfile && iptc.Values.Count() > 0) image.SetProfile(iptc);
+                    }
+                    else if (attr.StartsWith("tiff:"))
+                    {
+                        image.SetAttribute(attr, value.ToString());
                     }
                 }
             }
@@ -3982,12 +3989,21 @@ namespace TouchMeta
                                     if (root_nodes.Count >= 1)
                                     {
                                         var root_node = root_nodes.Item(0);
-                                        #region Title/Comment node
+                                        #region Title node
                                         if (xml_doc.GetElementsByTagName("dc:title").Count <= 0)
                                         {
                                             var desc = xml_doc.CreateElement("rdf:Description", "rdf");
                                             desc.SetAttribute("xmlns:dc", xmp_ns_lookup["dc"]);
                                             desc.AppendChild(xml_doc.CreateElement("dc:title", "dc"));
+                                            root_node.AppendChild(desc);
+                                        }
+                                        #endregion
+                                        #region Subject node
+                                        if (xml_doc.GetElementsByTagName("tiff:subject").Count <= 0)
+                                        {
+                                            var desc = xml_doc.CreateElement("rdf:Description", "rdf");
+                                            desc.SetAttribute("xmlns:dc", xmp_ns_lookup["dc"]);
+                                            desc.AppendChild(xml_doc.CreateElement("tiff:subject", "dc"));
                                             root_node.AppendChild(desc);
                                         }
                                         #endregion
@@ -3997,6 +4013,13 @@ namespace TouchMeta
                                             var desc = xml_doc.CreateElement("rdf:Description", "rdf");
                                             desc.SetAttribute("xmlns:dc", xmp_ns_lookup["dc"]);
                                             desc.AppendChild(xml_doc.CreateElement("dc:description", "dc"));
+                                            root_node.AppendChild(desc);
+                                        }
+                                        if (xml_doc.GetElementsByTagName("tiff:comments").Count <= 0)
+                                        {
+                                            var desc = xml_doc.CreateElement("rdf:Description", "rdf");
+                                            desc.SetAttribute("xmlns:dc", xmp_ns_lookup["dc"]);
+                                            desc.AppendChild(xml_doc.CreateElement("tiff:comments", "dc"));
                                             root_node.AppendChild(desc);
                                         }
                                         #endregion
@@ -4059,6 +4082,13 @@ namespace TouchMeta
                                             var desc = xml_doc.CreateElement("rdf:Description", "rdf");
                                             desc.SetAttribute("xmlns:dc", xmp_ns_lookup["dc"]);
                                             desc.AppendChild(xml_doc.CreateElement("dc:rights", "dc"));
+                                            root_node.AppendChild(desc);
+                                        }
+                                        if (xml_doc.GetElementsByTagName("tiff:copyright").Count <= 0)
+                                        {
+                                            var desc = xml_doc.CreateElement("rdf:Description", "rdf");
+                                            desc.SetAttribute("xmlns:dc", xmp_ns_lookup["dc"]);
+                                            desc.AppendChild(xml_doc.CreateElement("tiff:copyright", "dc"));
                                             root_node.AppendChild(desc);
                                         }
                                         #endregion
@@ -4282,7 +4312,19 @@ namespace TouchMeta
                                                     node_title.AppendChild(node_title_li);
                                                     child.AppendChild(node_title);
                                                 }
-                                                else if (child.Name.Equals("dc:description", StringComparison.CurrentCultureIgnoreCase))
+                                                else if (child.Name.Equals("tiff:subject", StringComparison.CurrentCultureIgnoreCase))
+                                                {
+                                                    child.RemoveAll();
+                                                    var node_subject = xml_doc.CreateElement("rdf:Alt", "rdf");
+                                                    var node_subject_li = xml_doc.CreateElement("rdf:li", "rdf");
+                                                    node_subject_li.SetAttribute("xml:lang", "x-default");
+                                                    node_subject_li.InnerText = subject;
+                                                    node_subject.AppendChild(node_subject_li);
+                                                    child.AppendChild(node_subject);
+                                                }
+                                                else if (child.Name.Equals("dc:description", StringComparison.CurrentCultureIgnoreCase) ||
+                                                    child.Name.Equals("tiff:comment", StringComparison.CurrentCultureIgnoreCase) ||
+                                                    child.Name.Equals("tiff:comments", StringComparison.CurrentCultureIgnoreCase))
                                                 {
                                                     child.RemoveAll();
                                                     var node_comment = xml_doc.CreateElement("rdf:Alt", "rdf");
@@ -4301,7 +4343,8 @@ namespace TouchMeta
                                                     add_rdf_li.Invoke(node_author, authors);
                                                     child.AppendChild(node_author);
                                                 }
-                                                else if (child.Name.Equals("dc:rights", StringComparison.CurrentCultureIgnoreCase))
+                                                else if (child.Name.Equals("dc:rights", StringComparison.CurrentCultureIgnoreCase) ||
+                                                    child.Name.Equals("tiff:copyright", StringComparison.CurrentCultureIgnoreCase))
                                                 {
                                                     child.RemoveAll();
                                                     var node_rights = xml_doc.CreateElement("rdf:Bag", "rdf");
@@ -4310,6 +4353,7 @@ namespace TouchMeta
                                                     child.AppendChild(node_rights);
                                                 }
                                                 else if (child.Name.Equals("dc:subject", StringComparison.CurrentCultureIgnoreCase) ||
+                                                    child.Name.Equals("tiff:subject", StringComparison.CurrentCultureIgnoreCase) ||
                                                     child.Name.Equals("lr:hierarchicalSubject", StringComparison.CurrentCultureIgnoreCase) ||
                                                     child.Name.StartsWith("MicrosoftPhoto:LastKeyword", StringComparison.CurrentCultureIgnoreCase))
                                                 {
@@ -5262,20 +5306,50 @@ namespace TouchMeta
                                 //    image.SetAttribute("tiff:photometric", "min-is-black");
                                 //    image.SetAttribute("tiff:rows-per-strip", "512");
                                 //}
-                                image.Quality = ConvertQuality;
                                 // 将透明色替换成白色(这里不指定默认是黑色)
                                 //image.Opaque(Color.Transparent, new MagickColor(ConvertBGColor.R, ConvertBGColor.G, ConvertBGColor.B, ConvertBGColor.A));
                                 //image.BackgroundColor = new MagickColor(ConvertBGColor.R, ConvertBGColor.G, ConvertBGColor.B, ConvertBGColor.A);
-                                var bg = new MagickColor(ConvertBGColor.R, ConvertBGColor.G, ConvertBGColor.B, ConvertBGColor.A);
-                                if (fmt == MagickFormat.Jpg || fmt == MagickFormat.Jpeg || fmt == MagickFormat.Bmp)
+                                var profiles = new List<IImageProfile>();
+                                foreach (var profile in image.ProfileNames) { if (image.HasProfile(profile)) profiles.Add(image.GetProfile(profile)); }
+                                if (image.HasAlpha)
                                 {
-                                    var profiles = new List<IImageProfile>();
-                                    foreach (var profile in image.ProfileNames) { if(image.HasProfile(profile)) profiles.Add(image.GetProfile(profile)); }
-                                    image.ColorAlpha(image.BackgroundColor);
-                                    image.BackgroundColor = bg;
-                                    image.MatteColor = bg;
-                                    foreach (var profile in profiles) image.SetProfile(profile);
+                                    var bg = new MagickColor(ConvertBGColor.R, ConvertBGColor.G, ConvertBGColor.B, ConvertBGColor.A);
+                                    if (fmt == MagickFormat.Jpg || fmt == MagickFormat.Jpeg)
+                                    {
+                                        image.ColorAlpha(bg);
+                                        image.BackgroundColor = bg;
+                                        image.MatteColor = bg;
+                                    }
+                                    else if (fmt == MagickFormat.Bmp2 || fmt == MagickFormat.Bmp3)
+                                    {
+                                        image.ColorAlpha(bg);
+                                        image.BackgroundColor = bg;
+                                        image.MatteColor = bg;
+                                    }
+                                    else if (fmt == MagickFormat.Bmp)
+                                    {
+                                        image.VirtualPixelMethod = VirtualPixelMethod.Transparent;
+                                    }
+                                    else if (fmt == MagickFormat.Gif || fmt == MagickFormat.Gif87)
+                                    {
+                                        image.GifDisposeMethod = GifDisposeMethod.Background;
+                                        image.VirtualPixelMethod = VirtualPixelMethod.Transparent;
+                                    }
+                                    else if (fmt == MagickFormat.WebP || fmt == MagickFormat.WebM)
+                                    {
+                                        image.VirtualPixelMethod = VirtualPixelMethod.Transparent;
+                                    }
+                                    else if (fmt == MagickFormat.Tif || fmt == MagickFormat.Tiff || fmt == MagickFormat.Tiff64)
+                                    {
+                                        image.SetCompression(CompressionMethod.Zip);
+                                        image.Settings.Compression = CompressionMethod.Zip;
+                                    }
                                 }
+                                image.Settings.Format = fmt;
+                                image.Settings.Endian = Endian.MSB;
+                                image.Endian = Endian.MSB;
+                                image.Quality = ConvertQuality;
+                                foreach (var profile in profiles) image.SetProfile(profile);
                                 image.Write(name, fmt);
 
                                 if (!keep_name && !name.Equals(fi.FullName, StringComparison.CurrentCultureIgnoreCase))
@@ -5346,7 +5420,7 @@ namespace TouchMeta
             return (exif is ExifData && exif.ImageType != ImageType.Unknown);
         }
 
-        public byte[] ReduceImageQuality(byte[] buffer, string fmt, int quality = 85, bool force = false)
+        public byte[] ReduceImageQuality(byte[] buffer, string fmt, int quality = 75, bool force = false)
         {
             byte[] result = buffer;
             try
@@ -6337,6 +6411,45 @@ namespace TouchMeta
                         LoadFiles((files as IEnumerable<string>).ToArray(), with_folder: ctrl);
                     }
                 });
+            }
+        }
+
+        private void ClipboardStringContent_Paste(object sender, DataObjectPastingEventArgs e)
+        {
+            e.Handled = true;
+            if (sender is TextBox)
+            {
+                //var txt = (e.DataObject.GetData(e.FormatToApply) as string).Trim();
+                var allow = new string[] { "System.String", "UnicodeText", "Text", "OEMText", "HTML Format" };
+                var fmts = e.DataObject.GetFormats();
+                foreach (var fmt in allow.Where(fmt => fmts.Contains(fmt, StringComparer.CurrentCultureIgnoreCase)))
+                {
+                    if (e.DataObject.GetDataPresent(fmt))
+                    {
+                        var text = (e.DataObject.GetData(fmt) as string);
+                        if (Regex.IsMatch(text, @"^[\n\r]", RegexOptions.IgnoreCase))
+                        {
+                            text = text.Trim();
+                            var textbox = sender as TextBox;
+                            var idx = textbox.CaretIndex;
+                            var start = textbox.SelectionStart;
+                            var length = textbox.SelectionLength;
+                            if (length > 0)
+                            {
+                                textbox.Text = textbox.Text.Replace(textbox.SelectedText, text);
+                                textbox.CaretIndex = idx + text.Length;
+                                textbox.SelectionStart = start;
+                                textbox.SelectionLength = text.Length;
+                            }
+                            else
+                            {
+                                textbox.Text = textbox.Text.Insert(idx, text);
+                                textbox.CaretIndex = idx + text.Length;
+                            }
+                        }
+                        break;
+                    }
+                }
             }
         }
 
@@ -7470,45 +7583,6 @@ namespace TouchMeta
             var file = Path.Combine(AppPath, $"{AppName}_Template_{fn}.xml");
             File.WriteAllText(file, xml);
             log.Add($"Load Metadata Template {meta.Subject} Successed!");
-        }
-
-        private void ClipboardStringContent_Paste(object sender, DataObjectPastingEventArgs e)
-        {
-            e.Handled = true;
-            if (sender is TextBox)
-            {
-                //var txt = (e.DataObject.GetData(e.FormatToApply) as string).Trim();
-                var allow = new string[] { "System.String", "UnicodeText", "Text", "OEMText", "HTML Format" };
-                var fmts = e.DataObject.GetFormats();
-                foreach (var fmt in allow.Where(fmt => fmts.Contains(fmt, StringComparer.CurrentCultureIgnoreCase)))
-                {
-                    if (e.DataObject.GetDataPresent(fmt))
-                    {
-                        var text = (e.DataObject.GetData(fmt) as string);
-                        if (Regex.IsMatch(text, @"^[\n\r]", RegexOptions.IgnoreCase))
-                        {
-                            text = text.Trim();
-                            var textbox = sender as TextBox;
-                            var idx = textbox.CaretIndex;
-                            var start = textbox.SelectionStart;
-                            var length = textbox.SelectionLength;
-                            if (length > 0)
-                            {
-                                textbox.Text = textbox.Text.Replace(textbox.SelectedText, text);
-                                textbox.CaretIndex = idx + text.Length;
-                                textbox.SelectionStart = start;
-                                textbox.SelectionLength = text.Length;
-                            }
-                            else
-                            {
-                                textbox.Text = textbox.Text.Insert(idx, text);
-                                textbox.CaretIndex = idx + text.Length;
-                            }
-                        }
-                        break;
-                    }
-                }
-            }
         }
     }
 }
