@@ -289,7 +289,7 @@
             </Grid>
         </Popup>
 
-        <Popup x:Name="MetaInputPopup" AllowsTransparency="True" PlacementTarget="{Binding ElementName=ShowMetaInputPopup}" 
+        <Popup x:Name="MetaInputPopup" AllowsTransparency="True" PlacementTarget="{Binding ElementName=ShowMetaInputPopup}" Placement="Top"
                UseLayoutRounding="True" StaysOpen="False" >
             <Grid x:Name="MetaInputPopupCanvas" Opacity="0.90">
                 <Border x:Name="MetaInputPopupBorder" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" />

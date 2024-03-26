@@ -6062,7 +6062,7 @@ namespace TouchMeta
                 //MetaInputPopup.Height = 336;
 
                 MetaInputPopup.StaysOpen = true;
-                MetaInputPopup.Placement = PlacementMode.Bottom;
+                MetaInputPopup.Placement = PlacementMode.Top;
                 MetaInputPopup.HorizontalOffset = MetaInputPopup.Width - ShowMetaInputPopup.ActualWidth;
                 MetaInputPopup.VerticalOffset = -6;
 
@@ -6427,10 +6427,29 @@ namespace TouchMeta
                     if (e.DataObject.GetDataPresent(fmt))
                     {
                         var text = (e.DataObject.GetData(fmt) as string);
-                        if (Regex.IsMatch(text, @"^[\n\r]", RegexOptions.IgnoreCase))
+                        var textbox = sender as TextBox;
+                        if (!textbox.AcceptsReturn && Regex.IsMatch(text, @"(\n\r|\r\n|\n|\r)", RegexOptions.IgnoreCase))
+                        {
+                            text = Regex.Replace(text, @"(\n\r|\r\n|\n|\r)", " ", RegexOptions.IgnoreCase).Trim();
+                            var idx = textbox.CaretIndex;
+                            var start = textbox.SelectionStart;
+                            var length = textbox.SelectionLength;
+                            if (length > 0)
+                            {
+                                textbox.Text = textbox.Text.Replace(textbox.SelectedText, text);
+                                textbox.CaretIndex = idx + text.Length;
+                                textbox.SelectionStart = start;
+                                textbox.SelectionLength = text.Length;
+                            }
+                            else
+                            {
+                                textbox.Text = textbox.Text.Insert(idx, text);
+                                textbox.CaretIndex = idx + text.Length;
+                            }
+                        }
+                        else if (Regex.IsMatch(text, @"^[\n\r]", RegexOptions.IgnoreCase))
                         {
                             text = text.Trim();
-                            var textbox = sender as TextBox;
                             var idx = textbox.CaretIndex;
                             var start = textbox.SelectionStart;
                             var length = textbox.SelectionLength;
