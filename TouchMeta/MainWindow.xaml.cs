@@ -6446,6 +6446,8 @@ namespace TouchMeta
                                 textbox.Text = textbox.Text.Insert(idx, text);
                                 textbox.CaretIndex = idx + text.Length;
                             }
+                            e.CancelCommand();
+                            e.Handled = true;
                         }
                         else if (Regex.IsMatch(text, @"^[\n\r]", RegexOptions.IgnoreCase))
                         {
@@ -6465,6 +6467,8 @@ namespace TouchMeta
                                 textbox.Text = textbox.Text.Insert(idx, text);
                                 textbox.CaretIndex = idx + text.Length;
                             }
+                            e.CancelCommand();
+                            e.Handled = true;
                         }
                         break;
                     }
