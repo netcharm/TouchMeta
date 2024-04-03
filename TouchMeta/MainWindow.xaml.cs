@@ -117,9 +117,9 @@ namespace TouchMeta
         private const string ConvertQualityKey = "ConvertQuality";
         private const string ReduceQualityKey = "ReduceQuality";
         private const string AlwaysTopMostKey = "TopMost";
-        private Color ConvertBGColor = Properties.Settings.Default.ConvertBGColor;
-        private int ConvertQuality = Properties.Settings.Default.ConvertQuality;
-        private int ReduceQuality = Properties.Settings.Default.ReduceQuality;
+        private static Color ConvertBGColor = Properties.Settings.Default.ConvertBGColor;
+        private static int ConvertQuality = Properties.Settings.Default.ConvertQuality;
+        private static int ReduceQuality = Properties.Settings.Default.ReduceQuality;
         private bool AlwaysTopMost = Properties.Settings.Default.TopMost;
 
         private static Configuration config = ConfigurationManager.OpenExeConfiguration(AppExec);
@@ -1815,7 +1815,7 @@ namespace TouchMeta
         };
         private static string[] tag_copyright = new string[] {
           "exif:Copyright",
-          "tiff:copyright",
+          "tiff:Copyright",
           //"iptc:CopyrightNotice",
         };
         private static string[] tag_title = new string[] {
@@ -1831,6 +1831,7 @@ namespace TouchMeta
           "exif:UserComment",
           "tiff:comment",
           "tiff:comments",
+          "tiff:ImageDescription",
         };
         private static string[] tag_keywords = new string[] {
           "exif:WinXP-Keywords",
@@ -3497,6 +3498,58 @@ namespace TouchMeta
             }
             catch (Exception ex) { ShowMessage(ex.Message); }
         }
+
+        private static void SetParameters(MagickImage image, MagickFormat? format = null, int? quality = null)
+        {
+            if (image is MagickImage)
+            {
+                var fmt = format ?? image.Format;
+                var profiles = new List<IImageProfile>();
+                foreach (var profile in image.ProfileNames) { if (image.HasProfile(profile)) profiles.Add(image.GetProfile(profile)); }
+                if (!image.Format.Equals(format))
+                {
+                    if (image.HasAlpha)
+                    {
+                        var bg = new MagickColor(ConvertBGColor.R, ConvertBGColor.G, ConvertBGColor.B, ConvertBGColor.A);
+                        if (fmt == MagickFormat.Jpg || fmt == MagickFormat.Jpeg)
+                        {
+                            image.ColorAlpha(bg);
+                            image.BackgroundColor = bg;
+                            image.MatteColor = bg;
+                        }
+                        else if (fmt == MagickFormat.Bmp2 || fmt == MagickFormat.Bmp3)
+                        {
+                            image.ColorAlpha(bg);
+                            image.BackgroundColor = bg;
+                            image.MatteColor = bg;
+                        }
+                        else if (fmt == MagickFormat.Bmp)
+                        {
+                            image.VirtualPixelMethod = VirtualPixelMethod.Transparent;
+                        }
+                        else if (fmt == MagickFormat.Gif || fmt == MagickFormat.Gif87)
+                        {
+                            image.GifDisposeMethod = GifDisposeMethod.Background;
+                            image.VirtualPixelMethod = VirtualPixelMethod.Transparent;
+                        }
+                        else if (fmt == MagickFormat.WebP || fmt == MagickFormat.WebM)
+                        {
+                            image.VirtualPixelMethod = VirtualPixelMethod.Transparent;
+                        }
+                    }
+                    if (fmt == MagickFormat.Tif || fmt == MagickFormat.Tiff || fmt == MagickFormat.Tiff64)
+                    {
+                        image.SetCompression(CompressionMethod.Zip);
+                        image.Settings.Compression = CompressionMethod.Zip;
+                    }
+                    image.Settings.Format = fmt;
+                    image.Settings.Endian = image.Endian == Endian.Undefined ? Endian.MSB : image.Endian;
+                    image.Endian = image.Settings.Endian;
+                }
+                image.Quality = quality ?? (image.Quality > 0 ? image.Quality : ConvertQuality);
+                foreach (var profile in profiles) image.SetProfile(profile);
+            }
+        }
         #endregion
 
         #region Metadata Oprating
@@ -3538,6 +3591,7 @@ namespace TouchMeta
                         }
 
                         FixDPI(image);
+                        SetParameters(image);
                         image.Write(fi.FullName, image.Format);
                     }
                     else
@@ -4006,6 +4060,13 @@ namespace TouchMeta
                                             desc.AppendChild(xml_doc.CreateElement("tiff:subject", "dc"));
                                             root_node.AppendChild(desc);
                                         }
+                                        if (xml_doc.GetElementsByTagName("dc:source").Count <= 0)
+                                        {
+                                            var desc = xml_doc.CreateElement("rdf:Description", "rdf");
+                                            desc.SetAttribute("xmlns:dc", xmp_ns_lookup["dc"]);
+                                            desc.AppendChild(xml_doc.CreateElement("dc:source", "dc"));
+                                            root_node.AppendChild(desc);
+                                        }
                                         #endregion
                                         #region Comment node
                                         if (xml_doc.GetElementsByTagName("dc:description").Count <= 0)
@@ -4312,7 +4373,8 @@ namespace TouchMeta
                                                     node_title.AppendChild(node_title_li);
                                                     child.AppendChild(node_title);
                                                 }
-                                                else if (child.Name.Equals("tiff:subject", StringComparison.CurrentCultureIgnoreCase))
+                                                else if (child.Name.Equals("tiff:subject", StringComparison.CurrentCultureIgnoreCase) ||
+                                                         child.Name.Equals("dc:source", StringComparison.CurrentCultureIgnoreCase))
                                                 {
                                                     child.RemoveAll();
                                                     var node_subject = xml_doc.CreateElement("rdf:Alt", "rdf");
@@ -4323,8 +4385,8 @@ namespace TouchMeta
                                                     child.AppendChild(node_subject);
                                                 }
                                                 else if (child.Name.Equals("dc:description", StringComparison.CurrentCultureIgnoreCase) ||
-                                                    child.Name.Equals("tiff:comment", StringComparison.CurrentCultureIgnoreCase) ||
-                                                    child.Name.Equals("tiff:comments", StringComparison.CurrentCultureIgnoreCase))
+                                                         child.Name.Equals("tiff:comment", StringComparison.CurrentCultureIgnoreCase) ||
+                                                         child.Name.Equals("tiff:comments", StringComparison.CurrentCultureIgnoreCase))
                                                 {
                                                     child.RemoveAll();
                                                     var node_comment = xml_doc.CreateElement("rdf:Alt", "rdf");
@@ -4335,7 +4397,7 @@ namespace TouchMeta
                                                     child.AppendChild(node_comment);
                                                 }
                                                 else if (child.Name.Equals("xmp:creator", StringComparison.CurrentCultureIgnoreCase) ||
-                                                    child.Name.Equals("dc:creator", StringComparison.CurrentCultureIgnoreCase))
+                                                         child.Name.Equals("dc:creator", StringComparison.CurrentCultureIgnoreCase))
                                                 {
                                                     child.RemoveAll();
                                                     var node_author = xml_doc.CreateElement("rdf:Seq", "rdf");
@@ -4344,7 +4406,7 @@ namespace TouchMeta
                                                     child.AppendChild(node_author);
                                                 }
                                                 else if (child.Name.Equals("dc:rights", StringComparison.CurrentCultureIgnoreCase) ||
-                                                    child.Name.Equals("tiff:copyright", StringComparison.CurrentCultureIgnoreCase))
+                                                         child.Name.Equals("tiff:copyright", StringComparison.CurrentCultureIgnoreCase))
                                                 {
                                                     child.RemoveAll();
                                                     var node_rights = xml_doc.CreateElement("rdf:Bag", "rdf");
@@ -4353,9 +4415,9 @@ namespace TouchMeta
                                                     child.AppendChild(node_rights);
                                                 }
                                                 else if (child.Name.Equals("dc:subject", StringComparison.CurrentCultureIgnoreCase) ||
-                                                    child.Name.Equals("tiff:subject", StringComparison.CurrentCultureIgnoreCase) ||
-                                                    child.Name.Equals("lr:hierarchicalSubject", StringComparison.CurrentCultureIgnoreCase) ||
-                                                    child.Name.StartsWith("MicrosoftPhoto:LastKeyword", StringComparison.CurrentCultureIgnoreCase))
+                                                         child.Name.Equals("tiff:subject", StringComparison.CurrentCultureIgnoreCase) ||
+                                                         child.Name.Equals("lr:hierarchicalSubject", StringComparison.CurrentCultureIgnoreCase) ||
+                                                         child.Name.StartsWith("MicrosoftPhoto:LastKeyword", StringComparison.CurrentCultureIgnoreCase))
                                                 {
                                                     child.RemoveAll();
                                                     var node_subject = xml_doc.CreateElement("rdf:Bag", "rdf");
@@ -4521,26 +4583,38 @@ namespace TouchMeta
 
                             #region save touched image
                             FixDPI(image);
-#if DEBUG
-                            image.Endian = Endian.Undefined;
-                            using (var ms = new MemoryStream())
-                            {
-                                image.Write(ms, image.Format);
-                                File.WriteAllBytes(fi.FullName, ms.ToArray());
-                            }
-#else
-                            image.Write(fi.FullName, image.Format);
-#endif
 
-                            var exifdata_n = new ExifData(fi.FullName);
-                            if (exifdata.ByteOrder != exifdata_n.ByteOrder)
-                            {
-                                if (image.Endian == Endian.Undefined) image.Endian = exifdata_n.ByteOrder == ExifByteOrder.BigEndian ? Endian.MSB : Endian.LSB;
-                                SetAttribute(image, "exif:UserComment", comment);
-                                SetAttribute(image, "Rating", RatingToRanking(rating));
-                                SetAttribute(image, "RatingPercent", rating);
-                                image.Write(fi.FullName, image.Format);
-                            }
+                            SetParameters(image);
+                            image.Write(fi.FullName, image.Format);
+                            //using (var ms = new MemoryStream())
+                            //{
+                            //    //SetParameters(image);
+                            //    //image.Write(ms, image.Format);
+                            //    //ms.Seek(0, SeekOrigin.Begin);
+                            //    //var exifdata_n = new ExifData(ms);
+                            //    //if (exifdata_n is ExifData && exifdata.ByteOrder != exifdata_n.ByteOrder)
+                            //    //{
+                            //    //    if (image.Endian == Endian.Undefined) image.Endian = exifdata_n.ByteOrder == ExifByteOrder.BigEndian ? Endian.MSB : Endian.LSB;
+                            //    //    SetAttribute(image, "exif:UserComment", comment);
+                            //    //    SetAttribute(image, "Rating", RatingToRanking(rating));
+                            //    //    SetAttribute(image, "RatingPercent", rating);
+                            //    //}
+                            //    //ms.Seek(0, SeekOrigin.Begin);
+                            //    SetParameters(image);
+                            //    image.Write(ms, image.Format);
+                            //    File.WriteAllBytes(fi.FullName, ms.ToArray());
+                            //}
+
+                            //var exifdata_n = new ExifData(fi.FullName);
+                            //if (exifdata.ByteOrder != exifdata_n.ByteOrder)
+                            //{
+                            //    if (image.Endian == Endian.Undefined) image.Endian = exifdata_n.ByteOrder == ExifByteOrder.BigEndian ? Endian.MSB : Endian.LSB;
+                            //    SetAttribute(image, "exif:UserComment", comment);
+                            //    SetAttribute(image, "Rating", RatingToRanking(rating));
+                            //    SetAttribute(image, "RatingPercent", rating);
+                            //    SetParameters(image, image.Format, image.Quality);
+                            //    image.Write(fi.FullName, image.Format);
+                            //}
                             #endregion
 
                             fi.CreationTime = dc;
@@ -4740,6 +4814,7 @@ namespace TouchMeta
                     {
                         var dt_old = GetMetaTime(image);
                         TouchMetaDate(image, fi, dt);
+                        SetParameters(image);
                         image.Write(fi.FullName, image.Format);
                         fi.CreationTime = dt.Value;
                         fi.LastWriteTime = dt.Value;
@@ -4767,6 +4842,7 @@ namespace TouchMeta
                     {
                         TouchMetaDate(image, fi, dt);
                         result = new MemoryStream();
+                        SetParameters(image);
                         image.Write(result, image.Format);
                     }
                 }
@@ -5299,57 +5375,7 @@ namespace TouchMeta
                                 #endregion
 
                                 FixDPI(image);
-
-                                //if (fmt == MagickFormat.Tif || fmt == MagickFormat.Tiff || fmt == MagickFormat.Tiff64)
-                                //{
-                                //    image.SetAttribute("tiff:alpha", "unassociated");
-                                //    image.SetAttribute("tiff:photometric", "min-is-black");
-                                //    image.SetAttribute("tiff:rows-per-strip", "512");
-                                //}
-                                // 将透明色替换成白色(这里不指定默认是黑色)
-                                //image.Opaque(Color.Transparent, new MagickColor(ConvertBGColor.R, ConvertBGColor.G, ConvertBGColor.B, ConvertBGColor.A));
-                                //image.BackgroundColor = new MagickColor(ConvertBGColor.R, ConvertBGColor.G, ConvertBGColor.B, ConvertBGColor.A);
-                                var profiles = new List<IImageProfile>();
-                                foreach (var profile in image.ProfileNames) { if (image.HasProfile(profile)) profiles.Add(image.GetProfile(profile)); }
-                                if (image.HasAlpha)
-                                {
-                                    var bg = new MagickColor(ConvertBGColor.R, ConvertBGColor.G, ConvertBGColor.B, ConvertBGColor.A);
-                                    if (fmt == MagickFormat.Jpg || fmt == MagickFormat.Jpeg)
-                                    {
-                                        image.ColorAlpha(bg);
-                                        image.BackgroundColor = bg;
-                                        image.MatteColor = bg;
-                                    }
-                                    else if (fmt == MagickFormat.Bmp2 || fmt == MagickFormat.Bmp3)
-                                    {
-                                        image.ColorAlpha(bg);
-                                        image.BackgroundColor = bg;
-                                        image.MatteColor = bg;
-                                    }
-                                    else if (fmt == MagickFormat.Bmp)
-                                    {
-                                        image.VirtualPixelMethod = VirtualPixelMethod.Transparent;
-                                    }
-                                    else if (fmt == MagickFormat.Gif || fmt == MagickFormat.Gif87)
-                                    {
-                                        image.GifDisposeMethod = GifDisposeMethod.Background;
-                                        image.VirtualPixelMethod = VirtualPixelMethod.Transparent;
-                                    }
-                                    else if (fmt == MagickFormat.WebP || fmt == MagickFormat.WebM)
-                                    {
-                                        image.VirtualPixelMethod = VirtualPixelMethod.Transparent;
-                                    }
-                                    else if (fmt == MagickFormat.Tif || fmt == MagickFormat.Tiff || fmt == MagickFormat.Tiff64)
-                                    {
-                                        image.SetCompression(CompressionMethod.Zip);
-                                        image.Settings.Compression = CompressionMethod.Zip;
-                                    }
-                                }
-                                image.Settings.Format = fmt;
-                                image.Settings.Endian = Endian.MSB;
-                                image.Endian = Endian.MSB;
-                                image.Quality = ConvertQuality;
-                                foreach (var profile in profiles) image.SetProfile(profile);
+                                SetParameters(image, fmt, ConvertQuality);
                                 image.Write(name, fmt);
 
                                 if (!keep_name && !name.Equals(fi.FullName, StringComparison.CurrentCultureIgnoreCase))
@@ -5597,6 +5623,7 @@ namespace TouchMeta
                                                 {
                                                     var xml = Encoding.UTF8.GetString(xmp);
                                                     image.SetProfile(new XmpProfile(xmp));
+                                                    SetParameters(image);
                                                     image.Write(mso, image.Format);
                                                 }
                                             }
@@ -5715,7 +5742,7 @@ namespace TouchMeta
                                 break;
                             default: _mod_ = false; break;
                         }
-                        if (_mod_) { image.Write(file, image.Format); }
+                        if (_mod_) { SetParameters(image); image.Write(file, image.Format); }
                     }                    
 
                     var fo = new FileInfo(file);
