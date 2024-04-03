@@ -2236,7 +2236,10 @@ namespace TouchMeta
                     }
                     else if (attr.StartsWith("tiff:"))
                     {
-                        image.SetAttribute(attr, value.ToString());
+                        if (attr.Equals("tiff:copyright", StringComparison.CurrentCultureIgnoreCase))
+                            image.SetAttribute(attr, value.ToString());
+                        else
+                            image.SetAttribute(attr, value.ToString());
                     }
                 }
             }
@@ -4409,7 +4412,7 @@ namespace TouchMeta
                                                          child.Name.Equals("tiff:copyright", StringComparison.CurrentCultureIgnoreCase))
                                                 {
                                                     child.RemoveAll();
-                                                    var node_rights = xml_doc.CreateElement("rdf:Bag", "rdf");
+                                                    var node_rights = xml_doc.CreateElement("rdf:Seq", "rdf");
                                                     node_rights.SetAttribute(rdf_attr, rdf_value);
                                                     add_rdf_li.Invoke(node_rights, copyrights);
                                                     child.AppendChild(node_rights);
@@ -5197,6 +5200,7 @@ namespace TouchMeta
                                             else if (child.Name.Equals("xmp:creator", StringComparison.CurrentCultureIgnoreCase) ||
                                                      child.Name.Equals("dc:creator", StringComparison.CurrentCultureIgnoreCase) ||
                                                      child.Name.Equals("dc:rights", StringComparison.CurrentCultureIgnoreCase) ||
+                                                     child.Name.Equals("tiff:copyright", StringComparison.CurrentCultureIgnoreCase) ||
                                                      child.Name.Equals("dc:subject", StringComparison.CurrentCultureIgnoreCase) ||
                                                      child.Name.Equals("lr:hierarchicalSubject", StringComparison.CurrentCultureIgnoreCase) ||
                                                      child.Name.StartsWith("MicrosoftPhoto:LastKeyword", StringComparison.CurrentCultureIgnoreCase))
@@ -5209,7 +5213,7 @@ namespace TouchMeta
                                                         foreach (XmlNode li in subchild.ChildNodes) { contents.Add(li.InnerText.Trim()); }
                                                     }
                                                 }
-                                                Log($"{$"    {child.Name}".PadRight(cw)}= {string.Join("; ", contents)}");
+                                                Log($"{$"    {child.Name}".PadRight(cw)}= {string.Join("; ", contents)};");
                                             }
                                             else if (child.Name.Equals("MicrosoftPhoto:DateAcquired", StringComparison.CurrentCultureIgnoreCase))
                                                 Log($"{"    MicrosoftPhoto:DateAcquired".PadRight(cw)}= {child.InnerText}");
