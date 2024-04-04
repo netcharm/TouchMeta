@@ -759,8 +759,8 @@ namespace TouchMeta
                 }
                 else if (Clipboard.ContainsText())
                 {
-                    files = Clipboard.GetText().Split();
-                    files = files.Where(f => !string.IsNullOrEmpty(f) && InvalidPathChars.Count(c => f.Contains(c)) <= 0).ToArray();
+                    files = Clipboard.GetText().Split().Select(f => f.Trim('"')).Where(f => !string.IsNullOrEmpty(f)).ToArray();
+                    files = files.Where(f => InvalidPathChars.Count(c => f.Contains(c)) <= 0).ToArray();
                 }
 
                 if (files is IEnumerable<string> && files.Count() > 0)
@@ -1916,6 +1916,60 @@ namespace TouchMeta
         public static bool IsValidWrite(MagickImage image)
         {
             return (image is MagickImage && image.FormatInfo.IsWritable);
+        }
+
+        public static bool IsPNG(MagickFormat format)
+        {
+            var result = false;
+            var fmts = new MagickFormat[] { MagickFormat.APng, MagickFormat.Png, MagickFormat.Png8, MagickFormat.Png00, MagickFormat.Png24, MagickFormat.Png32, MagickFormat.Png48, MagickFormat.Png64, MagickFormat.Pnm };
+            result = fmts.Contains(format);
+            return (result);
+        }
+
+        public static bool IsPNG(MagickImage image)
+        {
+            var result = false;
+            if (image is MagickImage)
+            {
+                result = IsPNG(image.Format) || image.FormatInfo.MimeType.Equals("image/png", StringComparison.CurrentCultureIgnoreCase) || image.Format.ToString().StartsWith("png") || image.Format.ToString().EndsWith("png");
+            }
+            return (result);
+        }
+
+        public static bool IsJPG(MagickFormat format)
+        {
+            var result = false;
+            var fmts = new MagickFormat[] { MagickFormat.J2c, MagickFormat.J2k, MagickFormat.Jng, MagickFormat.Jp2, MagickFormat.Jpc, MagickFormat.Jpe, MagickFormat.Jpeg, MagickFormat.Jpg, MagickFormat.Jpm, MagickFormat.Jps, MagickFormat.Jpt };
+            result = fmts.Contains(format);
+            return (result);
+        }
+
+        public static bool IsJPG(MagickImage image)
+        {
+            var result = false;
+            if (image is MagickImage)
+            {
+                result = IsJPG(image.Format) || image.FormatInfo.MimeType.Equals("image/jpeg", StringComparison.CurrentCultureIgnoreCase) || image.Format.ToString().StartsWith("jp");
+            }
+            return (result);
+        }
+
+        public static bool IsTIF(MagickFormat format)
+        {
+            var result = false;
+            var fmts = new MagickFormat[] { MagickFormat.Tif, MagickFormat.Tiff, MagickFormat.Tiff64 };
+            result = fmts.Contains(format);
+            return (result);
+        }
+
+        public static bool IsTIF(MagickImage image)
+        {
+            var result = false;
+            if (image is MagickImage)
+            {
+                result = IsTIF(image.Format) || image.FormatInfo.MimeType.Equals("image/tif", StringComparison.CurrentCultureIgnoreCase) || image.Format.ToString().StartsWith("tif");
+            }
+            return (result);
         }
 
         public static Point GetSystemDPI()
@@ -3507,6 +3561,18 @@ namespace TouchMeta
             if (image is MagickImage)
             {
                 var fmt = format ?? image.Format;
+
+                var exif = image.GetExifProfile();
+                var iptc = image.GetIptcProfile();
+                var bim = image.Get8BimProfile();
+                var xmp = image.GetXmpProfile();
+                var color = image.GetColorProfile();
+                if (xmp is XmpProfile)
+                {
+                    var xmp_doc = Encoding.UTF8.GetString(xmp.GetData());
+                    var xmp_meta = XmpCore.XmpMetaFactory.ParseFromString(xmp_doc);
+                }
+
                 var profiles = new List<IImageProfile>();
                 foreach (var profile in image.ProfileNames) { if (image.HasProfile(profile)) profiles.Add(image.GetProfile(profile)); }
                 if (!image.Format.Equals(format))
@@ -3549,8 +3615,13 @@ namespace TouchMeta
                     image.Settings.Endian = image.Endian == Endian.Undefined ? Endian.MSB : image.Endian;
                     image.Endian = image.Settings.Endian;
                 }
-                image.Quality = quality ?? (image.Quality > 0 ? image.Quality : ConvertQuality);
                 foreach (var profile in profiles) image.SetProfile(profile);
+
+                if (exif is ExifProfile) image.SetProfile(exif);
+                if (iptc is IptcProfile) image.SetProfile(iptc);
+                if (bim is EightBimProfile) image.SetProfile(bim);
+                if (xmp is XmpProfile) image.SetProfile(xmp);
+                if (color is ColorProfile) image.SetProfile(color);
             }
         }
         #endregion
@@ -3654,8 +3725,9 @@ namespace TouchMeta
                         {
                             if (image.Endian == Endian.Undefined) image.Endian = exifdata.ByteOrder == ExifByteOrder.BigEndian ? Endian.MSB : Endian.LSB;
 
-                            bool is_png = image.FormatInfo.MimeType.Equals("image/png", StringComparison.CurrentCultureIgnoreCase);
-                            bool is_jpg = image.FormatInfo.MimeType.Equals("image/jpeg", StringComparison.CurrentCultureIgnoreCase);
+                            bool is_png = IsPNG(image);
+                            bool is_jpg = IsJPG(image);
+                            bool is_tif = IsTIF(image);
 
                             #region touch attributes and profiles
                             if (meta is MetaInfo && meta.TouchProfiles)
@@ -4589,35 +4661,6 @@ namespace TouchMeta
 
                             SetParameters(image);
                             image.Write(fi.FullName, image.Format);
-                            //using (var ms = new MemoryStream())
-                            //{
-                            //    //SetParameters(image);
-                            //    //image.Write(ms, image.Format);
-                            //    //ms.Seek(0, SeekOrigin.Begin);
-                            //    //var exifdata_n = new ExifData(ms);
-                            //    //if (exifdata_n is ExifData && exifdata.ByteOrder != exifdata_n.ByteOrder)
-                            //    //{
-                            //    //    if (image.Endian == Endian.Undefined) image.Endian = exifdata_n.ByteOrder == ExifByteOrder.BigEndian ? Endian.MSB : Endian.LSB;
-                            //    //    SetAttribute(image, "exif:UserComment", comment);
-                            //    //    SetAttribute(image, "Rating", RatingToRanking(rating));
-                            //    //    SetAttribute(image, "RatingPercent", rating);
-                            //    //}
-                            //    //ms.Seek(0, SeekOrigin.Begin);
-                            //    SetParameters(image);
-                            //    image.Write(ms, image.Format);
-                            //    File.WriteAllBytes(fi.FullName, ms.ToArray());
-                            //}
-
-                            //var exifdata_n = new ExifData(fi.FullName);
-                            //if (exifdata.ByteOrder != exifdata_n.ByteOrder)
-                            //{
-                            //    if (image.Endian == Endian.Undefined) image.Endian = exifdata_n.ByteOrder == ExifByteOrder.BigEndian ? Endian.MSB : Endian.LSB;
-                            //    SetAttribute(image, "exif:UserComment", comment);
-                            //    SetAttribute(image, "Rating", RatingToRanking(rating));
-                            //    SetAttribute(image, "RatingPercent", rating);
-                            //    SetParameters(image, image.Format, image.Quality);
-                            //    image.Write(fi.FullName, image.Format);
-                            //}
                             #endregion
 
                             fi.CreationTime = dc;
@@ -4625,7 +4668,7 @@ namespace TouchMeta
                             fi.LastAccessTime = da;
 
                             #region touch PNG image with CompactExifLib
-                            if (is_png)
+                            if (is_png || is_tif)
                             {
                                 var meta_new = new MetaInfo()
                                 {
@@ -4647,7 +4690,7 @@ namespace TouchMeta
                                     Rating = RatingToRanking(rating),
                                 };
 
-                                TouchMetaAlt(file, meta: meta_new);
+                                TouchMetaAlt(fi.FullName, meta: meta_new);
                             }
                             #endregion
                         }
@@ -4822,6 +4865,11 @@ namespace TouchMeta
                         fi.CreationTime = dt.Value;
                         fi.LastWriteTime = dt.Value;
                         fi.LastAccessTime = dt.Value;
+                        if (IsPNG(image) || IsTIF(image))
+                        {
+                            var meta_new = GetMetaInfo(image);
+                            TouchMetaAlt(file, meta: meta_new);
+                        }
                         Log($"Touching Metadata Time From {(dt_old.HasValue ? dt_old.Value.ToString("yyyy-MM-ddTHH:mm:sszzz") : "NULL")} To {(dt.HasValue ? dt.Value.ToString("yyyy-MM-ddTHH:mm:sszzz") : "NULL")}");
                     }
                 }
@@ -5381,6 +5429,12 @@ namespace TouchMeta
                                 FixDPI(image);
                                 SetParameters(image, fmt, ConvertQuality);
                                 image.Write(name, fmt);
+
+                                if (IsPNG(fmt) || IsTIF(fmt))
+                                {
+                                    var meta_new = GetMetaInfo(image);
+                                    TouchMetaAlt(name, meta: meta_new);
+                                }
 
                                 if (!keep_name && !name.Equals(fi.FullName, StringComparison.CurrentCultureIgnoreCase))
                                 {
