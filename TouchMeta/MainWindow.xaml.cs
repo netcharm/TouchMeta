@@ -7381,6 +7381,15 @@ namespace TouchMeta
                 FilesList.Items.Clear();
             }
             #endregion
+            #region Shell Function
+            else if (sender == ShowProperties)
+            {
+                RunBgWorker(new Action<string, bool>((file, show_xmp) =>
+                {
+                    ShellUtils.Show(file);
+                }), showlog: false);
+            }
+            #endregion
         }
 
         private void BtnAction_Click(object sender, RoutedEventArgs e)

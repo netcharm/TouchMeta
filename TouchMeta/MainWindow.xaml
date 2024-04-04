@@ -242,6 +242,8 @@
                     <MenuItem x:Name="CopyToClipboard" x:Uid="CopyFilesToClipboard" Header="Copy Files To Clipboard" Click="FilesListAction_Click"/>
                     <MenuItem x:Name="RemoveSelected" x:Uid="RemoveSelected" Header="Remove Selected Files" Click="FilesListAction_Click"/>
                     <MenuItem x:Name="RemoveAll" x:Uid="RemoveAll" Header="Remove All Files" Click="FilesListAction_Click"/>
+                    <Separator/>
+                    <MenuItem x:Name="ShowProperties" x:Uid="ShowProperties" Header="Show Properties" Click="FilesListAction_Click"/>
                 </ContextMenu>
             </ListBox.ContextMenu>
         </ListBox>
