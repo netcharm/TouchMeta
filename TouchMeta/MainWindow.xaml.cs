@@ -1908,14 +1908,42 @@ namespace TouchMeta
             }
         }
 
+        public static MagickFormatInfo GetFormatInfo(MagickFormat format)
+        {
+            try { return (MagickFormatInfo.Create(format)); }
+            catch { return (MagickFormatInfo.Create(MagickFormat.Unknown)); }
+        }
+
         public static bool IsValidRead(MagickImage image)
         {
             return (image is MagickImage && image.FormatInfo.IsReadable);
         }
 
+        public static bool IsValidRead(MagickFormat format)
+        {
+            try { return (MagickFormatInfo.Create(format).IsReadable); }
+            catch { return (false); }
+        }
+
+        public static bool IsValidRead(MagickFormatInfo formatinfo)
+        {
+            return (formatinfo is MagickFormatInfo && formatinfo.IsReadable);
+        }
+
         public static bool IsValidWrite(MagickImage image)
         {
             return (image is MagickImage && image.FormatInfo.IsWritable);
+        }
+
+        public static bool IsValidWrite(MagickFormat format)
+        {
+            try { return (MagickFormatInfo.Create(format).IsWritable); }
+            catch { return (false); }
+        }
+
+        public static bool IsValidWrite(MagickFormatInfo formatinfo)
+        {
+            return (formatinfo is MagickFormatInfo && formatinfo.IsWritable);
         }
 
         public static bool IsPNG(MagickFormat format)
@@ -1968,6 +1996,24 @@ namespace TouchMeta
             if (image is MagickImage)
             {
                 result = IsTIF(image.Format) || image.FormatInfo.MimeType.Equals("image/tif", StringComparison.CurrentCultureIgnoreCase) || image.Format.ToString().StartsWith("tif");
+            }
+            return (result);
+        }
+
+        public static bool IsHEIC(MagickFormat format)
+        {
+            var result = false;
+            var fmts = new MagickFormat[] { MagickFormat.Heic, MagickFormat.Heif };
+            result = fmts.Contains(format);
+            return (result);
+        }
+
+        public static bool IsHEIC(MagickImage image)
+        {
+            var result = false;
+            if (image is MagickImage)
+            {
+                result = IsHEIC(image.Format) || image.FormatInfo.MimeType.Equals("image/heic", StringComparison.CurrentCultureIgnoreCase) || image.Format.ToString().StartsWith("hei");
             }
             return (result);
         }
@@ -3697,32 +3743,32 @@ namespace TouchMeta
                 {
                     var fi = new FileInfo(file);
 
-                    var title = meta is MetaInfo ? meta.Title ?? Path.GetFileNameWithoutExtension(fi.Name) : Path.GetFileNameWithoutExtension(fi.Name);
-                    var subject = meta is MetaInfo ? meta.Subject : title;
-                    var authors = meta is MetaInfo ? meta.Authors : string.Empty;
-                    var copyrights = meta is MetaInfo ? meta.Copyrights : authors;
-                    var keywords = meta is MetaInfo ? meta.Keywords : string.Empty;
-                    var comment = meta is MetaInfo ? meta.Comment : string.Empty;
-                    var rating = meta is MetaInfo ? meta.RatingPercent : null;
-                    var software = meta is MetaInfo ? meta.Software : null;
-                    var exifversion = meta is MetaInfo ? meta.ExifVersion : "0230";
-                    if (!string.IsNullOrEmpty(title)) title = title.Replace("\0", string.Empty).TrimEnd('\0').TrimStart(';');
-                    if (!string.IsNullOrEmpty(subject)) subject = subject.Replace("\0", string.Empty).TrimEnd('\0').TrimStart(';');
-                    if (!string.IsNullOrEmpty(authors)) authors = authors.Replace("\0", string.Empty).TrimEnd('\0').TrimStart(';');
-                    if (!string.IsNullOrEmpty(copyrights)) copyrights = copyrights.Replace("\0", string.Empty).TrimEnd('\0').TrimStart(';');
-                    if (!string.IsNullOrEmpty(keywords)) keywords = keywords.Replace("\0", string.Empty).TrimEnd('\0').TrimStart(';');
-                    if (!string.IsNullOrEmpty(comment)) comment = comment.Replace("\0", string.Empty).TrimEnd('\0').TrimStart(';');
-                    if (!string.IsNullOrEmpty(software)) software = software.Replace("\0", string.Empty).TrimEnd('\0').TrimStart(';');
-                    if (!string.IsNullOrEmpty(exifversion)) exifversion = exifversion.Replace("\0", string.Empty).TrimEnd('\0').TrimStart(';');
-
-                    var keyword_list = string.IsNullOrEmpty(keywords) ? new List<string>() : keywords.Split(new char[] { ';', '#' }, StringSplitOptions.RemoveEmptyEntries).Select(k => k.Trim()).Where(k => !string.IsNullOrEmpty(k)).Distinct();
-                    keywords = string.Join("; ", keyword_list);
-
                     var exifdata = new CompactExifLib.ExifData(fi.FullName);
                     using (MagickImage image = new MagickImage(fi.FullName))
                     {
                         if (image.FormatInfo.IsReadable && image.FormatInfo.IsWritable)
                         {
+                            var title = meta is MetaInfo ? meta.Title ?? Path.GetFileNameWithoutExtension(fi.Name) : Path.GetFileNameWithoutExtension(fi.Name);
+                            var subject = meta is MetaInfo ? meta.Subject : title;
+                            var authors = meta is MetaInfo ? meta.Authors : string.Empty;
+                            var copyrights = meta is MetaInfo ? meta.Copyrights : authors;
+                            var keywords = meta is MetaInfo ? meta.Keywords : string.Empty;
+                            var comment = meta is MetaInfo ? meta.Comment : string.Empty;
+                            var rating = meta is MetaInfo ? meta.RatingPercent : null;
+                            var software = meta is MetaInfo ? meta.Software : null;
+                            var exifversion = meta is MetaInfo ? meta.ExifVersion : "0230";
+                            if (!string.IsNullOrEmpty(title)) title = title.Replace("\0", string.Empty).TrimEnd('\0').TrimStart(';');
+                            if (!string.IsNullOrEmpty(subject)) subject = subject.Replace("\0", string.Empty).TrimEnd('\0').TrimStart(';');
+                            if (!string.IsNullOrEmpty(authors)) authors = authors.Replace("\0", string.Empty).TrimEnd('\0').TrimStart(';');
+                            if (!string.IsNullOrEmpty(copyrights)) copyrights = copyrights.Replace("\0", string.Empty).TrimEnd('\0').TrimStart(';');
+                            if (!string.IsNullOrEmpty(keywords)) keywords = keywords.Replace("\0", string.Empty).TrimEnd('\0').TrimStart(';');
+                            if (!string.IsNullOrEmpty(comment)) comment = comment.Replace("\0", string.Empty).TrimEnd('\0').TrimStart(';');
+                            if (!string.IsNullOrEmpty(software)) software = software.Replace("\0", string.Empty).TrimEnd('\0').TrimStart(';');
+                            if (!string.IsNullOrEmpty(exifversion)) exifversion = exifversion.Replace("\0", string.Empty).TrimEnd('\0').TrimStart(';');
+
+                            var keyword_list = string.IsNullOrEmpty(keywords) ? new List<string>() : keywords.Split(new char[] { ';', '#' }, StringSplitOptions.RemoveEmptyEntries).Select(k => k.Trim()).Where(k => !string.IsNullOrEmpty(k)).Distinct();
+                            keywords = string.Join("; ", keyword_list);
+
                             if (image.Endian == Endian.Undefined) image.Endian = exifdata.ByteOrder == ExifByteOrder.BigEndian ? Endian.MSB : Endian.LSB;
 
                             bool is_png = IsPNG(image);
@@ -4827,21 +4873,32 @@ namespace TouchMeta
         {
             if (image is MagickImage)
             {
-                foreach (var tag in tag_date)
+                if (image.FormatInfo.IsReadable && image.FormatInfo.IsWritable)
                 {
-                    if (tag.StartsWith("exif"))
-                        //image.SetAttribute(tag, dt.Value.ToString("yyyy:MM:dd HH:mm:ss"));
-                        SetAttribute(image, tag, dt.Value.ToString("yyyy:MM:dd HH:mm:ss"));
-                    else if (tag.StartsWith("MicrosoftPhoto"))
-                        image.SetAttribute(tag, dt.Value.ToString("yyyy-MM-ddTHH:mm:ss.fff"));
-                    else
-                        image.SetAttribute(tag, dt.Value.ToString("yyyy:MM:dd HH:mm:sszzz"));
+                    foreach (var tag in tag_date)
+                    {
+                        if (tag.StartsWith("exif"))
+                            //image.SetAttribute(tag, dt.Value.ToString("yyyy:MM:dd HH:mm:ss"));
+                            SetAttribute(image, tag, dt.Value.ToString("yyyy:MM:dd HH:mm:ss"));
+                        else if (tag.StartsWith("MicrosoftPhoto"))
+                            image.SetAttribute(tag, dt.Value.ToString("yyyy-MM-ddTHH:mm:ss.fff"));
+                        else
+                            image.SetAttribute(tag, dt.Value.ToString("yyyy:MM:dd HH:mm:sszzz"));
+                    }
+                    var meta_new = GetMetaInfo(image);
+                    var xml = image.HasProfile("xmp") ? Encoding.UTF8.GetString(image.GetXmpProfile().GetData()) : string.Empty;
+                    xml = TouchXMP(xml, fi, meta_new);
+                    image.SetProfile(new XmpProfile(Encoding.UTF8.GetBytes(xml)));
                 }
-                var meta_new = GetMetaInfo(image);
-                var xml = image.HasProfile("xmp") ? Encoding.UTF8.GetString(image.GetXmpProfile().GetData()) : string.Empty;
-                xml = TouchXMP(xml, fi, meta_new);
-                image.SetProfile(new XmpProfile(Encoding.UTF8.GetBytes(xml)));
+                else
+                {
+                    if (!image.FormatInfo.IsReadable)
+                        Log($"Format \"{image.FormatInfo.MimeType}\" is not a read supported format!");
+                    if (!image.FormatInfo.IsWritable)
+                        Log($"Format \"{image.FormatInfo.MimeType}\" is not a write supported format!");
+                }
             }
+            else Log($"There is no supported encoder for the image format!");
         }
 
         public static void TouchMetaDate(string file, DateTime? dt = null)
@@ -4858,19 +4915,29 @@ namespace TouchMeta
                     var fi = new FileInfo(file);
                     using (var image = new MagickImage(fi.FullName))
                     {
-                        var dt_old = GetMetaTime(image);
-                        TouchMetaDate(image, fi, dt);
-                        SetParameters(image);
-                        image.Write(fi.FullName, image.Format);
-                        fi.CreationTime = dt.Value;
-                        fi.LastWriteTime = dt.Value;
-                        fi.LastAccessTime = dt.Value;
-                        if (IsPNG(image) || IsTIF(image))
+                        if (image.FormatInfo.IsReadable && image.FormatInfo.IsWritable)
                         {
-                            var meta_new = GetMetaInfo(image);
-                            TouchMetaAlt(file, meta: meta_new);
+                            var dt_old = GetMetaTime(image);
+                            TouchMetaDate(image, fi, dt);
+                            SetParameters(image);
+                            image.Write(fi.FullName, image.Format);
+                            fi.CreationTime = dt.Value;
+                            fi.LastWriteTime = dt.Value;
+                            fi.LastAccessTime = dt.Value;
+                            if (IsPNG(image) || IsTIF(image))
+                            {
+                                var meta_new = GetMetaInfo(image);
+                                TouchMetaAlt(file, meta: meta_new);
+                            }
+                            Log($"Touching Metadata Time From {(dt_old.HasValue ? dt_old.Value.ToString("yyyy-MM-ddTHH:mm:sszzz") : "NULL")} To {(dt.HasValue ? dt.Value.ToString("yyyy-MM-ddTHH:mm:sszzz") : "NULL")}");
                         }
-                        Log($"Touching Metadata Time From {(dt_old.HasValue ? dt_old.Value.ToString("yyyy-MM-ddTHH:mm:sszzz") : "NULL")} To {(dt.HasValue ? dt.Value.ToString("yyyy-MM-ddTHH:mm:sszzz") : "NULL")}");
+                        else
+                        {
+                            if (!image.FormatInfo.IsReadable)
+                                Log($"File \"{file}\" is not a read supported format!");
+                            if (!image.FormatInfo.IsWritable)
+                                Log($"File \"{file}\" is not a write supported format!");
+                        }
                     }
                 }
             }
@@ -4891,10 +4958,20 @@ namespace TouchMeta
                 {
                     using (var image = new MagickImage(src))
                     {
-                        TouchMetaDate(image, fi, dt);
-                        result = new MemoryStream();
-                        SetParameters(image);
-                        image.Write(result, image.Format);
+                        if (image.FormatInfo.IsReadable && image.FormatInfo.IsWritable)
+                        {
+                            TouchMetaDate(image, fi, dt);
+                            result = new MemoryStream();
+                            SetParameters(image);
+                            image.Write(result, image.Format);
+                        }
+                        else
+                        {
+                            if (!image.FormatInfo.IsReadable)
+                                Log($"Format \"{image.FormatInfo.MimeType}\" is not a read supported format!");
+                            if (!image.FormatInfo.IsWritable)
+                                Log($"Format \"{image.FormatInfo.MimeType}\" is not a write supported format!");
+                        }
                     }
                 }
             }
@@ -5410,45 +5487,55 @@ namespace TouchMeta
 
                             using (MagickImage image = new MagickImage(ms))
                             {
-                                if (exifdata is ExifData && image.Endian == Endian.Undefined) image.Endian = exifdata.ByteOrder == ExifByteOrder.BigEndian ? Endian.MSB : Endian.LSB;
-
-                                var meta = GetMetaInfo(image);
-
-                                var fmt_info = MagickNET.SupportedFormats.Where(f => f.Format == fmt).FirstOrDefault();
-                                var ext = fmt_info is MagickFormatInfo ? fmt_info.Format.ToString() : fmt.ToString();
-                                var name = keep_name ? fi.FullName : Path.ChangeExtension(fi.FullName, $".{ext.ToLower()}");
-
-                                #region touch software
-                                var tag_software = "Software";
-                                if (image.AttributeNames.Contains(tag_software) && !image.AttributeNames.Contains($"exif:{tag_software}"))
-                                    SetAttribute(image, $"exif:{tag_software}", GetAttribute(image, tag_software));
-                                if (!image.AttributeNames.Contains(tag_software) && image.AttributeNames.Contains($"exif:{tag_software}"))
-                                    SetAttribute(image, tag_software, GetAttribute(image, $"exif:{tag_software}"));
-                                #endregion
-
-                                FixDPI(image);
-                                SetParameters(image, fmt, ConvertQuality);
-                                image.Write(name, fmt);
-
-                                if (IsPNG(fmt) || IsTIF(fmt))
+                                if (image.FormatInfo.IsReadable && IsValidWrite(fmt))
                                 {
-                                    var meta_new = GetMetaInfo(image);
-                                    TouchMetaAlt(name, meta: meta_new);
-                                }
+                                    if (exifdata is ExifData && image.Endian == Endian.Undefined) image.Endian = exifdata.ByteOrder == ExifByteOrder.BigEndian ? Endian.MSB : Endian.LSB;
 
-                                if (!keep_name && !name.Equals(fi.FullName, StringComparison.CurrentCultureIgnoreCase))
-                                {
-                                    var nfi = new FileInfo(name);
-                                    nfi.CreationTime = dc;
-                                    nfi.LastWriteTime = dm;
-                                    nfi.LastAccessTime = da;
+                                    var meta = GetMetaInfo(image);
 
-                                    Log($"Convert {file} => {name}");
+                                    var fmt_info = MagickNET.SupportedFormats.Where(f => f.Format == fmt).FirstOrDefault();
+                                    var ext = fmt_info is MagickFormatInfo ? fmt_info.Format.ToString() : fmt.ToString();
+                                    var name = keep_name ? fi.FullName : Path.ChangeExtension(fi.FullName, $".{ext.ToLower()}");
+
+                                    #region touch software
+                                    var tag_software = "Software";
+                                    if (image.AttributeNames.Contains(tag_software) && !image.AttributeNames.Contains($"exif:{tag_software}"))
+                                        SetAttribute(image, $"exif:{tag_software}", GetAttribute(image, tag_software));
+                                    if (!image.AttributeNames.Contains(tag_software) && image.AttributeNames.Contains($"exif:{tag_software}"))
+                                        SetAttribute(image, tag_software, GetAttribute(image, $"exif:{tag_software}"));
+                                    #endregion
+
+                                    FixDPI(image);
+                                    SetParameters(image, fmt, ConvertQuality);
+                                    image.Write(name, fmt);
+
+                                    if (IsPNG(fmt) || IsTIF(fmt))
+                                    {
+                                        var meta_new = GetMetaInfo(image);
+                                        TouchMetaAlt(name, meta: meta_new);
+                                    }
+
+                                    if (!keep_name && !name.Equals(fi.FullName, StringComparison.CurrentCultureIgnoreCase))
+                                    {
+                                        var nfi = new FileInfo(name);
+                                        nfi.CreationTime = dc;
+                                        nfi.LastWriteTime = dm;
+                                        nfi.LastAccessTime = da;
+
+                                        Log($"Convert {file} => {name}");
+                                    }
+                                    else
+                                        Log($"Convert {file} to {fmt_info.MimeType.ToString()}");
+
+                                    result = name;
                                 }
                                 else
-                                    Log($"Convert {file} to {fmt_info.MimeType.ToString()}");
-
-                                result = name;
+                                {
+                                    if (!image.FormatInfo.IsReadable)
+                                        Log($"Format \"{image.FormatInfo.MimeType}\" is not a read supported format!");
+                                    if (!IsValidWrite(fmt))
+                                        Log($"Format \"{GetFormatInfo(fmt).MimeType}\" is not a write supported format!");
+                                }
                             }
                         }
                         else Log("Action Has Being Canceled!");
@@ -5762,45 +5849,55 @@ namespace TouchMeta
                     var bi = File.ReadAllBytes(file);
                     using (var image = new MagickImage(bi))
                     {
-                        var _mod_ = true;
-                        var exif_supported = ExifImageFormats.Contains(image.Format);
-                        switch (mode)
+                        if (image.FormatInfo.IsReadable && image.FormatInfo.IsWritable)
                         {
-                            case RotateMode.Clear:
-                                image.Orientation = OrientationType.Undefined;
-                                var exif = image.HasProfile("exif") ? image.GetExifProfile() : null;
-                                if (exif is ExifProfile && exif.RemoveValue(ImageMagick.ExifTag.Orientation)) image.SetProfile(exif);
-                                image.RemoveAttribute("Orientation");
-                                break;
-                            case RotateMode.Reset:
-                                if (exif_supported && using_exif) image.Orientation = OrientationType.Undefined;
-                                break;
-                            case RotateMode.C000:
-                                if (exif_supported && using_exif) image.Orientation = OrientationType.TopLeft;
-                                break;
-                            case RotateMode.C090:
-                                if (exif_supported && using_exif) image.Orientation = OrientationType.LeftTop;
-                                else image.Rotate(90);
-                                break;
-                            case RotateMode.C180:
-                                if (exif_supported && using_exif) image.Orientation = OrientationType.BottomRight;
-                                else image.Rotate(180);
-                                break;
-                            case RotateMode.C270:
-                                if (exif_supported && using_exif) image.Orientation = OrientationType.BottomLeft;
-                                else image.Rotate(270);
-                                break;
-                            case RotateMode.FlipH:
-                                if (exif_supported && using_exif) image.Orientation = OrientationType.RightTop;
-                                else image.Flop();
-                                break;
-                            case RotateMode.FlipV:
-                                if (exif_supported && using_exif) image.Orientation = OrientationType.BottomLeft;
-                                else image.Flip();
-                                break;
-                            default: _mod_ = false; break;
+                            var _mod_ = true;
+                            var exif_supported = ExifImageFormats.Contains(image.Format);
+                            switch (mode)
+                            {
+                                case RotateMode.Clear:
+                                    image.Orientation = OrientationType.Undefined;
+                                    var exif = image.HasProfile("exif") ? image.GetExifProfile() : null;
+                                    if (exif is ExifProfile && exif.RemoveValue(ImageMagick.ExifTag.Orientation)) image.SetProfile(exif);
+                                    image.RemoveAttribute("Orientation");
+                                    break;
+                                case RotateMode.Reset:
+                                    if (exif_supported && using_exif) image.Orientation = OrientationType.Undefined;
+                                    break;
+                                case RotateMode.C000:
+                                    if (exif_supported && using_exif) image.Orientation = OrientationType.TopLeft;
+                                    break;
+                                case RotateMode.C090:
+                                    if (exif_supported && using_exif) image.Orientation = OrientationType.LeftTop;
+                                    else image.Rotate(90);
+                                    break;
+                                case RotateMode.C180:
+                                    if (exif_supported && using_exif) image.Orientation = OrientationType.BottomRight;
+                                    else image.Rotate(180);
+                                    break;
+                                case RotateMode.C270:
+                                    if (exif_supported && using_exif) image.Orientation = OrientationType.BottomLeft;
+                                    else image.Rotate(270);
+                                    break;
+                                case RotateMode.FlipH:
+                                    if (exif_supported && using_exif) image.Orientation = OrientationType.RightTop;
+                                    else image.Flop();
+                                    break;
+                                case RotateMode.FlipV:
+                                    if (exif_supported && using_exif) image.Orientation = OrientationType.BottomLeft;
+                                    else image.Flip();
+                                    break;
+                                default: _mod_ = false; break;
+                            }
+                            if (_mod_) { SetParameters(image); image.Write(file, image.Format); }
                         }
-                        if (_mod_) { SetParameters(image); image.Write(file, image.Format); }
+                        else
+                        {
+                            if (!image.FormatInfo.IsReadable)
+                                Log($"Format \"{image.FormatInfo.MimeType}\" is not a read supported format!");
+                            if (!image.FormatInfo.IsWritable)
+                                Log($"Format \"{image.FormatInfo.MimeType}\" is not a write supported format!");
+                        }
                     }                    
 
                     var fo = new FileInfo(file);
@@ -7300,6 +7397,10 @@ namespace TouchMeta
             {
                 ConvertImagesTo(MagickFormat.Tiff, keep_name: alt);
             }
+            else if (sender == ConvertSelectedToHeic)
+            {
+                ConvertImagesTo(MagickFormat.Heic, keep_name: alt);
+            }
             else if (sender == ConvertSelectedToAvif)
             {
                 ConvertImagesTo(MagickFormat.Avif, keep_name: alt);
@@ -7525,7 +7626,7 @@ namespace TouchMeta
             }
             else if (sender == ShowHelp)
             {
-                if (Keyboard.Modifiers == ModifierKeys.Alt || Mouse.XButton1 == MouseButtonState.Pressed)
+                if (Keyboard.Modifiers == ModifierKeys.Alt || Keyboard.Modifiers == ModifierKeys.Control || Mouse.XButton1 == MouseButtonState.Pressed)
                 {
                     ShowLog();
                 }
