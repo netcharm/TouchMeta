@@ -3248,6 +3248,15 @@ namespace TouchMeta
                 }
                 var exif = image.HasProfile("exif") ? image.GetExifProfile() : new ExifProfile();
                 var xmp = image.HasProfile("xmp") ? image.GetXmpProfile() : null;
+                if (exif is ExifProfile && xmp == null)
+                {
+                    if (image.AttributeNames.Contains("exif:ExtensibleMetadataPlatform"))
+                    {
+                        var xmp_value = exif.GetValue(ImageMagick.ExifTag.XMP);
+                        if (xmp_value.Value is byte[]) xmp = new XmpProfile(xmp_value.Value);
+                        result.Profiles.Add("xmp", xmp);
+                    }
+                }
                 #endregion
 
                 bool is_png = image.FormatInfo.MimeType.Equals("image/png");
@@ -3345,6 +3354,30 @@ namespace TouchMeta
                         }
                     }
                     catch (Exception ex) { Log(ex.Message); }
+                }
+                if (xmp is XmpProfile)
+                {
+                    try
+                    {
+                        var xml_doc = UTF8.GetString(xmp.GetData());
+                        var xml = new XmlDocument();
+                        xml.LoadXml(xml_doc);
+                        var xmp_rating = xml.GetElementsByTagName("xmp:Rating");
+                        var ms_rating = xml.GetElementsByTagName("MicrosoftPhoto:Rating");
+                        foreach (XmlNode rating in xmp_rating)
+                        {
+                            int value = result.Rating ?? 0;
+                            int.TryParse(rating.InnerText, out value);
+                            if (!value.Equals(result.Rating ?? 0)) result.Rating = value;
+                        }
+                        foreach (XmlNode rating in ms_rating)
+                        {
+                            int value = result.RatingPercent ?? 0;
+                            int.TryParse(rating.InnerText, out value);
+                            if (!value.Equals(result.RatingPercent ?? 0)) result.RatingPercent = value;
+                        }
+                    }
+                    catch(Exception ex) { Log(ex.Message); }
                 }
                 #endregion
             }
@@ -3617,6 +3650,14 @@ namespace TouchMeta
                 {
                     var xmp_doc = Encoding.UTF8.GetString(xmp.GetData());
                     var xmp_meta = XmpCore.XmpMetaFactory.ParseFromString(xmp_doc);
+                }
+                else if(exif is ExifProfile)
+                {
+                    if (image.AttributeNames.Contains("exif:ExtensibleMetadataPlatform"))
+                    {
+                        var xmp_value = exif.GetValue(ImageMagick.ExifTag.XMP);
+                        if (xmp_value.Value is byte[]) xmp = new XmpProfile(xmp_value.Value);
+                    }
                 }
 
                 var profiles = new List<IImageProfile>();
@@ -5117,7 +5158,6 @@ namespace TouchMeta
                             if (bytes is byte[] && bytecount > 0) xmp = Encoding.UTF8.GetString(bytes);
                         }
                         xmp = TouchXMP(xmp, fi, meta);
-                        //exif.SetTagValue(CompactExifLib.ExifTag.XmpMetadata, xmp, StrCoding.Utf8);
                         exif.SetTagRawData(CompactExifLib.ExifTag.XmpMetadata, ExifTagType.Byte, Encoding.UTF8.GetByteCount(xmp), Encoding.UTF8.GetBytes(xmp));
                         #endregion
 
@@ -5511,8 +5551,9 @@ namespace TouchMeta
 
                                     if (IsPNG(fmt) || IsTIF(fmt))
                                     {
-                                        var meta_new = GetMetaInfo(image);
-                                        TouchMetaAlt(name, meta: meta_new);
+                                        //var meta_new = GetMetaInfo(image);
+                                        //TouchMetaAlt(name, meta: meta_new);
+                                        TouchMetaAlt(name, meta: meta);
                                     }
 
                                     if (!keep_name && !name.Equals(fi.FullName, StringComparison.CurrentCultureIgnoreCase))
