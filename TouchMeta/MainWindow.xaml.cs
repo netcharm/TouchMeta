@@ -34,6 +34,7 @@ namespace TouchMeta
           "exif:Software",
           "tiff:Software",
           "Software",
+          "xmp:CreatorTool",
         };
 
         public bool ShowXMP { get; set; } = false;
@@ -1573,7 +1574,8 @@ namespace TouchMeta
                             "xmp:CreateDate", "xmp:ModifyDate", "xmp:DateTimeOriginal", "xmp:DateTimeDigitized", "xmp:MetadataDate",
                             "xmp:Rating", "MicrosoftPhoto:Rating",
                             "exif:DateTimeDigitized", "exif:DateTimeOriginal",
-                            "tiff:DateTime",
+                            "tiff:DateTime", "tiff:Artist", "tiff:Copyright", "tiff:Endian", "tiff:Photometric", "tiff:Software", "tiff:Timestamp",
+                            "tiff:datetime", "tiff:artist", "tiff:artist", "tiff:copyright", "tiff:endian", "tiff:photometric", "tiff:software", "tiff:timestamp",
                             "MicrosoftPhoto:DateAcquired", "MicrosoftPhoto:DateTaken",
                             "xmp:CreatorTool",
                         };
@@ -1871,6 +1873,7 @@ namespace TouchMeta
           "Software",
           "exif:Software",
           "tiff:Software",
+          "xmp:CreatorTool",
         };
         #endregion
 
