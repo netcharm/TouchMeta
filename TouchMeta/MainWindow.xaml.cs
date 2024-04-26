@@ -913,39 +913,62 @@ namespace TouchMeta
             return (result);
         }
 
-        private static string BytesToUnicode(string text, bool msb = false)
+        private static string BytesToUnicode(string text, bool msb = false, int offset = 0)
         {
             var result = text;
             if (!string.IsNullOrEmpty(text))
             {
-                foreach (Match m in Regex.Matches($"{text},", @"((\d{1,3}, ?){2,})"))
-                {
-                    List<byte> bytes = new List<byte>();
-                    var values = m.Groups[1].Value.Split(',').Select(s => s.Trim()).ToList();
-                    foreach (var value in values)
-                    {
-                        if (string.IsNullOrEmpty(value) || int.Parse(value) > 255) continue;
-                        bytes.Add(byte.Parse(value));
-                    }
-                    if (bytes.Count > 0) result = result.Replace(m.Groups[1].Value.Trim(','), msb ? Encoding.BigEndianUnicode.GetString(bytes.ToArray()) : Encoding.Unicode.GetString(bytes.ToArray()));//.TrimEnd('\0'));
-                }
+                //List<byte> bytes = new List<byte>();
+                //foreach (Match m in Regex.Matches($"{text},", @"(0x[0-9,a-f]{1,2}|\d{1,3}),"))
+                //{
+                //    var value = m.Groups[1].Value;
+                //    if (string.IsNullOrEmpty(value)) continue;
+                //    if (value.StartsWith("0x", StringComparison.CurrentCultureIgnoreCase))
+                //    {
+                //        var v = value.Substring(2);
+                //        if (v.Length <= 0 || v.Length > 2) continue;
+                //        bytes.Add(byte.Parse(v, NumberStyles.HexNumber));
+                //    }
+                //    else bytes.Add(byte.Parse(value));
+                //    //var values = m.Groups[1].Value.Split(',').Where(s => !string.IsNullOrEmpty(s)).Select(s => s.Trim()).ToList();
+                //    //foreach (var value in values)
+                //    //{
+                //    //    if (string.IsNullOrEmpty(value)) continue;
+                //    //    if (value.StartsWith("0x", StringComparison.CurrentCultureIgnoreCase))
+                //    //    {
+                //    //        var v = value.Substring(2);
+                //    //        if (v.Length <= 0 || v.Length > 2) continue;
+                //    //        bytes.Add(byte.Parse(v, NumberStyles.HexNumber));
+                //    //    }
+                //    //    else bytes.Add(byte.Parse(value));
+                //    //}
+                //}
+                var bytes = ByteStringToBytes(text);
+                if (bytes.Length > offset) result = msb ? Encoding.BigEndianUnicode.GetString(bytes.Skip(offset).ToArray()) : Encoding.Unicode.GetString(bytes.Skip(offset).ToArray());
             }
             return (result);
         }
 
-        private static byte[] ByteStringToBytes(string text)
+        private static byte[] ByteStringToBytes(string text, int offset = 0)
         {
             byte[] result = null;
             if (!string.IsNullOrEmpty(text))
             {
                 List<byte> bytes = new List<byte>();
-                foreach (Match m in Regex.Matches($"{text.TrimEnd().TrimEnd(',')},", @"((\d{1,3}) ?, ?)"))
+                foreach (Match m in Regex.Matches($"{text.TrimEnd().TrimEnd(',')},", @"(0x[0-9,a-f]{1,2}|\d{1,3}),"))
                 {
-                    var value = m.Groups[2].Value.Trim().TrimEnd(',');
-                    if (int.Parse(value) > 255) continue;
-                    bytes.Add(byte.Parse(value));
+                    var value = m.Groups[1].Value;//.Trim().TrimEnd(',');
+                    if (string.IsNullOrEmpty(value)) continue;
+                    if (value.StartsWith("0x", StringComparison.CurrentCultureIgnoreCase))
+                    {
+                        var v = value.Substring(2);
+                        if (v.Length <= 0 || v.Length > 2) continue;
+                        bytes.Add(byte.Parse(v, NumberStyles.HexNumber));
+                    }
+                    else bytes.Add(byte.Parse(value));
+
                 }
-                result = bytes.ToArray();
+                result = bytes.Count > offset ? bytes.Skip(offset).ToArray() : bytes.ToArray();
             }
             return (result);
         }
@@ -2129,9 +2152,9 @@ namespace TouchMeta
                             }
                         }
                     }
-                    if (attr.StartsWith("exif:") && !attr.Contains("WinXP"))
+                    else if (attr.StartsWith("exif:") && !attr.Contains("WinXP"))
                     {
-                        var tag_name =  attr.Contains("WinXP") ? $"XP{attr.Substring(11)}" : attr.Substring(5);
+                        var tag_name = attr.Substring(5);
                         if (tag_name.Equals("FlashPixVersion")) tag_name = "FlashpixVersion";
                         dynamic tag_property = exiftag_type.GetProperty(tag_name) ?? exiftag_type.GetProperty($"{tag_name}s") ?? exiftag_type.GetProperty(tag_name.Substring(0, tag_name.Length-1));
                         if (tag_property != null)
@@ -2196,6 +2219,13 @@ namespace TouchMeta
                                 {
                                     var is_ascii = tag_value.Tag.ToString().Contains("Version");
                                     result = BytesToString(tag_value.GetValue() as byte[], is_ascii, is_msb);
+                                }
+                            }
+                            else if (!string.IsNullOrEmpty(result))
+                            {
+                                if (tag_name.Equals("UserComment") && Regex.IsMatch(result, @"(0x\d{2,2},){2,}", RegexOptions.IgnoreCase))
+                                {
+                                    result = BytesToUnicode(result, offset: 8);
                                 }
                             }
                         }
@@ -5138,6 +5168,10 @@ namespace TouchMeta
                                 }
                                 if (!string.IsNullOrEmpty(note)) exif.SetTagValue(CompactExifLib.ExifTag.Software, note, StrCoding.Utf8);
                             }
+                        }
+                        else if (!string.IsNullOrEmpty(meta.Software) && !exif.TagExists(CompactExifLib.ExifTag.Software))
+                        {
+                            exif.SetTagValue(CompactExifLib.ExifTag.Software, meta.Software, StrCoding.Utf8);
                         }
 
                         exif.SetTagValue(CompactExifLib.ExifTag.Rating, meta.Rating ?? 0, TagType: ExifTagType.UShort);
