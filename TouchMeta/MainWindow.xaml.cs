@@ -28,15 +28,100 @@ using System.Runtime.InteropServices;
 
 namespace TouchMeta
 {
-    public class MetaInfo
+    public class Consts
     {
-        private static string[] tag_software = new string[] {
+        public static char[] DateTimeTrimSymbols = new char[] {
+            ' ', '·',
+            '`', '~', '!', '@', '#', '$', '%', '^', '&', '*', ':', ';', '?', ',', '.', '+', '-', '_',
+            '！', '＠', '＃', '＄', '％', '＾', '＆', '＊', '～',  '。', '，', '；', '：', '＇', '？', '，', '．', '＝', '－', '＿', '＋',
+            '|', '\'', '/', '＼', '／', '｜',
+            '<', '>', '(', ')', '[', ']', '{', '}', '＜', '＞', '（', '）', '【', '】', '｛', '｝', '「', '」',
+            '"', '＂', '“', '”'
+        };
+
+        public static List<string> xmp_ns = new List<string> { "rdf", "xmp", "dc", "exif", "tiff", "iptc", "MicrosoftPhoto" };
+        public static Dictionary<string, string> xmp_ns_lookup = new Dictionary<string, string>()
+        {
+            {"rdf", "http://www.w3.org/1999/02/22-rdf-syntax-ns#" },
+            {"xmp", "http://ns.adobe.com/xap/1.0/" },
+            {"dc", "http://purl.org/dc/elements/1.1/" },
+            {"lr", "http://ns.adobe.com/lightroom/1.0/" },
+            //{"iptc", "http://ns.adobe.com/iptc/1.0/" },
+            {"exif", "http://ns.adobe.com/exif/1.0/" },
+            {"tiff", "http://ns.adobe.com/tiff/1.0/" },
+            {"photoshop", "http://ns.adobe.com/photoshop/1.0/" },
+            {"MicrosoftPhoto", "http://ns.microsoft.com/photo/1.0" },
+            //{"MicrosoftPhoto_1_", "http://ns.microsoft.com/photo/1.0" },
+            //{"MicrosoftPhoto", "http://ns.microsoft.com/photo/1.0/" },
+            //{"MicrosoftPhoto", "http://ns.microsoft.com/photo/1.2/" },
+        };
+
+        #region below tags will be touching
+        public static string[] tag_date = new string[] {
+          "exif:DateTimeDigitized",
+          "exif:DateTimeOriginal",
+          "exif:DateTime",
+          "MicrosoftPhoto:DateAcquired",
+          "MicrosoftPhoto:DateTaken",
+          //"png:tIME",
+          "xmp:CreateDate",
+          "xmp:ModifyDate",
+          "xmp:DateTimeDigitized",
+          "xmp:DateTimeOriginal",
+          "Creation Time",
+          "create-date",
+          "modify-date",
+          "tiff:DateTime",
+          //"date:modify",
+          //"date:create",
+        };
+        public static string[] tag_author = new string[] {
+          "exif:Artist",
+          "exif:WinXP-Author",
+          "tiff:artist",
+        };
+        public static string[] tag_copyright = new string[] {
+          "exif:Copyright",
+          "tiff:Copyright",
+          //"iptc:CopyrightNotice",
+        };
+        public static string[] tag_title = new string[] {
+          "exif:ImageDescription",
+          "exif:WinXP-Title",
+        };
+        public static string[] tag_subject = new string[] {
+          "exif:WinXP-Subject",
+          "tiff:subject",
+        };
+        public static string[] tag_comments = new string[] {
+          "exif:WinXP-Comments",
+          "exif:UserComment",
+          "tiff:comment",
+          "tiff:comments",
+          "tiff:ImageDescription",
+        };
+        public static string[] tag_keywords = new string[] {
+          "exif:WinXP-Keywords",
+          //"iptc:Keywords",
+          "dc:Subject",
+        };
+        public static string[] tag_rating = new string[] {
+          "Rating",
+          "RatingPercent",
+          "MicrosoftPhoto:Rating",
+          "xmp:Rating",
+        };
+        public static string[] tag_software = new string[] {
           "exif:Software",
           "tiff:Software",
           "Software",
           "xmp:CreatorTool",
         };
+        #endregion
+    }
 
+    public class MetaInfo
+    {
         public bool ShowXMP { get; set; } = false;
         public bool TouchProfiles { get; set; } = true;
         public ChangePropertyType ChangeProperties { get; set; } = ChangePropertyType.All;
@@ -60,11 +145,11 @@ namespace TouchMeta
 
         public string Software
         {
-            get { return (Attributes is Dictionary<string, string> && Attributes.Count(a => tag_software.Contains(a.Key)) > 0 ? Attributes.First(a => tag_software.Contains(a.Key)).Value.Trim() : string.Empty); }
+            get { return (Attributes is Dictionary<string, string> && Attributes.Count(a => Consts.tag_software.Contains(a.Key)) > 0 ? Attributes.First(a => Consts.tag_software.Contains(a.Key)).Value.Trim() : string.Empty); }
             set
             {
-                if (Attributes is Dictionary<string, string>) foreach(var key in tag_software) Attributes[key] = value;
-                if (string.IsNullOrEmpty(value)) foreach (var key in tag_software) Attributes.Remove(key);
+                if (Attributes is Dictionary<string, string>) foreach(var key in Consts.tag_software) Attributes[key] = value;
+                if (string.IsNullOrEmpty(value)) foreach (var key in Consts.tag_software) Attributes.Remove(key);
             }
         }
 
@@ -944,19 +1029,19 @@ namespace TouchMeta
                 //    //    else bytes.Add(byte.Parse(value));
                 //    //}
                 //}
-                var bytes = ByteStringToBytes(text);
+                var bytes = ByteStringToBytes(text, msb);
                 if (bytes.Length > offset) result = msb ? Encoding.BigEndianUnicode.GetString(bytes.Skip(offset).ToArray()) : Encoding.Unicode.GetString(bytes.Skip(offset).ToArray());
             }
             return (result);
         }
 
-        private static byte[] ByteStringToBytes(string text, int offset = 0)
+        private static byte[] ByteStringToBytes(string text, bool msb = false, int offset = 0)
         {
             byte[] result = null;
             if (!string.IsNullOrEmpty(text))
             {
                 List<byte> bytes = new List<byte>();
-                foreach (Match m in Regex.Matches($"{text.TrimEnd().TrimEnd(',')},", @"(0x[0-9,a-f]{1,2}|\d{1,3}),"))
+                foreach (Match m in Regex.Matches($"{text.TrimEnd().TrimEnd(',')},", @"(0x[0-9,a-f]{1,2}|\d{1,4}),"))
                 {
                     var value = m.Groups[1].Value;//.Trim().TrimEnd(',');
                     if (string.IsNullOrEmpty(value)) continue;
@@ -966,7 +1051,21 @@ namespace TouchMeta
                         if (v.Length <= 0 || v.Length > 2) continue;
                         bytes.Add(byte.Parse(v, NumberStyles.HexNumber));
                     }
-                    else bytes.Add(byte.Parse(value));
+                    else
+                    {
+                        if (int.Parse(value) > 255)
+                        {
+                            if (msb && BitConverter.IsLittleEndian)
+                                bytes.AddRange(BitConverter.GetBytes(int.Parse(value)).Reverse().SkipWhile(b => b == 0));
+                            else if (!msb && BitConverter.IsLittleEndian)
+                                bytes.AddRange(BitConverter.GetBytes(int.Parse(value)).Reverse().SkipWhile(b => b == 0).Reverse());
+                            else if (msb && !BitConverter.IsLittleEndian)
+                                bytes.AddRange(BitConverter.GetBytes(int.Parse(value)).SkipWhile(b => b == 0));
+                            else if (!msb && !BitConverter.IsLittleEndian)
+                                bytes.AddRange(BitConverter.GetBytes(int.Parse(value)).SkipWhile(b => b == 0).Reverse());
+                        }
+                        else bytes.Add(byte.Parse(value));
+                    }
 
                 }
                 result = bytes.Count > offset ? bytes.Skip(offset).ToArray() : bytes.ToArray();
@@ -1048,15 +1147,6 @@ namespace TouchMeta
             return ((unit ? $"{vs} {u_str}" : vs).PadLeft(padleft));
         }
 
-        private static char[] DateTimeTrimSymbols = new char[] {
-            ' ', '·',
-            '`', '~', '!', '@', '#', '$', '%', '^', '&', '*', ':', ';', '?', ',', '.', '+', '-', '_',
-            '！', '＠', '＃', '＄', '％', '＾', '＆', '＊', '～',  '。', '，', '；', '：', '＇', '？', '，', '．', '＝', '－', '＿', '＋',
-            '|', '\'', '/', '＼', '／', '｜',
-            '<', '>', '(', ')', '[', ']', '{', '}', '＜', '＞', '（', '）', '【', '】', '｛', '｝', '「', '」',
-            '"', '＂', '“', '”'
-        };
-
         private static string NormalizeDateTimeText(string text)
         {
             var AM = CultureInfo.CurrentCulture.DateTimeFormat.AMDesignator;
@@ -1070,7 +1160,7 @@ namespace TouchMeta
                 result = Regex.Replace(result, $@"晚 *?上|午 *?後|{PM}|PM", $"{PM} ", RegexOptions.IgnoreCase);
                 result = Regex.Replace(result, @"[·](Twitter|Tweet).*?$", "", RegexOptions.IgnoreCase);
                 result = Regex.Replace(result, @"[·]", " ", RegexOptions.IgnoreCase);
-                result = result.Trim(DateTimeTrimSymbols);
+                result = result.Trim(Consts.DateTimeTrimSymbols);
 
                 DateTime dt;
                 if (DateTime.TryParse(result, out dt)) result = dt.ToString();
@@ -1081,23 +1171,6 @@ namespace TouchMeta
         #endregion
 
         #region XML Formating Helper
-        private static List<string> xmp_ns = new List<string> { "rdf", "xmp", "dc", "exif", "tiff", "iptc", "MicrosoftPhoto" };
-        private static Dictionary<string, string> xmp_ns_lookup = new Dictionary<string, string>()
-        {
-            {"rdf", "http://www.w3.org/1999/02/22-rdf-syntax-ns#" },
-            {"xmp", "http://ns.adobe.com/xap/1.0/" },
-            {"dc", "http://purl.org/dc/elements/1.1/" },
-            {"lr", "http://ns.adobe.com/lightroom/1.0/" },
-            //{"iptc", "http://ns.adobe.com/iptc/1.0/" },
-            {"exif", "http://ns.adobe.com/exif/1.0/" },
-            {"tiff", "http://ns.adobe.com/tiff/1.0/" },
-            {"photoshop", "http://ns.adobe.com/photoshop/1.0/" },
-            {"MicrosoftPhoto", "http://ns.microsoft.com/photo/1.0" },
-            //{"MicrosoftPhoto_1_", "http://ns.microsoft.com/photo/1.0" },
-            //{"MicrosoftPhoto", "http://ns.microsoft.com/photo/1.0/" },
-            //{"MicrosoftPhoto", "http://ns.microsoft.com/photo/1.2/" },
-        };
-
         private static string FormatXML(string xml)
         {
             var result = xml;
@@ -1124,7 +1197,7 @@ namespace TouchMeta
                 ms.Seek(0, SeekOrigin.Begin);
                 using (var sr = new StreamReader(ms)) { result = sr.ReadToEnd(); }
                 result = result.Replace("\"", "'");
-                foreach (var ns in xmp_ns) { result = result.Replace($" xmlns:{ns}='{ns}'", ""); }
+                foreach (var ns in Consts.xmp_ns) { result = result.Replace($" xmlns:{ns}='{ns}'", ""); }
             }
             return (result);
         }
@@ -1182,12 +1255,12 @@ namespace TouchMeta
                             if (attr.Name.StartsWith("xmlns:"))
                             {
                                 var key = attr.Name.Substring(6);
-                                if (xmp_ns_lookup.ContainsKey(key))
+                                if (Consts.xmp_ns_lookup.ContainsKey(key))
                                 {
                                     if (!elements_list.ContainsKey(key) || elements_list[key] == null)
                                     {
                                         elements_list[key] = xml.CreateElement("rdf:Description", "rdf");
-                                        elements_list[key].SetAttribute($"xmlns:{key}", xmp_ns_lookup[key]);
+                                        elements_list[key].SetAttribute($"xmlns:{key}", Consts.xmp_ns_lookup[key]);
                                     }
                                 }
                                 else
@@ -1198,7 +1271,7 @@ namespace TouchMeta
                                         elements_list[key].SetAttribute($"xmlns:{key}", attr.Value);
                                     }
                                 }
-                                if (!xmp_ns.Contains(key)) xmp_ns.Append(key);
+                                if (!Consts.xmp_ns.Contains(key)) Consts.xmp_ns.Append(key);
                             }
                             else
                             {
@@ -1213,7 +1286,7 @@ namespace TouchMeta
                                         elements_list[key] = xml.CreateElement("rdf:Description", "rdf");
                                         elements_list[key].SetAttribute($"xmlns:{key}", value);
                                     }
-                                    if (!xmp_ns.Contains(key)) xmp_ns.Append(key);
+                                    if (!Consts.xmp_ns.Contains(key)) Consts.xmp_ns.Append(key);
                                     var child = xml.CreateElement(attr.Name, key);
                                     child.InnerText = attr.Value;
                                     elements_list[key].AppendChild(child);
@@ -1229,21 +1302,21 @@ namespace TouchMeta
                                 var ns = item.NamespaceURI;
                                 if (item.HasAttribute(xmlns))
                                 {
-                                    if (!xmp_ns_lookup.ContainsKey(item.Prefix)) { xmp_ns_lookup.Add(item.Prefix, item.GetAttribute(xmlns)); }
+                                    if (!Consts.xmp_ns_lookup.ContainsKey(item.Prefix)) { Consts.xmp_ns_lookup.Add(item.Prefix, item.GetAttribute(xmlns)); }
                                     if (!elements_list.ContainsKey(item.Prefix) || elements_list[item.Prefix] == null)
                                     {
                                         elements_list[item.Prefix] = xml.CreateElement("rdf:Description", "rdf");
-                                        elements_list[item.Prefix].SetAttribute($"xmlns:{item.Prefix}", xmp_ns_lookup[item.Prefix]);
+                                        elements_list[item.Prefix].SetAttribute($"xmlns:{item.Prefix}", Consts.xmp_ns_lookup[item.Prefix]);
                                     }
                                     item.RemoveAttribute(xmlns);
                                 }
                                 else
                                 {
-                                    if (!xmp_ns_lookup.ContainsKey(item.Prefix)) { xmp_ns_lookup.Add(item.Prefix, ns); }
+                                    if (!Consts.xmp_ns_lookup.ContainsKey(item.Prefix)) { Consts.xmp_ns_lookup.Add(item.Prefix, ns); }
                                     if (!elements_list.ContainsKey(item.Prefix) || elements_list[item.Prefix] == null)
                                     {
                                         elements_list[item.Prefix] = xml.CreateElement("rdf:Description", "rdf");
-                                        elements_list[item.Prefix].SetAttribute($"xmlns:{item.Prefix}", xmp_ns_lookup[item.Prefix]);
+                                        elements_list[item.Prefix].SetAttribute($"xmlns:{item.Prefix}", Consts.xmp_ns_lookup[item.Prefix]);
                                     }
                                 }
                                 elements_list[item.Prefix].AppendChild(item);
@@ -1350,7 +1423,7 @@ namespace TouchMeta
                         if (xml_doc.GetElementsByTagName("dc:title").Count <= 0)
                         {
                             var desc = xml_doc.CreateElement("rdf:Description", "rdf");
-                            desc.SetAttribute("xmlns:dc", xmp_ns_lookup["dc"]);
+                            desc.SetAttribute("xmlns:dc", Consts.xmp_ns_lookup["dc"]);
                             desc.AppendChild(xml_doc.CreateElement("dc:title", "dc"));
                             root_node.AppendChild(desc);
                         }
@@ -1359,7 +1432,7 @@ namespace TouchMeta
                         if (xml_doc.GetElementsByTagName("dc:description").Count <= 0)
                         {
                             var desc = xml_doc.CreateElement("rdf:Description", "rdf");
-                            desc.SetAttribute("xmlns:dc", xmp_ns_lookup["dc"]);
+                            desc.SetAttribute("xmlns:dc", Consts.xmp_ns_lookup["dc"]);
                             desc.AppendChild(xml_doc.CreateElement("dc:description", "dc"));
                             root_node.AppendChild(desc);
                         }
@@ -1368,14 +1441,14 @@ namespace TouchMeta
                         if (xml_doc.GetElementsByTagName("dc:creator").Count <= 0)
                         {
                             var desc = xml_doc.CreateElement("rdf:Description", "rdf");
-                            desc.SetAttribute("xmlns:dc", xmp_ns_lookup["dc"]);
+                            desc.SetAttribute("xmlns:dc", Consts.xmp_ns_lookup["dc"]);
                             desc.AppendChild(xml_doc.CreateElement("dc:creator", "dc"));
                             root_node.AppendChild(desc);
                         }
                         if (xml_doc.GetElementsByTagName("xmp:creator").Count <= 0)
                         {
                             var desc = xml_doc.CreateElement("rdf:Description", "rdf");
-                            desc.SetAttribute("xmlns:xmp", xmp_ns_lookup["xmp"]);
+                            desc.SetAttribute("xmlns:xmp", Consts.xmp_ns_lookup["xmp"]);
                             desc.AppendChild(xml_doc.CreateElement("xmp:creator", "xmp"));
                             root_node.AppendChild(desc);
                         }
@@ -1384,35 +1457,35 @@ namespace TouchMeta
                         if (xml_doc.GetElementsByTagName("dc:subject").Count <= 0)
                         {
                             var desc = xml_doc.CreateElement("rdf:Description", "rdf");
-                            desc.SetAttribute("xmlns:dc", xmp_ns_lookup["dc"]);
+                            desc.SetAttribute("xmlns:dc", Consts.xmp_ns_lookup["dc"]);
                             desc.AppendChild(xml_doc.CreateElement("dc:subject", "dc"));
                             root_node.AppendChild(desc);
                         }
                         if (xml_doc.GetElementsByTagName("lr:hierarchicalSubject").Count <= 0)
                         {
                             var desc = xml_doc.CreateElement("rdf:Description", "rdf");
-                            desc.SetAttribute("xmlns:lr", xmp_ns_lookup["lr"]);
+                            desc.SetAttribute("xmlns:lr", Consts.xmp_ns_lookup["lr"]);
                             desc.AppendChild(xml_doc.CreateElement("lr:hierarchicalSubject", "lr"));
                             root_node.AppendChild(desc);
                         }
                         if (xml_doc.GetElementsByTagName("MicrosoftPhoto:LastKeywordXMP").Count <= 0)
                         {
                             var desc = xml_doc.CreateElement("rdf:Description", "rdf");
-                            desc.SetAttribute("xmlns:MicrosoftPhoto", xmp_ns_lookup["MicrosoftPhoto"]);
+                            desc.SetAttribute("xmlns:MicrosoftPhoto", Consts.xmp_ns_lookup["MicrosoftPhoto"]);
                             desc.AppendChild(xml_doc.CreateElement("MicrosoftPhoto:LastKeywordXMP", "MicrosoftPhoto"));
                             root_node.AppendChild(desc);
                         }
                         if (xml_doc.GetElementsByTagName("MicrosoftPhoto:LastKeywordIPTC").Count <= 0)
                         {
                             var desc = xml_doc.CreateElement("rdf:Description", "rdf");
-                            desc.SetAttribute("xmlns:MicrosoftPhoto", xmp_ns_lookup["MicrosoftPhoto"]);
+                            desc.SetAttribute("xmlns:MicrosoftPhoto", Consts.xmp_ns_lookup["MicrosoftPhoto"]);
                             desc.AppendChild(xml_doc.CreateElement("MicrosoftPhoto:LastKeywordIPTC", "MicrosoftPhoto"));
                             root_node.AppendChild(desc);
                         }
                         if (xml_doc.GetElementsByTagName("MicrosoftPhoto:LastKeywordIPTC_TIFF_IRB").Count <= 0)
                         {
                             var desc = xml_doc.CreateElement("rdf:Description", "rdf");
-                            desc.SetAttribute("xmlns:MicrosoftPhoto", xmp_ns_lookup["MicrosoftPhoto"]);
+                            desc.SetAttribute("xmlns:MicrosoftPhoto", Consts.xmp_ns_lookup["MicrosoftPhoto"]);
                             desc.AppendChild(xml_doc.CreateElement("MicrosoftPhoto:LastKeywordIPTC_TIFF_IRB", "MicrosoftPhoto"));
                             root_node.AppendChild(desc);
                         }
@@ -1421,7 +1494,7 @@ namespace TouchMeta
                         if (xml_doc.GetElementsByTagName("dc:rights").Count <= 0)
                         {
                             var desc = xml_doc.CreateElement("rdf:Description", "rdf");
-                            desc.SetAttribute("xmlns:dc", xmp_ns_lookup["dc"]);
+                            desc.SetAttribute("xmlns:dc", Consts.xmp_ns_lookup["dc"]);
                             desc.AppendChild(xml_doc.CreateElement("dc:rights", "dc"));
                             root_node.AppendChild(desc);
                         }
@@ -1431,7 +1504,7 @@ namespace TouchMeta
                         {
                             var desc = xml_doc.CreateElement("rdf:Description", "rdf");
                             desc.SetAttribute("rdf:about", "uuid:faf5bdd5-ba3d-11da-ad31-d33d75182f1b");
-                            desc.SetAttribute("xmlns:xmp", xmp_ns_lookup["xmp"]);
+                            desc.SetAttribute("xmlns:xmp", Consts.xmp_ns_lookup["xmp"]);
                             desc.AppendChild(xml_doc.CreateElement("xmp:CreateDate", "xmp"));
                             root_node.AppendChild(desc);
                         }
@@ -1441,7 +1514,7 @@ namespace TouchMeta
                         {
                             var desc = xml_doc.CreateElement("rdf:Description", "rdf");
                             desc.SetAttribute("rdf:about", "uuid:faf5bdd5-ba3d-11da-ad31-d33d75182f1b");
-                            desc.SetAttribute("xmlns:xmp", xmp_ns_lookup["xmp"]);
+                            desc.SetAttribute("xmlns:xmp", Consts.xmp_ns_lookup["xmp"]);
                             desc.AppendChild(xml_doc.CreateElement("xmp:ModifyDate", "xmp"));
                             root_node.AppendChild(desc);
                         }
@@ -1451,7 +1524,7 @@ namespace TouchMeta
                         {
                             var desc = xml_doc.CreateElement("rdf:Description", "rdf");
                             desc.SetAttribute("rdf:about", "uuid:faf5bdd5-ba3d-11da-ad31-d33d75182f1b");
-                            desc.SetAttribute("xmlns:xmp", xmp_ns_lookup["xmp"]);
+                            desc.SetAttribute("xmlns:xmp", Consts.xmp_ns_lookup["xmp"]);
                             desc.AppendChild(xml_doc.CreateElement("xmp:DateTimeOriginal", "xmp"));
                             root_node.AppendChild(desc);
                         }
@@ -1461,7 +1534,7 @@ namespace TouchMeta
                         {
                             var desc = xml_doc.CreateElement("rdf:Description", "rdf");
                             desc.SetAttribute("rdf:about", "uuid:faf5bdd5-ba3d-11da-ad31-d33d75182f1b");
-                            desc.SetAttribute("xmlns:xmp", xmp_ns_lookup["xmp"]);
+                            desc.SetAttribute("xmlns:xmp", Consts.xmp_ns_lookup["xmp"]);
                             desc.AppendChild(xml_doc.CreateElement("xmp:DateTimeDigitized", "xmp"));
                             root_node.AppendChild(desc);
                         }
@@ -1471,7 +1544,7 @@ namespace TouchMeta
                         {
                             var desc = xml_doc.CreateElement("rdf:Description", "rdf");
                             desc.SetAttribute("rdf:about", "uuid:faf5bdd5-ba3d-11da-ad31-d33d75182f1b");
-                            desc.SetAttribute("xmlns:xmp", xmp_ns_lookup["xmp"]);
+                            desc.SetAttribute("xmlns:xmp", Consts.xmp_ns_lookup["xmp"]);
                             desc.AppendChild(xml_doc.CreateElement("xmp:Rating", "xmp"));
                             root_node.AppendChild(desc);
                         }
@@ -1479,7 +1552,7 @@ namespace TouchMeta
                         {
                             var desc = xml_doc.CreateElement("rdf:Description", "rdf");
                             desc.SetAttribute("rdf:about", "uuid:faf5bdd5-ba3d-11da-ad31-d33d75182f1b");
-                            desc.SetAttribute("xmlns:MicrosoftPhoto", xmp_ns_lookup["MicrosoftPhoto"]);
+                            desc.SetAttribute("xmlns:MicrosoftPhoto", Consts.xmp_ns_lookup["MicrosoftPhoto"]);
                             desc.AppendChild(xml_doc.CreateElement("MicrosoftPhoto:Rating", "MicrosoftPhoto"));
                             root_node.AppendChild(desc);
                         }
@@ -1496,7 +1569,7 @@ namespace TouchMeta
                             {
                                 var desc = xml_doc.CreateElement("rdf:Description", "rdf");
                                 desc.SetAttribute("rdf:about", "");
-                                desc.SetAttribute("xmlns:exif", xmp_ns_lookup["exif"]);
+                                desc.SetAttribute("xmlns:exif", Consts.xmp_ns_lookup["exif"]);
                                 desc.AppendChild(xml_doc.CreateElement("exif:DateTimeDigitized", "exif"));
                                 root_node.AppendChild(desc);
                             }
@@ -1512,7 +1585,7 @@ namespace TouchMeta
                             {
                                 var desc = xml_doc.CreateElement("rdf:Description", "rdf");
                                 desc.SetAttribute("rdf:about", "");
-                                desc.SetAttribute("xmlns:exif", xmp_ns_lookup["exif"]);
+                                desc.SetAttribute("xmlns:exif", Consts.xmp_ns_lookup["exif"]);
                                 desc.AppendChild(xml_doc.CreateElement("exif:DateTimeOriginal", "exif"));
                                 root_node.AppendChild(desc);
                             }
@@ -1523,7 +1596,7 @@ namespace TouchMeta
                         {
                             var desc = xml_doc.CreateElement("rdf:Description", "rdf");
                             desc.SetAttribute("rdf:about", "");
-                            desc.SetAttribute("xmlns:tiff", xmp_ns_lookup["tiff"]);
+                            desc.SetAttribute("xmlns:tiff", Consts.xmp_ns_lookup["tiff"]);
                             desc.AppendChild(xml_doc.CreateElement("tiff:DateTime", "tiff"));
                             root_node.AppendChild(desc);
                         }
@@ -1540,7 +1613,7 @@ namespace TouchMeta
                             {
                                 var desc = xml_doc.CreateElement("rdf:Description", "rdf");
                                 desc.SetAttribute("rdf:about", "uuid:faf5bdd5-ba3d-11da-ad31-d33d75182f1b");
-                                desc.SetAttribute("xmlns:MicrosoftPhoto", xmp_ns_lookup["MicrosoftPhoto"]);
+                                desc.SetAttribute("xmlns:MicrosoftPhoto", Consts.xmp_ns_lookup["MicrosoftPhoto"]);
                                 desc.AppendChild(xml_doc.CreateElement("MicrosoftPhoto:DateAcquired", "MicrosoftPhoto"));
                                 root_node.AppendChild(desc);
                             }
@@ -1556,7 +1629,7 @@ namespace TouchMeta
                             {
                                 var desc = xml_doc.CreateElement("rdf:Description", "rdf");
                                 desc.SetAttribute("rdf:about", "uuid:faf5bdd5-ba3d-11da-ad31-d33d75182f1b");
-                                desc.SetAttribute("xmlns:MicrosoftPhoto", xmp_ns_lookup["MicrosoftPhoto"]);
+                                desc.SetAttribute("xmlns:MicrosoftPhoto", Consts.xmp_ns_lookup["MicrosoftPhoto"]);
                                 desc.AppendChild(xml_doc.CreateElement("MicrosoftPhoto:DateTaken", "MicrosoftPhoto"));
                                 root_node.AppendChild(desc);
                             }
@@ -1579,14 +1652,14 @@ namespace TouchMeta
                             "MicrosoftPhoto:DateAcquired", "MicrosoftPhoto:DateTaken",
                             "xmp:CreatorTool",
                         };
-                        all_elements.AddRange(tag_author);
-                        all_elements.AddRange(tag_comments);
-                        all_elements.AddRange(tag_copyright);
-                        all_elements.AddRange(tag_date);
-                        all_elements.AddRange(tag_keywords);
-                        all_elements.AddRange(tag_rating);
-                        all_elements.AddRange(tag_subject);
-                        all_elements.AddRange(tag_title);
+                        all_elements.AddRange(Consts.tag_author);
+                        all_elements.AddRange(Consts.tag_comments);
+                        all_elements.AddRange(Consts.tag_copyright);
+                        all_elements.AddRange(Consts.tag_date);
+                        all_elements.AddRange(Consts.tag_keywords);
+                        all_elements.AddRange(Consts.tag_rating);
+                        all_elements.AddRange(Consts.tag_subject);
+                        all_elements.AddRange(Consts.tag_title);
                         foreach (var element in all_elements)
                         {
                             var nodes = xml_doc.GetElementsByTagName(element);
@@ -1714,7 +1787,7 @@ namespace TouchMeta
                                 else if (child.Name.Equals("tiff:DateTime", StringComparison.CurrentCultureIgnoreCase))
                                     child.InnerText = dm_ms;
 
-                                if (tag_date.Contains(node.Name, StringComparer.CurrentCultureIgnoreCase))
+                                if (Consts.tag_date.Contains(node.Name, StringComparer.CurrentCultureIgnoreCase))
                                 {
                                     if (nodes.Count(n => n.Name.Equals(child.Name, StringComparison.CurrentCultureIgnoreCase)) > 0) node.RemoveChild(child);
                                     else nodes.Add(child);
@@ -1812,69 +1885,6 @@ namespace TouchMeta
             }
             return (xml);
         }
-        #endregion
-
-        #region below tags will be touching
-        private static string[] tag_date = new string[] {
-          "exif:DateTimeDigitized",
-          "exif:DateTimeOriginal",
-          "exif:DateTime",
-          "MicrosoftPhoto:DateAcquired",
-          "MicrosoftPhoto:DateTaken",
-          //"png:tIME",
-          "xmp:CreateDate",
-          "xmp:ModifyDate",
-          "xmp:DateTimeDigitized",
-          "xmp:DateTimeOriginal",
-          "Creation Time",
-          "create-date",
-          "modify-date",
-          "tiff:DateTime",
-          //"date:modify",
-          //"date:create",
-        };
-        private static string[] tag_author = new string[] {
-          "exif:Artist",
-          "exif:WinXP-Author",
-          "tiff:artist",
-        };
-        private static string[] tag_copyright = new string[] {
-          "exif:Copyright",
-          "tiff:Copyright",
-          //"iptc:CopyrightNotice",
-        };
-        private static string[] tag_title = new string[] {
-          "exif:ImageDescription",
-          "exif:WinXP-Title",
-        };
-        private static string[] tag_subject = new string[] {
-          "exif:WinXP-Subject",
-          "tiff:subject",
-        };
-        private static string[] tag_comments = new string[] {
-          "exif:WinXP-Comments",
-          "exif:UserComment",
-          "tiff:comment",
-          "tiff:comments",
-          "tiff:ImageDescription",
-        };
-        private static string[] tag_keywords = new string[] {
-          "exif:WinXP-Keywords",
-          //"iptc:Keywords",
-          "dc:Subject",
-        };
-        private static string[] tag_rating = new string[] {
-          "Rating",
-          "RatingPercent",
-          "MicrosoftPhoto:Rating",
-          "xmp:Rating",
-        };
-        private static string[] tag_software = new string[] {
-          "Software",
-          "exif:Software",
-          "tiff:Software",
-          "xmp:CreatorTool",
-        };
         #endregion
 
         #region Metadata Helper
@@ -2790,7 +2800,7 @@ namespace TouchMeta
                             meta.ChangeProperties |= ChangePropertyType.Authors;
                         if (!string.IsNullOrEmpty(meta_new.Copyrights) || mode == ChangePropertyMode.Empty)
                             meta.ChangeProperties |= ChangePropertyType.Copyrights;
-                        if (meta_new.Attributes.Where(a => tag_software.Contains(a.Key)).Count() > 0 || mode == ChangePropertyMode.Empty)
+                        if (meta_new.Attributes.Where(a => Consts.tag_software.Contains(a.Key)).Count() > 0 || mode == ChangePropertyMode.Empty)
                             meta.ChangeProperties |= ChangePropertyType.Software;
                         type = meta.ChangeProperties;
                     }
@@ -3223,7 +3233,7 @@ namespace TouchMeta
             {
                 if (image is MagickImage && image.FormatInfo.IsReadable)
                 {
-                    foreach (var tag in tag_date)
+                    foreach (var tag in  Consts.tag_date)
                     {
                         if (image.AttributeNames.Contains(tag))
                         {
@@ -3298,7 +3308,7 @@ namespace TouchMeta
                 result.DateTaken = result.DateAcquired;
                 #endregion
                 #region Title
-                foreach (var tag in tag_title)
+                foreach (var tag in Consts.tag_title)
                 {
                     if (image.AttributeNames.Contains(tag))
                     {
@@ -3308,7 +3318,7 @@ namespace TouchMeta
                 }
                 #endregion
                 #region Subject
-                foreach (var tag in tag_subject)
+                foreach (var tag in Consts.tag_subject)
                 {
                     if (image.AttributeNames.Contains(tag))
                     {
@@ -3318,7 +3328,7 @@ namespace TouchMeta
                 }
                 #endregion
                 #region Comment
-                foreach (var tag in tag_comments)
+                foreach (var tag in Consts.tag_comments)
                 {
                     if (image.AttributeNames.Contains(tag))
                     {
@@ -3328,7 +3338,7 @@ namespace TouchMeta
                 }
                 #endregion
                 #region Keywords
-                foreach (var tag in tag_keywords)
+                foreach (var tag in Consts.tag_keywords)
                 {
                     if (image.AttributeNames.Contains(tag))
                     {
@@ -3338,7 +3348,7 @@ namespace TouchMeta
                 }
                 #endregion
                 #region Authors
-                foreach (var tag in tag_author)
+                foreach (var tag in Consts.tag_author)
                 {
                     if (image.AttributeNames.Contains(tag))
                     {
@@ -3348,7 +3358,7 @@ namespace TouchMeta
                 }
                 #endregion
                 #region Copyright
-                foreach (var tag in tag_copyright)
+                foreach (var tag in Consts.tag_copyright)
                 {
                     if (image.AttributeNames.Contains(tag))
                     {
@@ -3358,7 +3368,7 @@ namespace TouchMeta
                 }
                 #endregion
                 #region Rating
-                foreach (var tag in tag_rating)
+                foreach (var tag in Consts.tag_rating)
                 {
                     try
                     {
@@ -3410,7 +3420,7 @@ namespace TouchMeta
                             if (!value.Equals(result.RatingPercent ?? 0)) result.RatingPercent = value;
                         }
                     }
-                    catch(Exception ex) { Log(ex.Message); }
+                    catch (Exception ex) { Log(ex.Message); }
                 }
                 #endregion
             }
@@ -3909,7 +3919,7 @@ namespace TouchMeta
                                     var edt = GetAttribute(image, "exif:DateTime");
                                     if (!edt.Equals(dm_exif)) image.RemoveAttribute("exif:DateTime");
                                 }
-                                foreach (var tag in tag_date)
+                                foreach (var tag in Consts.tag_date)
                                 {
                                     try
                                     {
@@ -3936,7 +3946,7 @@ namespace TouchMeta
                             #region touch title
                             if (meta is MetaInfo && meta.ChangeProperties.HasFlag(ChangePropertyType.Title))
                             {
-                                foreach (var tag in tag_title)
+                                foreach (var tag in Consts.tag_title)
                                 {
                                     try
                                     {
@@ -3978,7 +3988,7 @@ namespace TouchMeta
                             #region touch subject
                             if (meta is MetaInfo && meta.ChangeProperties.HasFlag(ChangePropertyType.Subject))
                             {
-                                foreach (var tag in tag_subject)
+                                foreach (var tag in  Consts.tag_subject)
                                 {
                                     try
                                     {
@@ -4008,7 +4018,7 @@ namespace TouchMeta
                             #region touch author
                             if (meta is MetaInfo && meta.ChangeProperties.HasFlag(ChangePropertyType.Authors))
                             {
-                                foreach (var tag in tag_author)
+                                foreach (var tag in  Consts.tag_author)
                                 {
                                     try
                                     {
@@ -4046,7 +4056,7 @@ namespace TouchMeta
                             #region touch copywright
                             if (meta is MetaInfo && meta.ChangeProperties.HasFlag(ChangePropertyType.Copyrights))
                             {
-                                foreach (var tag in tag_copyright)
+                                foreach (var tag in  Consts.tag_copyright)
                                 {
                                     try
                                     {
@@ -4076,7 +4086,7 @@ namespace TouchMeta
                             #region touch comment
                             if (meta is MetaInfo && meta.ChangeProperties.HasFlag(ChangePropertyType.Comment))
                             {
-                                foreach (var tag in tag_comments)
+                                foreach (var tag in  Consts.tag_comments)
                                 {
                                     try
                                     {
@@ -4122,7 +4132,7 @@ namespace TouchMeta
                             #region touch keywords
                             if (meta is MetaInfo && meta.ChangeProperties.HasFlag(ChangePropertyType.Keywords))
                             {
-                                foreach (var tag in tag_keywords)
+                                foreach (var tag in  Consts.tag_keywords)
                                 {
                                     try
                                     {
@@ -4152,7 +4162,7 @@ namespace TouchMeta
                             #region touch rating
                             if (meta is MetaInfo && (meta.ChangeProperties.HasFlag(ChangePropertyType.Rating) || meta.ChangeProperties.HasFlag(ChangePropertyType.Ranking)))
                             {
-                                foreach (var tag in tag_rating)
+                                foreach (var tag in  Consts.tag_rating)
                                 {
                                     try
                                     {
@@ -4242,7 +4252,7 @@ namespace TouchMeta
                                         if (xml_doc.GetElementsByTagName("dc:title").Count <= 0)
                                         {
                                             var desc = xml_doc.CreateElement("rdf:Description", "rdf");
-                                            desc.SetAttribute("xmlns:dc", xmp_ns_lookup["dc"]);
+                                            desc.SetAttribute("xmlns:dc", Consts.xmp_ns_lookup["dc"]);
                                             desc.AppendChild(xml_doc.CreateElement("dc:title", "dc"));
                                             root_node.AppendChild(desc);
                                         }
@@ -4251,14 +4261,14 @@ namespace TouchMeta
                                         if (xml_doc.GetElementsByTagName("tiff:subject").Count <= 0)
                                         {
                                             var desc = xml_doc.CreateElement("rdf:Description", "rdf");
-                                            desc.SetAttribute("xmlns:dc", xmp_ns_lookup["dc"]);
+                                            desc.SetAttribute("xmlns:dc", Consts.xmp_ns_lookup["dc"]);
                                             desc.AppendChild(xml_doc.CreateElement("tiff:subject", "dc"));
                                             root_node.AppendChild(desc);
                                         }
                                         if (xml_doc.GetElementsByTagName("dc:source").Count <= 0)
                                         {
                                             var desc = xml_doc.CreateElement("rdf:Description", "rdf");
-                                            desc.SetAttribute("xmlns:dc", xmp_ns_lookup["dc"]);
+                                            desc.SetAttribute("xmlns:dc", Consts.xmp_ns_lookup["dc"]);
                                             desc.AppendChild(xml_doc.CreateElement("dc:source", "dc"));
                                             root_node.AppendChild(desc);
                                         }
@@ -4267,14 +4277,14 @@ namespace TouchMeta
                                         if (xml_doc.GetElementsByTagName("dc:description").Count <= 0)
                                         {
                                             var desc = xml_doc.CreateElement("rdf:Description", "rdf");
-                                            desc.SetAttribute("xmlns:dc", xmp_ns_lookup["dc"]);
+                                            desc.SetAttribute("xmlns:dc", Consts.xmp_ns_lookup["dc"]);
                                             desc.AppendChild(xml_doc.CreateElement("dc:description", "dc"));
                                             root_node.AppendChild(desc);
                                         }
                                         if (xml_doc.GetElementsByTagName("tiff:comments").Count <= 0)
                                         {
                                             var desc = xml_doc.CreateElement("rdf:Description", "rdf");
-                                            desc.SetAttribute("xmlns:dc", xmp_ns_lookup["dc"]);
+                                            desc.SetAttribute("xmlns:dc", Consts.xmp_ns_lookup["dc"]);
                                             desc.AppendChild(xml_doc.CreateElement("tiff:comments", "dc"));
                                             root_node.AppendChild(desc);
                                         }
@@ -4283,14 +4293,14 @@ namespace TouchMeta
                                         if (xml_doc.GetElementsByTagName("dc:creator").Count <= 0)
                                         {
                                             var desc = xml_doc.CreateElement("rdf:Description", "rdf");
-                                            desc.SetAttribute("xmlns:dc", xmp_ns_lookup["dc"]);
+                                            desc.SetAttribute("xmlns:dc", Consts.xmp_ns_lookup["dc"]);
                                             desc.AppendChild(xml_doc.CreateElement("dc:creator", "dc"));
                                             root_node.AppendChild(desc);
                                         }
                                         if (xml_doc.GetElementsByTagName("xmp:creator").Count <= 0)
                                         {
                                             var desc = xml_doc.CreateElement("rdf:Description", "rdf");
-                                            desc.SetAttribute("xmlns:xmp", xmp_ns_lookup["xmp"]);
+                                            desc.SetAttribute("xmlns:xmp", Consts.xmp_ns_lookup["xmp"]);
                                             desc.AppendChild(xml_doc.CreateElement("xmp:creator", "xmp"));
                                             root_node.AppendChild(desc);
                                         }
@@ -4299,35 +4309,35 @@ namespace TouchMeta
                                         if (xml_doc.GetElementsByTagName("dc:subject").Count <= 0)
                                         {
                                             var desc = xml_doc.CreateElement("rdf:Description", "rdf");
-                                            desc.SetAttribute("xmlns:dc", xmp_ns_lookup["dc"]);
+                                            desc.SetAttribute("xmlns:dc", Consts.xmp_ns_lookup["dc"]);
                                             desc.AppendChild(xml_doc.CreateElement("dc:subject", "dc"));
                                             root_node.AppendChild(desc);
                                         }
                                         if (xml_doc.GetElementsByTagName("lr:hierarchicalSubject").Count <= 0)
                                         {
                                             var desc = xml_doc.CreateElement("rdf:Description", "rdf");
-                                            desc.SetAttribute("xmlns:lr", xmp_ns_lookup["lr"]);
+                                            desc.SetAttribute("xmlns:lr", Consts.xmp_ns_lookup["lr"]);
                                             desc.AppendChild(xml_doc.CreateElement("lr:hierarchicalSubject", "lr"));
                                             root_node.AppendChild(desc);
                                         }
                                         if (xml_doc.GetElementsByTagName("MicrosoftPhoto:LastKeywordXMP").Count <= 0)
                                         {
                                             var desc = xml_doc.CreateElement("rdf:Description", "rdf");
-                                            desc.SetAttribute("xmlns:MicrosoftPhoto", xmp_ns_lookup["MicrosoftPhoto"]);
+                                            desc.SetAttribute("xmlns:MicrosoftPhoto", Consts.xmp_ns_lookup["MicrosoftPhoto"]);
                                             desc.AppendChild(xml_doc.CreateElement("MicrosoftPhoto:LastKeywordXMP", "MicrosoftPhoto"));
                                             root_node.AppendChild(desc);
                                         }
                                         if (xml_doc.GetElementsByTagName("MicrosoftPhoto:LastKeywordIPTC").Count <= 0)
                                         {
                                             var desc = xml_doc.CreateElement("rdf:Description", "rdf");
-                                            desc.SetAttribute("xmlns:MicrosoftPhoto", xmp_ns_lookup["MicrosoftPhoto"]);
+                                            desc.SetAttribute("xmlns:MicrosoftPhoto", Consts.xmp_ns_lookup["MicrosoftPhoto"]);
                                             desc.AppendChild(xml_doc.CreateElement("MicrosoftPhoto:LastKeywordIPTC", "MicrosoftPhoto"));
                                             root_node.AppendChild(desc);
                                         }
                                         if (xml_doc.GetElementsByTagName("MicrosoftPhoto:LastKeywordIPTC_TIFF_IRB").Count <= 0)
                                         {
                                             var desc = xml_doc.CreateElement("rdf:Description", "rdf");
-                                            desc.SetAttribute("xmlns:MicrosoftPhoto", xmp_ns_lookup["MicrosoftPhoto"]);
+                                            desc.SetAttribute("xmlns:MicrosoftPhoto", Consts.xmp_ns_lookup["MicrosoftPhoto"]);
                                             desc.AppendChild(xml_doc.CreateElement("MicrosoftPhoto:LastKeywordIPTC_TIFF_IRB", "MicrosoftPhoto"));
                                             root_node.AppendChild(desc);
                                         }
@@ -4336,14 +4346,14 @@ namespace TouchMeta
                                         if (xml_doc.GetElementsByTagName("dc:rights").Count <= 0)
                                         {
                                             var desc = xml_doc.CreateElement("rdf:Description", "rdf");
-                                            desc.SetAttribute("xmlns:dc", xmp_ns_lookup["dc"]);
+                                            desc.SetAttribute("xmlns:dc", Consts.xmp_ns_lookup["dc"]);
                                             desc.AppendChild(xml_doc.CreateElement("dc:rights", "dc"));
                                             root_node.AppendChild(desc);
                                         }
                                         if (xml_doc.GetElementsByTagName("tiff:copyright").Count <= 0)
                                         {
                                             var desc = xml_doc.CreateElement("rdf:Description", "rdf");
-                                            desc.SetAttribute("xmlns:dc", xmp_ns_lookup["dc"]);
+                                            desc.SetAttribute("xmlns:dc", Consts.xmp_ns_lookup["dc"]);
                                             desc.AppendChild(xml_doc.CreateElement("tiff:copyright", "dc"));
                                             root_node.AppendChild(desc);
                                         }
@@ -4353,7 +4363,7 @@ namespace TouchMeta
                                         {
                                             var desc = xml_doc.CreateElement("rdf:Description", "rdf");
                                             desc.SetAttribute("rdf:about", "uuid:faf5bdd5-ba3d-11da-ad31-d33d75182f1b");
-                                            desc.SetAttribute("xmlns:xmp", xmp_ns_lookup["xmp"]);
+                                            desc.SetAttribute("xmlns:xmp", Consts.xmp_ns_lookup["xmp"]);
                                             desc.AppendChild(xml_doc.CreateElement("xmp:CreateDate", "xmp"));
                                             root_node.AppendChild(desc);
                                         }
@@ -4363,7 +4373,7 @@ namespace TouchMeta
                                         {
                                             var desc = xml_doc.CreateElement("rdf:Description", "rdf");
                                             desc.SetAttribute("rdf:about", "uuid:faf5bdd5-ba3d-11da-ad31-d33d75182f1b");
-                                            desc.SetAttribute("xmlns:xmp", xmp_ns_lookup["xmp"]);
+                                            desc.SetAttribute("xmlns:xmp", Consts.xmp_ns_lookup["xmp"]);
                                             desc.AppendChild(xml_doc.CreateElement("xmp:ModifyDate", "xmp"));
                                             root_node.AppendChild(desc);
                                         }
@@ -4373,7 +4383,7 @@ namespace TouchMeta
                                         {
                                             var desc = xml_doc.CreateElement("rdf:Description", "rdf");
                                             desc.SetAttribute("rdf:about", "uuid:faf5bdd5-ba3d-11da-ad31-d33d75182f1b");
-                                            desc.SetAttribute("xmlns:xmp", xmp_ns_lookup["xmp"]);
+                                            desc.SetAttribute("xmlns:xmp", Consts.xmp_ns_lookup["xmp"]);
                                             desc.AppendChild(xml_doc.CreateElement("xmp:DateTimeOriginal", "xmp"));
                                             root_node.AppendChild(desc);
                                         }
@@ -4383,7 +4393,7 @@ namespace TouchMeta
                                         {
                                             var desc = xml_doc.CreateElement("rdf:Description", "rdf");
                                             desc.SetAttribute("rdf:about", "uuid:faf5bdd5-ba3d-11da-ad31-d33d75182f1b");
-                                            desc.SetAttribute("xmlns:xmp", xmp_ns_lookup["xmp"]);
+                                            desc.SetAttribute("xmlns:xmp", Consts.xmp_ns_lookup["xmp"]);
                                             desc.AppendChild(xml_doc.CreateElement("xmp:DateTimeDigitized", "xmp"));
                                             root_node.AppendChild(desc);
                                         }
@@ -4393,7 +4403,7 @@ namespace TouchMeta
                                         {
                                             var desc = xml_doc.CreateElement("rdf:Description", "rdf");
                                             desc.SetAttribute("rdf:about", "uuid:faf5bdd5-ba3d-11da-ad31-d33d75182f1b");
-                                            desc.SetAttribute("xmlns:xmp", xmp_ns_lookup["xmp"]);
+                                            desc.SetAttribute("xmlns:xmp", Consts.xmp_ns_lookup["xmp"]);
                                             desc.AppendChild(xml_doc.CreateElement("xmp:Rating", "xmp"));
                                             root_node.AppendChild(desc);
                                         }
@@ -4401,7 +4411,7 @@ namespace TouchMeta
                                         {
                                             var desc = xml_doc.CreateElement("rdf:Description", "rdf");
                                             desc.SetAttribute("rdf:about", "uuid:faf5bdd5-ba3d-11da-ad31-d33d75182f1b");
-                                            desc.SetAttribute("xmlns:MicrosoftPhoto", xmp_ns_lookup["MicrosoftPhoto"]);
+                                            desc.SetAttribute("xmlns:MicrosoftPhoto", Consts.xmp_ns_lookup["MicrosoftPhoto"]);
                                             desc.AppendChild(xml_doc.CreateElement("MicrosoftPhoto:Rating", "MicrosoftPhoto"));
                                             root_node.AppendChild(desc);
                                         }
@@ -4418,7 +4428,7 @@ namespace TouchMeta
                                             {
                                                 var desc = xml_doc.CreateElement("rdf:Description", "rdf");
                                                 desc.SetAttribute("rdf:about", "");
-                                                desc.SetAttribute("xmlns:exif", xmp_ns_lookup["exif"]);
+                                                desc.SetAttribute("xmlns:exif", Consts.xmp_ns_lookup["exif"]);
                                                 desc.AppendChild(xml_doc.CreateElement("exif:DateTimeDigitized", "exif"));
                                                 root_node.AppendChild(desc);
                                             }
@@ -4434,7 +4444,7 @@ namespace TouchMeta
                                             {
                                                 var desc = xml_doc.CreateElement("rdf:Description", "rdf");
                                                 desc.SetAttribute("rdf:about", "");
-                                                desc.SetAttribute("xmlns:exif", xmp_ns_lookup["exif"]);
+                                                desc.SetAttribute("xmlns:exif", Consts.xmp_ns_lookup["exif"]);
                                                 desc.AppendChild(xml_doc.CreateElement("exif:DateTimeOriginal", "exif"));
                                                 root_node.AppendChild(desc);
                                             }
@@ -4445,7 +4455,7 @@ namespace TouchMeta
                                         {
                                             var desc = xml_doc.CreateElement("rdf:Description", "rdf");
                                             desc.SetAttribute("rdf:about", "");
-                                            desc.SetAttribute("xmlns:tiff", xmp_ns_lookup["tiff"]);
+                                            desc.SetAttribute("xmlns:tiff", Consts.xmp_ns_lookup["tiff"]);
                                             desc.AppendChild(xml_doc.CreateElement("tiff:DateTime", "tiff"));
                                             root_node.AppendChild(desc);
                                         }
@@ -4462,7 +4472,7 @@ namespace TouchMeta
                                             {
                                                 var desc = xml_doc.CreateElement("rdf:Description", "rdf");
                                                 desc.SetAttribute("rdf:about", "uuid:faf5bdd5-ba3d-11da-ad31-d33d75182f1b");
-                                                desc.SetAttribute("xmlns:MicrosoftPhoto", xmp_ns_lookup["MicrosoftPhoto"]);
+                                                desc.SetAttribute("xmlns:MicrosoftPhoto", Consts.xmp_ns_lookup["MicrosoftPhoto"]);
                                                 desc.AppendChild(xml_doc.CreateElement("MicrosoftPhoto:DateAcquired", "MicrosoftPhoto"));
                                                 root_node.AppendChild(desc);
                                             }
@@ -4478,7 +4488,7 @@ namespace TouchMeta
                                             {
                                                 var desc = xml_doc.CreateElement("rdf:Description", "rdf");
                                                 desc.SetAttribute("rdf:about", "uuid:faf5bdd5-ba3d-11da-ad31-d33d75182f1b");
-                                                desc.SetAttribute("xmlns:MicrosoftPhoto", xmp_ns_lookup["MicrosoftPhoto"]);
+                                                desc.SetAttribute("xmlns:MicrosoftPhoto", Consts.xmp_ns_lookup["MicrosoftPhoto"]);
                                                 desc.AppendChild(xml_doc.CreateElement("MicrosoftPhoto:DateTaken", "MicrosoftPhoto"));
                                                 root_node.AppendChild(desc);
                                             }
@@ -4487,7 +4497,7 @@ namespace TouchMeta
                                         //{
                                         //    var desc = xml_doc.CreateElement("rdf:Description", "rdf");
                                         //    desc.SetAttribute("rdf:about", "uuid:faf5bdd5-ba3d-11da-ad31-d33d75182f1b");
-                                        //    desc.SetAttribute("xmlns:MicrosoftPhoto_1_", xmp_ns_lookup["MicrosoftPhoto_1_"]);
+                                        //    desc.SetAttribute("xmlns:MicrosoftPhoto_1_", Consts.xmp_ns_lookup["MicrosoftPhoto_1_"]);
                                         //    desc.AppendChild(xml_doc.CreateElement("MicrosoftPhoto_1_:DateAcquired", "MicrosoftPhoto_1_"));
                                         //    root_node.AppendChild(desc);
                                         //}
@@ -4506,15 +4516,15 @@ namespace TouchMeta
                                             "tiff:DateTime",
                                             "MicrosoftPhoto:DateAcquired", "MicrosoftPhoto:DateTaken",
                                         };
-                                        all_elements.AddRange(tag_author);
-                                        all_elements.AddRange(tag_comments);
-                                        all_elements.AddRange(tag_copyright);
-                                        all_elements.AddRange(tag_date);
-                                        all_elements.AddRange(tag_keywords);
-                                        all_elements.AddRange(tag_rating);
-                                        all_elements.AddRange(tag_subject);
-                                        all_elements.AddRange(tag_title);
-                                        all_elements.Add(tag_software);
+                                        all_elements.AddRange(Consts.tag_author);
+                                        all_elements.AddRange(Consts.tag_comments);
+                                        all_elements.AddRange(Consts.tag_copyright);
+                                        all_elements.AddRange(Consts.tag_date);
+                                        all_elements.AddRange(Consts.tag_keywords);
+                                        all_elements.AddRange(Consts.tag_rating);
+                                        all_elements.AddRange(Consts.tag_subject);
+                                        all_elements.AddRange(Consts.tag_title);
+                                        all_elements.AddRange(Consts.tag_software);
                                         foreach (var element in all_elements.Distinct())
                                         {
                                             var nodes = xml_doc.GetElementsByTagName(element);
@@ -4655,7 +4665,7 @@ namespace TouchMeta
                                                 else if (child.Name.Equals("tiff:DateTime", StringComparison.CurrentCultureIgnoreCase))
                                                     child.InnerText = dm_ms;
 
-                                                if (tag_date.Contains(node.Name, StringComparer.CurrentCultureIgnoreCase))
+                                                if (Consts.tag_date.Contains(node.Name, StringComparer.CurrentCultureIgnoreCase))
                                                 {
                                                     if (nodes.Count(n => n.Name.Equals(child.Name, StringComparison.CurrentCultureIgnoreCase)) > 0) node.RemoveChild(child);
                                                     else nodes.Add(child);
@@ -4949,7 +4959,7 @@ namespace TouchMeta
             {
                 if (image.FormatInfo.IsReadable && image.FormatInfo.IsWritable)
                 {
-                    foreach (var tag in tag_date)
+                    foreach (var tag in  Consts.tag_date)
                     {
                         if (tag.StartsWith("exif"))
                             //image.SetAttribute(tag, dt.Value.ToString("yyyy:MM:dd HH:mm:ss"));
@@ -5213,7 +5223,7 @@ namespace TouchMeta
                         //        var dm_msxmp = dm.ToString("yyyy-MM-ddTHH:mm:ss.fff");
                         //        var dm_ms = dm.ToString("yyyy-MM-ddTHH:mm:sszzz");
                         //        var dm_misc = dm.ToString("yyyy:MM:dd HH:mm:sszzz");
-                        //        foreach (var tag in tag_date)
+                        //        foreach (var tag in Consts.tag_date)
                         //        {
                         //            try
                         //            {
