@@ -2060,6 +2060,24 @@ namespace TouchMeta
             return (formatinfo is MagickFormatInfo && formatinfo.IsWritable);
         }
 
+        public static bool IsGIF(MagickFormat format)
+        {
+            var result = false;
+            var fmts = new MagickFormat[] { MagickFormat.Gif, MagickFormat.Gif87 };
+            result = fmts.Contains(format);
+            return (result);
+        }
+
+        public static bool IsGIF(MagickImage image)
+        {
+            var result = false;
+            if (image is MagickImage)
+            {
+                result = IsGIF(image.Format) || image.FormatInfo.MimeType.Equals("image/gif", StringComparison.CurrentCultureIgnoreCase) || image.Format.ToString().StartsWith("png") || image.Format.ToString().EndsWith("png");
+            }
+            return (result);
+        }
+
         public static bool IsPNG(MagickFormat format)
         {
             var result = false;
@@ -2114,6 +2132,42 @@ namespace TouchMeta
             return (result);
         }
 
+        public static bool IsBMP(MagickFormat format)
+        {
+            var result = false;
+            var fmts = new MagickFormat[] { MagickFormat.Bmp };
+            result = fmts.Contains(format);
+            return (result);
+        }
+
+        public static bool IsBMP(MagickImage image)
+        {
+            var result = false;
+            if (image is MagickImage)
+            {
+                result = IsBMP(image.Format) || image.FormatInfo.MimeType.Equals("image/bmp", StringComparison.CurrentCultureIgnoreCase) || image.Format.ToString().StartsWith("png") || image.Format.ToString().EndsWith("png");
+            }
+            return (result);
+        }
+
+        public static bool IsBMP23(MagickFormat format)
+        {
+            var result = false;
+            var fmts = new MagickFormat[] { MagickFormat.Bmp2, MagickFormat.Bmp3 };
+            result = fmts.Contains(format);
+            return (result);
+        }
+
+        public static bool IsBMP23(MagickImage image)
+        {
+            var result = false;
+            if (image is MagickImage)
+            {
+                result = IsBMP23(image.Format) || image.FormatInfo.MimeType.Equals("image/bmp", StringComparison.CurrentCultureIgnoreCase) || image.Format.ToString().StartsWith("png") || image.Format.ToString().EndsWith("png");
+            }
+            return (result);
+        }
+
         public static bool IsHEIC(MagickFormat format)
         {
             var result = false;
@@ -2128,6 +2182,24 @@ namespace TouchMeta
             if (image is MagickImage)
             {
                 result = IsHEIC(image.Format) || image.FormatInfo.MimeType.Equals("image/heic", StringComparison.CurrentCultureIgnoreCase) || image.Format.ToString().StartsWith("hei");
+            }
+            return (result);
+        }
+
+        public static bool IsWEBP(MagickFormat format)
+        {
+            var result = false;
+            var fmts = new MagickFormat[] { MagickFormat.WebM, MagickFormat.WebP };
+            result = fmts.Contains(format);
+            return (result);
+        }
+
+        public static bool IsWEBP(MagickImage image)
+        {
+            var result = false;
+            if (image is MagickImage)
+            {
+                result = IsWEBP(image.Format) || image.FormatInfo.MimeType.Equals("image/webp", StringComparison.CurrentCultureIgnoreCase) || image.Format.ToString().StartsWith("hei");
             }
             return (result);
         }
@@ -3852,7 +3924,7 @@ namespace TouchMeta
             catch (Exception ex) { ShowMessage(ex.Message); }
         }
 
-        private static void SetParameters(MagickImage image, MagickFormat? format = null, int? quality = null)
+        private static void SetParameters(MagickImage image, MagickFormat? format = null, int? quality = null, CompressionMethod? compress = null)
         {
             if (image is MagickImage)
             {
@@ -3884,43 +3956,34 @@ namespace TouchMeta
                     if (image.HasAlpha)
                     {
                         var bg = new MagickColor(ConvertBGColor.R, ConvertBGColor.G, ConvertBGColor.B, ConvertBGColor.A);
-                        if (fmt == MagickFormat.Jpg || fmt == MagickFormat.Jpeg)
+                        if (IsJPG(fmt) || IsBMP23(fmt))
                         {
                             image.ColorAlpha(bg);
                             image.BackgroundColor = bg;
                             image.MatteColor = bg;
                         }
-                        else if (fmt == MagickFormat.Bmp2 || fmt == MagickFormat.Bmp3)
-                        {
-                            image.ColorAlpha(bg);
-                            image.BackgroundColor = bg;
-                            image.MatteColor = bg;
-                        }
-                        else if (fmt == MagickFormat.Bmp)
-                        {
-                            image.VirtualPixelMethod = VirtualPixelMethod.Transparent;
-                        }
-                        else if (fmt == MagickFormat.Gif || fmt == MagickFormat.Gif87)
+                        else if (IsGIF(fmt))
                         {
                             image.GifDisposeMethod = GifDisposeMethod.Background;
                             image.VirtualPixelMethod = VirtualPixelMethod.Transparent;
                         }
-                        else if (fmt == MagickFormat.WebP || fmt == MagickFormat.WebM)
+                        else if (IsBMP(fmt) || IsWEBP(fmt))
                         {
                             image.VirtualPixelMethod = VirtualPixelMethod.Transparent;
                         }
                     }
                     if (IsTIF(fmt))
                     {
-                        image.SetCompression(CompressionMethod.Zip);
-                        image.Settings.Compression = CompressionMethod.Zip;
+                        image.SetCompression(compress ?? CompressionMethod.Zip);
+                        image.Settings.Compression = compress ?? CompressionMethod.Zip;
                     }
                     else if (IsJPG(fmt))
                     {
                         image.Settings.ColorType = image.ColorType;
                         image.Settings.ColorSpace = image.ColorSpace;
                         image.Settings.Depth = image.Depth;
-                        image.Settings.Compression = CompressionMethod.JPEG;
+                        image.Settings.Compression = compress ?? image.Settings.Compression;
+                        image.Quality = quality ?? image.Quality;
                     }
                     image.Settings.Format = fmt;
                     image.Settings.Endian = image.Endian == Endian.Undefined ? Endian.MSB : image.Endian;
@@ -3933,6 +3996,8 @@ namespace TouchMeta
                 if (bim is EightBimProfile) image.SetProfile(bim);
                 if (xmp is XmpProfile) image.SetProfile(xmp);
                 if (color is ColorProfile) image.SetProfile(color);
+
+                FixDPI(image);
             }
         }
         #endregion
@@ -3975,7 +4040,6 @@ namespace TouchMeta
                             catch (Exception ex) { Log(ex.Message); }
                         }
 
-                        FixDPI(image);
                         SetParameters(image);
                         image.Write(fi.FullName, image.Format);
                     }
@@ -4974,8 +5038,6 @@ namespace TouchMeta
                             #endregion
 
                             #region save touched image
-                            FixDPI(image);
-
                             SetParameters(image);
                             image.Write(fi.FullName, image.Format);
                             #endregion
@@ -5810,14 +5872,11 @@ namespace TouchMeta
                                         SetAttribute(image, tag_software, GetAttribute(image, $"exif:{tag_software}"));
                                     #endregion
 
-                                    FixDPI(image);
                                     SetParameters(image, fmt, ConvertQuality);
                                     image.Write(name, fmt);
 
                                     if (IsPNG(fmt) || IsTIF(fmt) || IsTIF(image.Format))
                                     {
-                                        //var meta_new = GetMetaInfo(image);
-                                        //TouchMetaAlt(name, meta: meta_new);
                                         TouchMetaAlt(name, meta: meta);
                                     }
 
@@ -6013,8 +6072,7 @@ namespace TouchMeta
                         {
                             using (var image = new MagickImage(msi))
                             {
-                                var fmt_jpg = new MagickFormat[] { MagickFormat.Jpg, MagickFormat.Jpeg, MagickFormat.Jpe };
-                                if (fmt_jpg.Contains(image.Format) && (image.Quality < quality || Math.Abs(image.Quality - quality) <= 2))
+                                if (IsJPG(image) && (image.Quality < quality || Math.Abs(image.Quality - quality) <= 2))
                                 {
                                     throw new WarningException($"Image Quality : {image.Quality} <= Reduce Quality : {quality}!");
                                 }
@@ -6061,7 +6119,6 @@ namespace TouchMeta
                                                 {
                                                     var xml = Encoding.UTF8.GetString(xmp);
                                                     image.SetProfile(new XmpProfile(xmp));
-                                                    FixDPI(image);
                                                     SetParameters(image, image.Format, quality);
                                                     image.Write(mso, image.Format);
                                                 }
