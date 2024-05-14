@@ -6598,7 +6598,7 @@ namespace TouchMeta
 
                 MetaInputPopup.StaysOpen = true;
                 MetaInputPopup.Placement = PlacementMode.Top;
-                MetaInputPopup.HorizontalOffset = MetaInputPopup.Width - ShowMetaInputPopup.ActualWidth;
+                //MetaInputPopup.HorizontalOffset = MetaInputPopup.Width - ShowMetaInputPopup.ActualWidth;
                 MetaInputPopup.VerticalOffset = -6;
 
                 MetaInputPopup.PreviewMouseDown += (obj, evt) => { Activate(); };
