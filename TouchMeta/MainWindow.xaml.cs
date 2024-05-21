@@ -8,6 +8,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -15,16 +16,17 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
-using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using System.Windows.Input;
+using System.Windows.Interop;
+using System.Windows.Shapes;
 using System.Windows.Threading;
 using System.Xml;
 
 using ImageMagick;
 using CompactExifLib;
-using System.Windows.Interop;
-using System.Runtime.InteropServices;
+
 
 namespace TouchMeta
 {
@@ -213,12 +215,12 @@ namespace TouchMeta
     public partial class MainWindow : Window
     {
         private static string AppExec = Application.ResourceAssembly.CodeBase.ToString().Replace("file:///", "").Replace("/", "\\");
-        private static string AppPath = Path.GetDirectoryName(AppExec);
-        private static string AppName = Path.GetFileNameWithoutExtension(AppExec);
+        private static string AppPath = System.IO.Path.GetDirectoryName(AppExec);
+        private static string AppName = System.IO.Path.GetFileNameWithoutExtension(AppExec);
         private static string CachePath =  "cache";
 
-        private static char[] InvalidFileNameChars = Path.GetInvalidFileNameChars();
-        private static char[] InvalidPathChars = Path.GetInvalidPathChars();
+        private static char[] InvalidFileNameChars = System.IO.Path.GetInvalidFileNameChars();
+        private static char[] InvalidPathChars = System.IO.Path.GetInvalidPathChars();
         private static char[] InvalidChars = InvalidFileNameChars.Concat(InvalidPathChars).Distinct().ToArray();
 
         private const string ImageViewer = "ImageViewer";
@@ -468,7 +470,7 @@ namespace TouchMeta
         private static bool ConfirmToAll { get; set; } = false;
         private static bool ConfirmNoToAll { get; set; } = false;
         private static bool ConfirmYesToAll { get; set; } = false;
-        private static Func<string, string, MessageBoxResult> ShowConfirmFunc = (content, caption) =>
+        private static readonly Func<string, string, MessageBoxResult> ShowConfirmFunc = (content, caption) =>
         {
             ConfirmToAll = false;
             ConfirmNoToAll = false;
@@ -742,7 +744,7 @@ namespace TouchMeta
                 foreach (var file in files)
                 {
                     //var entries = Directory.GetFileSystemEntries(Path.GetDirectoryName(Path.GetFullPath(file)), Path.GetFileName(file), SearchOption.TopDirectoryOnly);
-                    var entries = Directory.GetFileSystemEntries(Path.IsPathRooted(file) ? Path.GetDirectoryName(file) : Directory.GetCurrentDirectory(), Path.GetFileName(file), SearchOption.TopDirectoryOnly);
+                    var entries = Directory.GetFileSystemEntries(System.IO.Path.IsPathRooted(file) ? System.IO.Path.GetDirectoryName(file) : Directory.GetCurrentDirectory(), System.IO.Path.GetFileName(file), SearchOption.TopDirectoryOnly);
                     flist.AddRange(NaturlSort(entries, true));
                 }
 
@@ -829,7 +831,7 @@ namespace TouchMeta
             });
         }
 
-        private Func<ListBox, IList<string>> GetFiles = (element) =>
+        private readonly Func<ListBox, IList<string>> GetFiles = (element) =>
         {
             List<string> files = new List<string>();
             if (element is ListBox && element.Items.Count > 0)
@@ -905,6 +907,198 @@ namespace TouchMeta
         #endregion
 
         #region Text/Color Converting Helper
+        private static string[] WrapSymbol = new string[] { ";" };
+        private static Encoding GBK = Encoding.GetEncoding("GBK");
+        private static int CJKLength(string text)
+        {
+            if (text is string)
+            {
+                if (GBK is Encoding)
+                    return (GBK.GetByteCount(text));
+                else
+                    return (text.Length);
+            }
+            else return (0);
+        }
+
+        private static string CJKInsert(int startindex, string text, string insert)
+        {
+            var result = text;
+            try
+            {
+                var bytes = GBK.GetBytes(text);
+                var count_cjk = CJKLength(text.Substring(0, startindex));
+                if (count_cjk > startindex)
+                {
+                    var str = GBK.GetString(bytes, 0, startindex);
+                    if (char.IsLowSurrogate(str.Last())) 
+                        result = text.Insert(startindex - 1, insert);
+                    else
+                        result = text.Insert(startindex, insert);
+                }
+            }
+            catch(Exception ex) { Log(ex.Message); }
+            return (result);
+        }
+
+        //private static string CJKWrap(string text, int wrap_width = 64)
+        //{
+        //    var result = text;
+        //    try
+        //    {
+        //        var index = 0;
+        //        var count = wrap_width / 2;
+        //        foreach (var c in text.Skip(count))
+        //        {
+        //            if (CJKLength(text.Substring(index, count)) > wrap_width)
+        //            {
+        //                result = result.Insert(index + count, Environment.NewLine);
+        //                index += count;
+        //                count = 0;
+        //            }
+        //            else count++;                    
+        //        }
+        //    }
+        //    catch (Exception ex) { Log(ex.Message); }
+        //    return (result);
+        //}
+
+        private static string[] CJKWrap(string text, int wrap_width = 64)
+        {
+            var result = new string[] { text };
+            try
+            {
+                var value = text;
+                var index = 0;
+                var count = wrap_width / 2;
+                foreach (var c in text.Skip(count))
+                {
+                    if (CJKLength(text.Substring(index, count)) > wrap_width)
+                    {
+                        value = value.Insert(index + count, Environment.NewLine);
+                        index += count;
+                        count = 0;
+                    }
+                    else count++;
+                }
+                result = new string[] { value };
+            }
+            catch (Exception ex) { Log(ex.Message); }
+            return (result);
+        }
+
+        //private static string[] Align(string text, int padding_width, char padding = ' ', bool cutting = false, TextWrapping wrap_mode = TextWrapping.NoWrap, int wrap_width = 64, System.Windows.TextAlignment align = System.Windows.TextAlignment.Left)
+        //{
+        //    var result = new string[]{ text };
+        //    try
+        //    {
+        //        if (cutting && text.Length > wrap_width)
+        //        {
+        //            var line = $"{text.Where(c => !LineBreak.Contains($"{c}")).Take(64))} ...";
+        //        }                    
+        //        else
+        //        {
+        //            var values = text.Split(new string[] { Environment.NewLine, "\n\r", "\r\n", "\r", "\n" }.Concat(WrapSymbol).ToArray(), StringSplitOptions.None).Select(t => t.Replace("\0", string.Empty).Trim());
+        //            var lines = new List<string>(){ values.First() };
+        //            foreach (var v in values.Skip(1))
+        //            {
+        //                if (string.IsNullOrEmpty(v)) lines.Add(v);
+        //                else if (align == System.Windows.TextAlignment.Right)
+        //                    lines.Add($"{" ".PadLeft(padding_width + 2, padding)}{v}");
+        //                else
+        //                    lines.Add($"{" ".PadRight(padding_width + 2, padding)}{v}");
+        //            }
+        //            if (wrap_mode != TextWrapping.NoWrap && CJKLength(text) > wrap_width)
+        //            {
+        //                for (var i = 0; i < lines.Count; i++)
+        //                {
+        //                    if (CJKLength(lines[i]) > wrap_width)
+        //                        lines[i] = CJKWrap(lines[i]);
+        //                    //if (CJKLength(lines[i]) > wrap_width)
+        //                    //{
+        //                    //    var count = 0;
+        //                    //    var count_cjk = 0;
+        //                    //    var words = lines[i].Split();
+        //                    //    foreach (var word in words)
+        //                    //    {
+        //                    //        if (count_cjk > wrap_width) lines[i] = lines[i].Insert(count, Environment.NewLine);
+        //                    //        else lines[i] = lines[i].Insert(count, Environment.NewLine);
+        //                    //        count = word.Length + 1;
+        //                    //        count_cjk += CJKLength(word) + 1;
+        //                    //    }
+        //                    //}
+        //                }
+        //            }
+        //            result = lines.ToArray();
+        //        }
+        //    }
+        //    catch (Exception ex) { Log(ex.Message); }
+        //    return (result);
+        //}
+
+        private static string Align(string text, int padding_width, char padding = ' ', bool cutting = false, TextWrapping wrap_mode = TextWrapping.NoWrap, int wrap_width = 64, System.Windows.TextAlignment align = System.Windows.TextAlignment.Left)
+        {
+            var result = text;
+            try
+            {
+                if (cutting && text.Length > wrap_width) 
+                    result = $"{string.Join("", text.Where(c => !LineBreak.Contains($"{c}")).Take(64))} ...";
+                else
+                {
+                    var values = text.Split(new string[] { Environment.NewLine, "\n\r", "\r\n", "\r", "\n" }.Concat(WrapSymbol).ToArray(), StringSplitOptions.None).Select(t => t.Replace("\0", string.Empty).Trim());
+                    var lines = new List<string>(){ values.First() };
+                    foreach (var v in values.Skip(1))
+                    {
+                        if (string.IsNullOrEmpty(v)) lines.Add(v);
+                        else if (align == System.Windows.TextAlignment.Right)
+                            lines.Add($"{" ".PadLeft(padding_width + 2, padding)}{v}");
+                        else
+                            lines.Add($"{" ".PadRight(padding_width + 2, padding)}{v}");
+                    }
+                    if (wrap_mode != TextWrapping.NoWrap && CJKLength(text) > wrap_width)
+                    {
+                        for (var i = 0; i < lines.Count; i++)
+                        {
+                            if (CJKLength(lines[i]) > wrap_width)
+                                lines[i] = string.Join(Environment.NewLine, CJKWrap(lines[i]));
+                            //if (CJKLength(lines[i]) > wrap_width)
+                            //{
+                            //    var count = 0;
+                            //    var count_cjk = 0;
+                            //    var words = lines[i].Split();
+                            //    foreach (var word in words)
+                            //    {
+                            //        if (count_cjk > wrap_width) lines[i] = lines[i].Insert(count, Environment.NewLine);
+                            //        else lines[i] = lines[i].Insert(count, Environment.NewLine);
+                            //        count = word.Length + 1;
+                            //        count_cjk += CJKLength(word) + 1;
+                            //    }
+                            //}
+                        }
+                    }
+                    result = string.Join(Environment.NewLine, lines);
+                }
+            }
+            catch(Exception ex) { Log(ex.Message); }
+            return (result);
+        }
+
+        private static string Align(IEnumerable<string> lines, int padding_width, char padding = ' ', bool cutting = false, TextWrapping wrap_mode = TextWrapping.NoWrap, int wrap_width = 64, System.Windows.TextAlignment align = System.Windows.TextAlignment.Left)
+        {
+            var result = string.Join(Environment.NewLine, lines);
+            try
+            {
+                var lines_new = new List<string>();
+                foreach(var line in lines)
+                {
+                    lines_new.Add(Align(line, padding_width, padding, cutting, wrap_mode, wrap_width, align));
+                }
+                result = string.Join(Environment.NewLine, lines_new);
+            }
+            catch (Exception ex) { Log(ex.Message); }
+            return (result);
+        }
+
         private static int RatingToRanking(int rating)
         {
             var ranking = 0;
@@ -1372,7 +1566,7 @@ namespace TouchMeta
         {
             if (meta is MetaInfo && fi is FileInfo)
             {
-                var title = meta is MetaInfo ? meta.Title ?? Path.GetFileNameWithoutExtension(fi.Name) : Path.GetFileNameWithoutExtension(fi.Name);
+                var title = meta is MetaInfo ? meta.Title ?? System.IO.Path.GetFileNameWithoutExtension(fi.Name) : System.IO.Path.GetFileNameWithoutExtension(fi.Name);
                 var subject = meta is MetaInfo ? meta.Subject : title;
                 var authors = meta is MetaInfo ? meta.Authors : string.Empty;
                 var copyrights = meta is MetaInfo ? meta.Copyrights : authors;
@@ -2244,7 +2438,7 @@ namespace TouchMeta
             try
             {
                 var file = text;
-                if (is_file) text = Path.GetFileNameWithoutExtension(text);
+                if (is_file) text = System.IO.Path.GetFileNameWithoutExtension(text);
                 var trim_chars = new char[] { '_', '.', ' ' };
                 DateTime dt;
                 //‎2022‎年‎02‎月‎04‎日，‏‎16:49:26
@@ -2371,6 +2565,8 @@ namespace TouchMeta
                                         result = BytesToString(tag_value.GetValue() as byte[], true, is_msb);
                                     else if (tag_value.Tag == ImageMagick.ExifTag.GPSProcessingMethod || tag_value.Tag == ImageMagick.ExifTag.MakerNote)
                                         result = Encoding.UTF8.GetString(tag_value.GetValue() as byte[]).TrimEnd('\0').Trim();
+                                    else if (tag_value.Tag == ImageMagick.ExifTag.UserComment)
+                                        result = BytesToUnicode(result, msb: image.Endian == Endian.MSB, offset: 8);
                                     else
                                         result = BytesToString(tag_value.GetValue() as byte[], false, is_msb);
                                 }
@@ -2460,7 +2656,7 @@ namespace TouchMeta
                             }
                             else if (tag_type == typeof(byte[]) && value is string)
                             {
-                                byte[] v = !IsWinXP && image.Endian == Endian.MSB ? Encoding.BigEndianUnicode.GetBytes(value) : Encoding.Unicode.GetBytes(value);
+                                byte[] v = !IsWinXP && image.Endian == Endian.MSB && !IsJPG(image) ? Encoding.BigEndianUnicode.GetBytes(value) : Encoding.Unicode.GetBytes(value);
                                 if (tag_name.Equals("UserComment")) v = Encoding.ASCII.GetBytes("UNICODE\0").Concat(v).ToArray();
                                 else if (tag_name.Equals("ExifVersion")) v = Encoding.UTF8.GetBytes(value);
                                 exif.SetValue(tag_property.GetValue(exif), v);
@@ -2933,7 +3129,7 @@ namespace TouchMeta
                     var meta = GetMetaInfo(file);
                     meta.TouchProfiles = false;
 
-                    var filename = using_filename ? Path.GetFileNameWithoutExtension(file) : string.Empty;
+                    var filename = using_filename ? System.IO.Path.GetFileNameWithoutExtension(file) : string.Empty;
 
                     if (type == ChangePropertyType.Smart)
                     {
@@ -4077,7 +4273,7 @@ namespace TouchMeta
                     {
                         if (image.FormatInfo.IsReadable && image.FormatInfo.IsWritable)
                         {
-                            var title = meta is MetaInfo ? meta.Title ?? Path.GetFileNameWithoutExtension(fi.Name) : Path.GetFileNameWithoutExtension(fi.Name);
+                            var title = meta is MetaInfo ? meta.Title ?? System.IO.Path.GetFileNameWithoutExtension(fi.Name) : System.IO.Path.GetFileNameWithoutExtension(fi.Name);
                             var subject = meta is MetaInfo ? meta.Subject : title;
                             var authors = meta is MetaInfo ? meta.Authors : string.Empty;
                             var copyrights = meta is MetaInfo ? meta.Copyrights : authors;
@@ -5595,7 +5791,8 @@ namespace TouchMeta
                                             var b = $"[{image.ChromaBluePrimary.X:F5},{image.ChromaBluePrimary.Y:F5},{image.ChromaBluePrimary.Z:F5}]";
                                             value = $"R:{cr.ToString()}, G:{cg.ToString()}, B:{cb.ToString()}{Environment.NewLine}XYZ-R: {r}{Environment.NewLine}XYZ-G: {g}{Environment.NewLine}XYZ-B: {b}";
                                         }
-                                        var values = value.Split(new string[] { Environment.NewLine }, StringSplitOptions.RemoveEmptyEntries).Select(t => t.Replace("\0", string.Empty).Trim());
+                                        //var values = value.Split(new string[] { Environment.NewLine }, StringSplitOptions.RemoveEmptyEntries).Select(t => t.Replace("\0", string.Empty).Trim());
+                                        var values = value.Split(new string[] { Environment.NewLine, "\n\r", "\r\n", "\r", "\n" }, StringSplitOptions.None).Select(t => t.Replace("\0", string.Empty).Trim());
                                         if (attr.Equals("exif:ExtensibleMetadataPlatform", StringComparison.CurrentCultureIgnoreCase) && !show_xmp)
                                         {
                                             var text = $"{attr.PadRight(cw)}= { string.Join("", values.FirstOrDefault().Where(c => !LineBreak.Contains($"{c}")).Take(64)) } ...";
@@ -5608,9 +5805,11 @@ namespace TouchMeta
                                             Log(text);
                                             continue;
                                         }
+                                        //var line = $"{attr.PadRight(cw)}= {Align(values.Count() <= 1 ? CJKWrap(values.FirstOrDefault()) : values, cw, wrap_mode: TextWrapping.Wrap, wrap_width: 64)}";
+                                        //Log(line);
                                         foreach (var v in values)
                                         {
-                                            if (v.Length > 64) value = $"{string.Join("", v.Where(c => !LineBreak.Contains($"{c}")).Take(64))} ...";
+                                            //if (v.Length > 64) value = $"{string.Join("", v.Where(c => !LineBreak.Contains($"{c}")).Take(64))} ...";
                                             var text = v.Equals(values.First()) ? $"{attr.PadRight(cw)}= { v }" : $"{" ".PadRight(cw+2)}{ v }";
                                             Log(text);
                                         }
@@ -5687,7 +5886,7 @@ namespace TouchMeta
                                             else if (child.Name.Equals("tiff:DateTime", StringComparison.CurrentCultureIgnoreCase))
                                                 Log($"{"    tiff:DateTime".PadRight(cw)}= {child.InnerText}");
                                             else
-                                                Log($"{$"    {child.Name}".PadRight(cw)}= {child.InnerText}");
+                                                Log($"{$"    {child.Name}".PadRight(cw)}= {Align(child.InnerText, cw)}");
                                         }
                                     }
                                     if (show_xmp) Log($"{"  XML Contents".PadRight(cw)}= {FormatXML(xml, xmp_merge_nodes)}");
@@ -5862,7 +6061,7 @@ namespace TouchMeta
 
                                     var fmt_info = MagickNET.SupportedFormats.Where(f => f.Format == fmt).FirstOrDefault();
                                     var ext = fmt_info is MagickFormatInfo ? fmt_info.Format.ToString() : fmt.ToString();
-                                    var name = keep_name ? fi.FullName : Path.ChangeExtension(fi.FullName, $".{ext.ToLower()}");
+                                    var name = keep_name ? fi.FullName : System.IO.Path.ChangeExtension(fi.FullName, $".{ext.ToLower()}");
 
                                     #region touch software
                                     var tag_software = "Software";
@@ -6010,7 +6209,7 @@ namespace TouchMeta
                     var dm = fi.LastWriteTime;
                     var da = fi.LastAccessTime;
 
-                    var fout = keep_name ? file : Path.ChangeExtension(file, $".{fmt}");
+                    var fout = keep_name ? file : System.IO.Path.ChangeExtension(file, $".{fmt}");
 
                     var bi = File.ReadAllBytes(file);
                     using (var msi = new MemoryStream(bi))
@@ -6530,7 +6729,7 @@ namespace TouchMeta
         {
             try
             {
-                var magick_cache = Path.IsPathRooted(CachePath) ? CachePath : Path.Combine(AppPath, CachePath);
+                var magick_cache = System.IO.Path.IsPathRooted(CachePath) ? CachePath : System.IO.Path.Combine(AppPath, CachePath);
                 //if (!Directory.Exists(magick_cache)) Directory.CreateDirectory(magick_cache);
                 //if (Directory.Exists(magick_cache)) MagickAnyCPU.CacheDirectory = magick_cache;
                 if (Directory.Exists(magick_cache)) MagickNET.SetNativeLibraryDirectory(magick_cache);
@@ -6724,7 +6923,7 @@ namespace TouchMeta
             var viewer = GetConfigValue(ImageViewer);
             RunBgWorker(new Action<string, bool>((file, show_xmp) =>
             {
-                var is_img = exts_image.Contains(Path.GetExtension(file).ToLower());
+                var is_img = exts_image.Contains(System.IO.Path.GetExtension(file).ToLower());
                 if (alt)
                     Process.Start("OpenWith.exe", file);
                 else if (string.IsNullOrEmpty(viewer) || !is_img || use_default)
@@ -6739,7 +6938,7 @@ namespace TouchMeta
             if (FilesList.SelectedItem != null)
             {
                 var file = FilesList.SelectedItem as string;
-                var filename = Path.GetFileName(file);
+                var filename = System.IO.Path.GetFileName(file);
 #if DEBUG
                 var ret = ShowCustomForm(FileRenameInputPopupCanvas, filename);
                 if (!ret.Equals(filename, StringComparison.CurrentCultureIgnoreCase))
@@ -6759,10 +6958,10 @@ namespace TouchMeta
         {
             if (File.Exists(file))
             {
-                var folder = Path.GetDirectoryName(file);
+                var folder = System.IO.Path.GetDirectoryName(file);
                 var fi = new FileInfo(file);
                 var fn_new = name.Trim();
-                if (!Path.IsPathRooted(fn_new)) fn_new = Path.GetFullPath(Path.Combine(fi.DirectoryName, fn_new));
+                if (!System.IO.Path.IsPathRooted(fn_new)) fn_new = System.IO.Path.GetFullPath(System.IO.Path.Combine(fi.DirectoryName, fn_new));
                 fi.MoveTo(fn_new);
                 var idx = FilesList.Items.IndexOf(file);
                 if (idx >= 0) FilesList.Items[idx] = fn_new;
@@ -7271,7 +7470,7 @@ namespace TouchMeta
                 {
                     var dt = File.GetLastWriteTime(file);
                     var meta = new MetaInfo() { DateCreated = dt, DateModified = dt, DateAccesed = dt };
-                    TouchFolder(Path.GetDirectoryName(file), force: force, meta: meta);
+                    TouchFolder(System.IO.Path.GetDirectoryName(file), force: force, meta: meta);
                 }));
                 #endregion
             }
@@ -8069,7 +8268,7 @@ namespace TouchMeta
                 {
                     foreach (var template in templates.OrderBy(t => t))
                     {
-                        var item = new MenuItem() { Header = Path.GetFileNameWithoutExtension(template).Replace($"{AppName}_Template_", ""), Tag = template };
+                        var item = new MenuItem() { Header = System.IO.Path.GetFileNameWithoutExtension(template).Replace($"{AppName}_Template_", ""), Tag = template };
                         item.Click += TemplateItem_Click;
                         menu.Items.Add(item);
                     }
@@ -8090,7 +8289,7 @@ namespace TouchMeta
             if (parent is MenuItem && !string.IsNullOrEmpty(item))
             {
                 var menu = parent as MenuItem;
-                var file = Path.ChangeExtension(Path.Combine(AppPath, $"{AppName}_Template_{item}"), ".xml");
+                var file = System.IO.Path.ChangeExtension(System.IO.Path.Combine(AppPath, $"{AppName}_Template_{item}"), ".xml");
                 if (File.Exists(file))
                 {
                     if (menu == TemplateLoad)
@@ -8151,7 +8350,7 @@ namespace TouchMeta
             var xml = sb_xml.ToString();
 
             var fn = string.IsNullOrEmpty(meta.Subject) ? $"Unnamed-{DateTime.Now.ToString("yyyyMMddHHmmss")}" : meta.Subject;
-            var file = Path.Combine(AppPath, $"{AppName}_Template_{fn}.xml");
+            var file = System.IO.Path.Combine(AppPath, $"{AppName}_Template_{fn}.xml");
             File.WriteAllText(file, xml);
             log.Add($"Load Metadata Template {meta.Subject} Successed!");
         }
