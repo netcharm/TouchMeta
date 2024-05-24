@@ -241,7 +241,7 @@ namespace TouchMeta
 
         private string DefaultTitle = null;
         private static string[] LineBreak = new string[] { Environment.NewLine, "\r\n", "\n\r", "\n", "\r" };
-        private List<string> exts_image = new List<string>();
+        private readonly List<string> exts_image = new List<string>();
 
         //private static string Symbol_Rating_Star_Empty = "\uE8D9";
         private static string Symbol_Rating_Star_Outline = "\uE1CE";
@@ -805,6 +805,7 @@ namespace TouchMeta
                         info.Add($"Modified Time : {fi.LastWriteTime.ToString()} => {DateModified.SelectedDate}");
                         info.Add($"Accessed Time : {fi.LastAccessTime.ToString()} => {DateAccessed.SelectedDate}");
                         FileTimeInfo.Text = string.Join(Environment.NewLine, info);
+                        FileTimeInfo.ToolTip = $"File Size: {fi.Length} Bytes / {SmartFileSize(fi.Length)}";
                     }
                     else if (Directory.Exists(file))
                     {
@@ -815,6 +816,7 @@ namespace TouchMeta
                         info.Add($"Modified Time : {fi.LastWriteTime.ToString()} => {DateModified.SelectedDate}");
                         info.Add($"Accessed Time : {fi.LastAccessTime.ToString()} => {DateAccessed.SelectedDate}");
                         FileTimeInfo.Text = string.Join(Environment.NewLine, info);
+                        FileTimeInfo.ToolTip = string.Empty;
                     }
                 }
                 catch (Exception ex) { ShowMessage(ex.Message, "ERROR"); }
@@ -857,21 +859,29 @@ namespace TouchMeta
             return (files);
         }
 
-        private void FilesFromClipboard()
+        private void FilesFromDataObject(DataObject data = null)
         {
             try
             {
+                if (data == null) MessageBox.Show("DataObject is NULL");
+                if (data == null) data = Clipboard.GetDataObject() as DataObject;
                 var ctrl = Keyboard.Modifiers == ModifierKeys.Control;
                 string[] files = new string[] { };
-                if (Clipboard.ContainsFileDropList())
+                var fmts = data.GetFormats(true);
+                if (fmts.Contains("Downloaded"))
                 {
-                    var flist = Clipboard.GetFileDropList();
+                    var flist = data.GetData("Downloaded", true);
+                    files = GetDropedFiles(files).ToArray();
+                }
+                else if (data.ContainsFileDropList())
+                {
+                    var flist = data.GetFileDropList();
                     files = new string[flist.Count];
                     flist.CopyTo(files, 0);
                 }
-                else if (Clipboard.ContainsText())
+                else if (data.ContainsText())
                 {
-                    files = Clipboard.GetText().Split().Select(f => f.Trim('"')).Where(f => !string.IsNullOrEmpty(f)).ToArray();
+                    files = data.GetText().Split(LineBreak, StringSplitOptions.RemoveEmptyEntries).Select(f => f.Trim('"')).Where(f => !string.IsNullOrEmpty(f)).ToArray();
                     files = files.Where(f => InvalidPathChars.Count(c => f.Contains(c)) <= 0).ToArray();
                 }
 
@@ -7062,7 +7072,7 @@ namespace TouchMeta
 
             var args = Environment.GetCommandLineArgs().Skip(1);
             if (args.Count() == 1 && args.First().Equals(_ClipboardName_, StringComparison.CurrentCultureIgnoreCase))
-                FilesFromClipboard();
+                FilesFromDataObject();
             else
                 LoadFiles(GetDropedFiles(args), with_folder: Keyboard.Modifiers == ModifierKeys.Control);
 
@@ -7115,37 +7125,11 @@ namespace TouchMeta
 
         private void Window_Drop(object sender, DragEventArgs e)
         {
-            var ctrl = Keyboard.Modifiers == ModifierKeys.Control;
-            var fmts = e.Data.GetFormats(true);
-            if (fmts.Contains("Downloaded"))
+            try
             {
-                Dispatcher.InvokeAsync(() =>
-                {
-                    var files = e.Data.GetData("Downloaded");
-                    var dl = GetDropedFiles(files);
-                    if (dl.Count() > 0) LoadFiles(dl, with_folder: ctrl);
-                });
+                FilesFromDataObject(e.Data as DataObject);
             }
-            else if (fmts.Contains("FileDrop"))
-            {
-                Dispatcher.InvokeAsync(() =>
-                {
-                    var files = e.Data.GetData("FileDrop");
-                    var dl = GetDropedFiles(files);
-                    if (dl.Count() > 0) LoadFiles(dl, with_folder: ctrl);
-                });
-            }
-            else if (fmts.Contains("Text"))
-            {
-                Dispatcher.InvokeAsync(() =>
-                {
-                    var files = (e.Data.GetData("Text") as string).Split();
-                    if (files is IEnumerable<string> && files.Count() > 0)
-                    {
-                        LoadFiles((files as IEnumerable<string>).ToArray(), with_folder: ctrl);
-                    }
-                });
-            }
+            catch(Exception ex) { Log(ex.Message); }
         }
 
         private void ClipboardStringContent_Paste(object sender, DataObjectPastingEventArgs e)
@@ -8014,7 +7998,7 @@ namespace TouchMeta
             else if (sender == AddFromClipboard)
             {
                 #region Add Files From Clipboard
-                FilesFromClipboard();
+                FilesFromDataObject();
                 #endregion
             }
             else if (sender == CopyToClipboard)
