@@ -863,7 +863,6 @@ namespace TouchMeta
         {
             try
             {
-                if (data == null) MessageBox.Show("DataObject is NULL");
                 if (data == null) data = Clipboard.GetDataObject() as DataObject;
                 var ctrl = Keyboard.Modifiers == ModifierKeys.Control;
                 string[] files = new string[] { };
