@@ -26,6 +26,7 @@ using System.Xml;
 
 using ImageMagick;
 using CompactExifLib;
+using System.Xml.Linq;
 
 
 namespace TouchMeta
@@ -4980,14 +4981,28 @@ namespace TouchMeta
                                         all_elements.AddRange(Consts.tag_subject);
                                         all_elements.AddRange(Consts.tag_title);
                                         all_elements.AddRange(Consts.tag_software);
+                                        var xdoc = XDocument.Parse(xml_doc.OuterXml);
+                                        var rdf_descriptions = xml_doc.GetElementsByTagName("rdf:Description");
                                         foreach (var element in all_elements.Distinct())
                                         {
                                             var nodes = xml_doc.GetElementsByTagName(element);
+                                            //var elements = xdoc.Descendants(element);
+                                            var has_element = nodes.Count > 0;
                                             if (nodes.Count > 1)
                                             {
                                                 for (var i = 1; i < nodes.Count; i++)
                                                 {
                                                     nodes[i].ParentNode.RemoveChild(nodes[i]);
+                                                }
+                                            }
+                                            foreach(XmlNode desc in rdf_descriptions.Cast<XmlNode>().ToList())
+                                            {
+                                                if (desc.Attributes.Count > 0)
+                                                {
+                                                    foreach (XmlAttribute attr in desc.Attributes.Cast<XmlAttribute>().Where(a => a.Name.Equals(element, StringComparison.CurrentCultureIgnoreCase)).ToList())
+                                                    {
+                                                        if (has_element) desc.Attributes.Remove(attr);
+                                                    }
                                                 }
                                             }
                                         }
@@ -5121,7 +5136,7 @@ namespace TouchMeta
                                                 else if (child.Name.Equals("tiff:DateTime", StringComparison.CurrentCultureIgnoreCase))
                                                     child.InnerText = dm_ms;
 
-                                                if (Consts.tag_date.Contains(node.Name, StringComparer.CurrentCultureIgnoreCase))
+                                                if (Consts.tag_date.Contains(child.Name, StringComparer.CurrentCultureIgnoreCase))
                                                 {
                                                     if (nodes.Count(n => n.Name.Equals(child.Name, StringComparison.CurrentCultureIgnoreCase)) > 0) node.RemoveChild(child);
                                                     else nodes.Add(child);
