@@ -4000,12 +4000,13 @@ namespace TouchMeta
             MetaInfo result = meta is MetaInfo ? meta : new MetaInfo();
             if (!string.IsNullOrEmpty(json))
             {
-                var lines = json.Split(LineBreak, StringSplitOptions.RemoveEmptyEntries);
-                var lkvs = lines.Select(l => l.Split(new char[] { ':' }, StringSplitOptions.RemoveEmptyEntries));
-                var kvs = lkvs.Select(l => new KeyValuePair<string, string>(l[0].ToLower(), l[1]));
+                json = Regex.Replace(json, @"(\n\r|\r\n|\n|\r)", "\\n", RegexOptions.IgnoreCase); 
+                json = Regex.Replace(json, @"([\{\[,\}\]])(\n\r|\r\n|\n|\r|\\n)", $"$1{Environment.NewLine}", RegexOptions.IgnoreCase);
+                json = Regex.Replace(json, @"(("")?(True|False)("")?)", "\"$3\"", RegexOptions.IgnoreCase);
+                var kvs = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(json, new System.Text.Json.JsonSerializerOptions(){ AllowTrailingCommas = true });
                 foreach (var kv in kvs)
                 {
-                    if (kv.Key.Equals("date"))
+                    if (kv.Key.Equals("date", StringComparison.CurrentCultureIgnoreCase))
                     {
                         DateTime dt = result.DateAcquired ?? result.DateTaken ?? result.DateModified ?? result.DateCreated ?? result.DateAccesed ?? DateTime.Now;
                         if (DateTime.TryParse(kv.Value, out dt))
@@ -4018,12 +4019,68 @@ namespace TouchMeta
                             result.DateTaken = dt;
                         }
                     }
-                    else if(kv.Key.Equals("id"))
+                    else if(kv.Key.Equals("id", StringComparison.CurrentCultureIgnoreCase))
                     {
-
+                        result.Subject = kv.Value;
+                    }
+                    else if (kv.Key.Equals("title", StringComparison.CurrentCultureIgnoreCase))
+                    {
+                        result.Title = kv.Value;
+                    }
+                    else if (kv.Key.Equals("subject", StringComparison.CurrentCultureIgnoreCase))
+                    {
+                        result.Subject = kv.Value;
+                    }
+                    else if (kv.Key.Equals("description", StringComparison.CurrentCultureIgnoreCase))
+                    {
+                        result.Comment = kv.Value;
+                    }
+                    else if (kv.Key.Equals("comment", StringComparison.CurrentCultureIgnoreCase))
+                    {
+                        result.Comment = kv.Value;
+                    }
+                    else if (kv.Key.Equals("comments", StringComparison.CurrentCultureIgnoreCase))
+                    {
+                        result.Comment = kv.Value;
+                    }
+                    else if (kv.Key.Equals("tags", StringComparison.CurrentCultureIgnoreCase))
+                    {
+                        result.Keywords = kv.Value;
+                    }
+                    else if (kv.Key.Equals("keywords", StringComparison.CurrentCultureIgnoreCase))
+                    {
+                        result.Keywords = kv.Value;
+                    }
+                    else if (kv.Key.Equals("user", StringComparison.CurrentCultureIgnoreCase))
+                    {
+                        result.Authors = kv.Value;
+                    }
+                    else if (kv.Key.Equals("author", StringComparison.CurrentCultureIgnoreCase))
+                    {
+                        result.Authors = kv.Value;
+                    }
+                    else if (kv.Key.Equals("copyright", StringComparison.CurrentCultureIgnoreCase))
+                    {
+                        result.Copyrights = kv.Value;
+                    }
+                    else if (kv.Key.Equals("copyrights", StringComparison.CurrentCultureIgnoreCase))
+                    {
+                        result.Copyrights = kv.Value;
+                    }
+                    else if (kv.Key.Equals("favorited", StringComparison.CurrentCultureIgnoreCase))
+                    {
+                        var faved = false;
+                        if (bool.TryParse(kv.Value, out faved)) 
+                        {
+                            result.Rating = faved ? 4 : 0;
+                            result.RatingPercent = faved ? 75 : 0;
+                        }
+                    }
+                    else if (kv.Key.Equals("software", StringComparison.CurrentCultureIgnoreCase))
+                    {
+                        result.Software = kv.Value;
                     }
                 }
-                //var date = kvs.Count(kv => kv.Key.Equals("date")) > 0 ? kvs.First(kv => kv.Key.Equals("date")).Value : string.Empty;
             }
             return (result);
         }
@@ -4065,9 +4122,8 @@ namespace TouchMeta
                         else if (new string[] { "PixivIllustJson", "PixivIllustJSON", "JSON", "Text" }.Contains(fmt) && dp.GetDataPresent(fmt, true))
                         {
                             var json = dp.GetData(fmt, true);
-
+                            result = JsonToMeta(json.ToString());
                             log.Add($"{fmt.PadRight(16)} : Get Metadata Successed!");
-                            //break;
                         }
                     }
                     catch (Exception ex) { log.Add($"{fmt.PadRight(16)} : {ex.Message}"); }
