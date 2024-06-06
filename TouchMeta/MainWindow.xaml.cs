@@ -1196,6 +1196,13 @@ namespace TouchMeta
                         {
                             result = Encoding.Default.GetString(bytes.Skip(8).ToArray());
                         }
+                        else
+                        {
+                            if (msb)
+                                result = Encoding.BigEndianUnicode.GetString(bytes);
+                            else
+                                result = Encoding.Unicode.GetString(bytes);
+                        }
                     }
 
                     if (string.IsNullOrEmpty(result))
@@ -1232,31 +1239,6 @@ namespace TouchMeta
             var result = text;
             if (!string.IsNullOrEmpty(text))
             {
-                //List<byte> bytes = new List<byte>();
-                //foreach (Match m in Regex.Matches($"{text},", @"(0x[0-9,a-f]{1,2}|\d{1,3}),"))
-                //{
-                //    var value = m.Groups[1].Value;
-                //    if (string.IsNullOrEmpty(value)) continue;
-                //    if (value.StartsWith("0x", StringComparison.CurrentCultureIgnoreCase))
-                //    {
-                //        var v = value.Substring(2);
-                //        if (v.Length <= 0 || v.Length > 2) continue;
-                //        bytes.Add(byte.Parse(v, NumberStyles.HexNumber));
-                //    }
-                //    else bytes.Add(byte.Parse(value));
-                //    //var values = m.Groups[1].Value.Split(',').Where(s => !string.IsNullOrEmpty(s)).Select(s => s.Trim()).ToList();
-                //    //foreach (var value in values)
-                //    //{
-                //    //    if (string.IsNullOrEmpty(value)) continue;
-                //    //    if (value.StartsWith("0x", StringComparison.CurrentCultureIgnoreCase))
-                //    //    {
-                //    //        var v = value.Substring(2);
-                //    //        if (v.Length <= 0 || v.Length > 2) continue;
-                //    //        bytes.Add(byte.Parse(v, NumberStyles.HexNumber));
-                //    //    }
-                //    //    else bytes.Add(byte.Parse(value));
-                //    //}
-                //}
                 var bytes = ByteStringToBytes(text, msb);
                 if (bytes.Length > offset) result = msb ? Encoding.BigEndianUnicode.GetString(bytes.Skip(offset).ToArray()) : Encoding.Unicode.GetString(bytes.Skip(offset).ToArray());
             }
@@ -2226,42 +2208,48 @@ namespace TouchMeta
             }
         }
 
-        public static MagickFormatInfo GetFormatInfo(MagickFormat format)
+        public static IMagickFormatInfo GetFormatInfo(MagickImage image)
+        {
+            try { return (MagickFormatInfo.Create(image.Format)); }
+            catch { return (MagickFormatInfo.Create(MagickFormat.Unknown)); }
+        }
+
+        public static IMagickFormatInfo GetFormatInfo(MagickFormat format)
         {
             try { return (MagickFormatInfo.Create(format)); }
             catch { return (MagickFormatInfo.Create(MagickFormat.Unknown)); }
         }
 
         public static bool IsValidRead(MagickImage image)
-        {
-            return (image is MagickImage && image.FormatInfo.IsReadable);
+        {         
+            return (image is MagickImage && MagickFormatInfo.Create(image.Format).SupportsReading);
         }
 
         public static bool IsValidRead(MagickFormat format)
         {
-            try { return (MagickFormatInfo.Create(format).IsReadable); }
+            try { return (MagickFormatInfo.Create(format).SupportsReading); }
             catch { return (false); }
         }
 
         public static bool IsValidRead(MagickFormatInfo formatinfo)
         {
-            return (formatinfo is MagickFormatInfo && formatinfo.IsReadable);
+            return (formatinfo is MagickFormatInfo && formatinfo.SupportsReading);
         }
 
         public static bool IsValidWrite(MagickImage image)
         {
-            return (image is MagickImage && image.FormatInfo.IsWritable);
+            return (image is MagickImage && MagickFormatInfo.Create(image.Format).SupportsWriting);
         }
 
         public static bool IsValidWrite(MagickFormat format)
         {
-            try { return (MagickFormatInfo.Create(format).IsWritable); }
+            try { return (MagickFormatInfo.Create(format).SupportsWriting); }
             catch { return (false); }
         }
 
         public static bool IsValidWrite(MagickFormatInfo formatinfo)
         {
-            return (formatinfo is MagickFormatInfo && formatinfo.IsWritable);
+            return (formatinfo is MagickFormatInfo && formatinfo.SupportsWriting);
         }
 
         public static bool IsGIF(MagickFormat format)
@@ -2277,7 +2265,7 @@ namespace TouchMeta
             var result = false;
             if (image is MagickImage)
             {
-                result = IsGIF(image.Format) || image.FormatInfo.MimeType.Equals("image/gif", StringComparison.CurrentCultureIgnoreCase) || image.Format.ToString().StartsWith("png") || image.Format.ToString().EndsWith("png");
+                result = IsGIF(image.Format) || GetFormatInfo(image).MimeType.Equals("image/gif", StringComparison.CurrentCultureIgnoreCase) || image.Format.ToString().StartsWith("png") || image.Format.ToString().EndsWith("png");
             }
             return (result);
         }
@@ -2295,7 +2283,7 @@ namespace TouchMeta
             var result = false;
             if (image is MagickImage)
             {
-                result = IsPNG(image.Format) || image.FormatInfo.MimeType.Equals("image/png", StringComparison.CurrentCultureIgnoreCase) || image.Format.ToString().StartsWith("png") || image.Format.ToString().EndsWith("png");
+                result = IsPNG(image.Format) || GetFormatInfo(image).MimeType.Equals("image/png", StringComparison.CurrentCultureIgnoreCase) || image.Format.ToString().StartsWith("png") || image.Format.ToString().EndsWith("png");
             }
             return (result);
         }
@@ -2313,7 +2301,7 @@ namespace TouchMeta
             var result = false;
             if (image is MagickImage)
             {
-                result = IsJPG(image.Format) || image.FormatInfo.MimeType.Equals("image/jpeg", StringComparison.CurrentCultureIgnoreCase) || image.Format.ToString().StartsWith("jp");
+                result = IsJPG(image.Format) || GetFormatInfo(image).MimeType.Equals("image/jpeg", StringComparison.CurrentCultureIgnoreCase) || image.Format.ToString().StartsWith("jp");
             }
             return (result);
         }
@@ -2331,7 +2319,7 @@ namespace TouchMeta
             var result = false;
             if (image is MagickImage)
             {
-                result = IsTIF(image.Format) || image.FormatInfo.MimeType.Equals("image/tif", StringComparison.CurrentCultureIgnoreCase) || image.Format.ToString().StartsWith("tif");
+                result = IsTIF(image.Format) || GetFormatInfo(image).MimeType.Equals("image/tif", StringComparison.CurrentCultureIgnoreCase) || image.Format.ToString().StartsWith("tif");
             }
             return (result);
         }
@@ -2349,7 +2337,7 @@ namespace TouchMeta
             var result = false;
             if (image is MagickImage)
             {
-                result = IsBMP(image.Format) || image.FormatInfo.MimeType.Equals("image/bmp", StringComparison.CurrentCultureIgnoreCase) || image.Format.ToString().StartsWith("png") || image.Format.ToString().EndsWith("png");
+                result = IsBMP(image.Format) || GetFormatInfo(image).MimeType.Equals("image/bmp", StringComparison.CurrentCultureIgnoreCase) || image.Format.ToString().StartsWith("png") || image.Format.ToString().EndsWith("png");
             }
             return (result);
         }
@@ -2367,7 +2355,7 @@ namespace TouchMeta
             var result = false;
             if (image is MagickImage)
             {
-                result = IsBMP23(image.Format) || image.FormatInfo.MimeType.Equals("image/bmp", StringComparison.CurrentCultureIgnoreCase) || image.Format.ToString().StartsWith("png") || image.Format.ToString().EndsWith("png");
+                result = IsBMP23(image.Format) || GetFormatInfo(image).MimeType.Equals("image/bmp", StringComparison.CurrentCultureIgnoreCase) || image.Format.ToString().StartsWith("png") || image.Format.ToString().EndsWith("png");
             }
             return (result);
         }
@@ -2385,7 +2373,7 @@ namespace TouchMeta
             var result = false;
             if (image is MagickImage)
             {
-                result = IsHEIC(image.Format) || image.FormatInfo.MimeType.Equals("image/heic", StringComparison.CurrentCultureIgnoreCase) || image.Format.ToString().StartsWith("hei");
+                result = IsHEIC(image.Format) || GetFormatInfo(image).MimeType.Equals("image/heic", StringComparison.CurrentCultureIgnoreCase) || image.Format.ToString().StartsWith("hei");
             }
             return (result);
         }
@@ -2403,7 +2391,7 @@ namespace TouchMeta
             var result = false;
             if (image is MagickImage)
             {
-                result = IsWEBP(image.Format) || image.FormatInfo.MimeType.Equals("image/webp", StringComparison.CurrentCultureIgnoreCase) || image.Format.ToString().StartsWith("hei");
+                result = IsWEBP(image.Format) || GetFormatInfo(image).MimeType.Equals("image/webp", StringComparison.CurrentCultureIgnoreCase) || image.Format.ToString().StartsWith("hei");
             }
             return (result);
         }
@@ -2491,7 +2479,7 @@ namespace TouchMeta
             string result = null;
             try
             {
-                if (image is MagickImage && image.FormatInfo.IsReadable)
+                if (image is MagickImage && IsValidRead(image))
                 {
                     var is_msb = image.Endian == Endian.MSB;
 
@@ -2502,7 +2490,7 @@ namespace TouchMeta
                     result = attr.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(attr)) : image.GetAttribute(attr);
                     if (attr.Contains("WinXP"))
                     {
-                        if (image.AttributeNames.Contains(attr) && image.GetAttribute(attr).Length >= 4090)
+                        //if (image.AttributeNames.Contains(attr) && image.GetAttribute(attr).Length >= 4090)
                         {
                             var tag_name = $"XP{attr.Substring(11)}";
                             dynamic tag_property = exiftag_type.GetProperty(tag_name) ?? exiftag_type.GetProperty($"{tag_name}s") ?? exiftag_type.GetProperty(tag_name.Substring(0, tag_name.Length-1));
@@ -2576,7 +2564,7 @@ namespace TouchMeta
                                     else if (tag_value.Tag == ImageMagick.ExifTag.GPSProcessingMethod || tag_value.Tag == ImageMagick.ExifTag.MakerNote)
                                         result = Encoding.UTF8.GetString(tag_value.GetValue() as byte[]).TrimEnd('\0').Trim();
                                     else if (tag_value.Tag == ImageMagick.ExifTag.UserComment)
-                                        result = BytesToUnicode(result, msb: image.Endian == Endian.MSB, offset: 8);
+                                        result = BytesToString(tag_value.GetValue() as byte[], false, is_msb);
                                     else
                                         result = BytesToString(tag_value.GetValue() as byte[], false, is_msb);
                                 }
@@ -2643,7 +2631,7 @@ namespace TouchMeta
         {
             try
             {
-                if (image is MagickImage && image.FormatInfo.IsReadable && value != null)
+                if (image is MagickImage && IsValidRead(image) && value != null)
                 {
                     var exif = image.HasProfile("exif") ? image.GetExifProfile() : new ExifProfile();
                     var iptc = image.HasProfile("iptc") ? image.GetIptcProfile() : new IptcProfile();
@@ -3497,7 +3485,7 @@ namespace TouchMeta
 
         public static void TouchProfile(MagickImage image, Dictionary<string, IImageProfile> profiles, bool force = false)
         {
-            if (force && image is MagickImage && image.FormatInfo.IsWritable && profiles is Dictionary<string, IImageProfile>)
+            if (force && image is MagickImage && IsValidWrite(image) && profiles is Dictionary<string, IImageProfile>)
             {
                 foreach (var kv in profiles)
                 {
@@ -3507,9 +3495,9 @@ namespace TouchMeta
                         var profile = kv.Value;
                         if (force || !image.HasProfile(profile_name))
                         {
-                            var old_size = image.HasProfile(profile_name) ? image.GetProfile(profile_name).GetData().Length : 0;
+                            var old_size = image.HasProfile(profile_name) ? image.GetProfile(profile_name).ToByteArray().Length : 0;
                             image.SetProfile(profile);
-                            Log($"{$"Profile {profile_name}".PadRight(32)}= {(old_size == 0 ? "NULL" : $"{old_size}")} => {profile.GetData().Length} Bytes");
+                            Log($"{$"Profile {profile_name}".PadRight(32)}= {(old_size == 0 ? "NULL" : $"{old_size}")} => {profile.ToByteArray().Length} Bytes");
                         }
                         else
                         {
@@ -3561,7 +3549,7 @@ namespace TouchMeta
 
         public static void TouchAttribute(MagickImage image, Dictionary<string, string> attrs, bool force = false)
         {
-            if (force && image is MagickImage && image.FormatInfo.IsWritable && attrs is Dictionary<string, string>)
+            if (force && image is MagickImage && IsValidWrite(image) && attrs is Dictionary<string, string>)
             {
                 foreach (var kv in attrs)
                 {
@@ -3587,7 +3575,7 @@ namespace TouchMeta
             DateTime? result = null;
             try
             {
-                if (image is MagickImage && image.FormatInfo.IsReadable)
+                if (image is MagickImage && IsValidRead(image))
                 {
                     foreach (var tag in  Consts.tag_date)
                     {
@@ -3635,7 +3623,7 @@ namespace TouchMeta
             {
                 try
                 {
-                    var xml_doc = UTF8.GetString(xmp.GetData());
+                    var xml_doc = UTF8.GetString(xmp.ToByteArray());
                     var xml = new XmlDocument();
                     xml.LoadXml(xml_doc);
                     result = GetXmpValueByTag(xml, tag);
@@ -3683,7 +3671,7 @@ namespace TouchMeta
         {
             MetaInfo result = new MetaInfo();
 
-            if (image is MagickImage && image.FormatInfo.IsReadable)
+            if (image is MagickImage && IsValidRead(image))
             {
                 #region EXIF, XMP Profiles
                 if (image.AttributeNames.Count() > 0)
@@ -3709,7 +3697,7 @@ namespace TouchMeta
                 }
                 #endregion
 
-                bool is_png = image.FormatInfo.MimeType.Equals("image/png");
+                bool is_png = GetFormatInfo(image).MimeType.Equals("image/png");
                 #region Datetime
                 result.DateAcquired = GetMetaTime(image);
                 result.DateTaken = result.DateAcquired;
@@ -3854,7 +3842,7 @@ namespace TouchMeta
                 {
                     try
                     {
-                        var xml_doc = UTF8.GetString(xmp.GetData());
+                        var xml_doc = UTF8.GetString(xmp.ToByteArray());
                         var xml = new XmlDocument();
                         xml.LoadXml(xml_doc);
                         var xmp_rating = xml.GetElementsByTagName("xmp:Rating");
@@ -4199,7 +4187,7 @@ namespace TouchMeta
                 var color = image.GetColorProfile();
                 if (xmp is XmpProfile)
                 {
-                    var xmp_doc = Encoding.UTF8.GetString(xmp.GetData());
+                    var xmp_doc = Encoding.UTF8.GetString(xmp.ToByteArray());
                     var xmp_meta = XmpCore.XmpMetaFactory.ParseFromString(xmp_doc);
                 }
                 else if(exif is ExifProfile)
@@ -4278,7 +4266,7 @@ namespace TouchMeta
 #endif
                 using (MagickImage image = new MagickImage(fi.FullName))
                 {
-                    if (image.FormatInfo.IsReadable && image.FormatInfo.IsWritable)
+                    if (IsValidRead(image) && IsValidWrite(image))
                     {
 #if DEBUG
                         if (image.Endian == Endian.Undefined) image.Endian = exifdata.ByteOrder == ExifByteOrder.BigEndian ? Endian.MSB : Endian.LSB;
@@ -4307,9 +4295,9 @@ namespace TouchMeta
                     }
                     else
                     {
-                        if (!image.FormatInfo.IsReadable)
+                        if (!IsValidRead(image))
                             Log($"File \"{file}\" is not a read supported format!");
-                        if (!image.FormatInfo.IsWritable)
+                        if (!IsValidWrite(image))
                             Log($"File \"{file}\" is not a write supported format!");
                     }
                 }
@@ -4337,7 +4325,7 @@ namespace TouchMeta
                     var exifdata = new CompactExifLib.ExifData(fi.FullName);
                     using (MagickImage image = new MagickImage(fi.FullName))
                     {
-                        if (image.FormatInfo.IsReadable && image.FormatInfo.IsWritable)
+                        if (IsValidRead(image) && IsValidWrite(image))
                         {
                             var title = meta is MetaInfo ? meta.Title ?? System.IO.Path.GetFileNameWithoutExtension(fi.Name) : System.IO.Path.GetFileNameWithoutExtension(fi.Name);
                             var subject = meta is MetaInfo ? meta.Subject : title;
@@ -4746,7 +4734,7 @@ namespace TouchMeta
                             #region Update xmp nodes
                             if (xmp != null)
                             {
-                                var xml = Encoding.UTF8.GetString(xmp.GetData());
+                                var xml = Encoding.UTF8.GetString(xmp.ToByteArray());
                                 try
                                 {
                                     // fixed: for last error code :(
@@ -5351,9 +5339,9 @@ namespace TouchMeta
                         }
                         else
                         {
-                            if (!image.FormatInfo.IsReadable)
+                            if (!IsValidRead(image))
                                 Log($"File \"{file}\" is not a read supported format!");
-                            if (!image.FormatInfo.IsWritable)
+                            if (!IsValidWrite(image))
                                 Log($"File \"{file}\" is not a write supported format!");
                         }
                     }
@@ -5482,7 +5470,7 @@ namespace TouchMeta
         {
             if (image is MagickImage)
             {
-                if (image.FormatInfo.IsReadable && image.FormatInfo.IsWritable)
+                if (IsValidRead(image) && IsValidWrite(image))
                 {
                     foreach (var tag in  Consts.tag_date)
                     {
@@ -5495,16 +5483,16 @@ namespace TouchMeta
                             image.SetAttribute(tag, dt.Value.ToString("yyyy:MM:dd HH:mm:sszzz"));
                     }
                     var meta_new = GetMetaInfo(image);
-                    var xml = image.HasProfile("xmp") ? Encoding.UTF8.GetString(image.GetXmpProfile().GetData()) : string.Empty;
+                    var xml = image.HasProfile("xmp") ? Encoding.UTF8.GetString(image.GetXmpProfile().ToByteArray()) : string.Empty;
                     xml = TouchXMP(xml, fi, meta_new);
                     image.SetProfile(new XmpProfile(Encoding.UTF8.GetBytes(xml)));
                 }
                 else
                 {
-                    if (!image.FormatInfo.IsReadable)
-                        Log($"Format \"{image.FormatInfo.MimeType}\" is not a read supported format!");
-                    if (!image.FormatInfo.IsWritable)
-                        Log($"Format \"{image.FormatInfo.MimeType}\" is not a write supported format!");
+                    if (!IsValidRead(image))
+                        Log($"Format \"{GetFormatInfo(image).MimeType}\" is not a read supported format!");
+                    if (!IsValidWrite(image))
+                        Log($"Format \"{GetFormatInfo(image).MimeType}\" is not a write supported format!");
                 }
             }
             else Log($"There is no supported encoder for the image format!");
@@ -5524,7 +5512,7 @@ namespace TouchMeta
                     var fi = new FileInfo(file);
                     using (var image = new MagickImage(fi.FullName))
                     {
-                        if (image.FormatInfo.IsReadable && image.FormatInfo.IsWritable)
+                        if (IsValidRead(image) && IsValidWrite(image))
                         {
                             var dt_old = GetMetaTime(image);
                             TouchMetaDate(image, fi, dt);
@@ -5542,9 +5530,9 @@ namespace TouchMeta
                         }
                         else
                         {
-                            if (!image.FormatInfo.IsReadable)
+                            if (!IsValidRead(image))
                                 Log($"File \"{file}\" is not a read supported format!");
-                            if (!image.FormatInfo.IsWritable)
+                            if (!IsValidWrite(image))
                                 Log($"File \"{file}\" is not a write supported format!");
                         }
                     }
@@ -5567,7 +5555,7 @@ namespace TouchMeta
                 {
                     using (var image = new MagickImage(src))
                     {
-                        if (image.FormatInfo.IsReadable && image.FormatInfo.IsWritable)
+                        if (IsValidRead(image) && IsValidWrite(image))
                         {
                             TouchMetaDate(image, fi, dt);
                             result = new MemoryStream();
@@ -5576,10 +5564,10 @@ namespace TouchMeta
                         }
                         else
                         {
-                            if (!image.FormatInfo.IsReadable)
-                                Log($"Format \"{image.FormatInfo.MimeType}\" is not a read supported format!");
-                            if (!image.FormatInfo.IsWritable)
-                                Log($"Format \"{image.FormatInfo.MimeType}\" is not a write supported format!");
+                            if (!IsValidRead(image))
+                                Log($"Format \"{GetFormatInfo(image).MimeType}\" is not a read supported format!");
+                            if (!IsValidWrite(image))
+                                Log($"Format \"{GetFormatInfo(image).MimeType}\" is not a write supported format!");
                         }
                     }
                 }
@@ -5741,7 +5729,7 @@ namespace TouchMeta
 
                         //using (MagickImage image = new MagickImage(fi.FullName))
                         //{
-                        //    if (image.FormatInfo.IsWritable)
+                        //    if (IsValidWrite(image))
                         //    {
                         //        var dm_png = dm.ToString("yyyy-MM-ddTHH:mm:ssZ");
                         //        var dm_xmp = dm.ToString("yyyy:MM:dd HH:mm:ss");
@@ -5798,7 +5786,7 @@ namespace TouchMeta
                         using (MagickImage image = new MagickImage())
                         {
                             image.Ping(ms);
-                            if (image.FormatInfo.IsReadable)
+                            if (IsValidRead(image))
                             {
                                 if (exifdata is ExifData && image.Endian == Endian.Undefined) image.Endian = exifdata.ByteOrder == ExifByteOrder.BigEndian ? Endian.MSB : Endian.LSB;
 
@@ -5828,12 +5816,12 @@ namespace TouchMeta
                                 Log($"{"HasAlpha".PadRight(cw)}= {image.HasAlpha.ToString()}");
                                 Log($"{"ColormapSize".PadRight(cw)}= {image.ColormapSize}");
                                 //Log($"{"TotalColors".PadRight(cw)}= {image.TotalColors}");
-                                Log($"{"FormatInfo".PadRight(cw)}= {image.FormatInfo.Format.ToString()}, MIME:{image.FormatInfo.MimeType}");
+                                Log($"{"FormatInfo".PadRight(cw)}= {GetFormatInfo(image).Format.ToString()}, MIME:{GetFormatInfo(image).MimeType}");
                                 Log($"{"ByteOrder".PadRight(cw)}= {(exifdata is ExifData ? exifdata.ByteOrder.ToString() : image.Endian.ToString())}");
                                 Log($"{"ClassType".PadRight(cw)}= {image.ClassType.ToString()}");
                                 //Log($"{"Geometry".PadRight(cw)}= {image.Page.ToString()}");
                                 Log($"{"Compression".PadRight(cw)}= {image.Compression.ToString()}");
-                                if (image.FormatInfo.Format.ToString().Equals("jpeg", StringComparison.CurrentCultureIgnoreCase))
+                                if (GetFormatInfo(image).Format.ToString().Equals("jpeg", StringComparison.CurrentCultureIgnoreCase))
                                     Log($"{"Quality".PadRight(cw)}= {(image.Quality == 0 ? 75 : image.Quality)}");
                                 Log($"{"Orientation".PadRight(cw)}= {image.Orientation.ToString()}");
                                 Log($"{"Filter".PadRight(cw)}= {(image.FilterType == FilterType.Undefined ? "Adaptive" : image.FilterType.ToString())}");
@@ -5862,13 +5850,13 @@ namespace TouchMeta
                                         else if (attr.Equals("png:bKGD")) value = image.BackgroundColor.ToString();
                                         else if (attr.Equals("png:cHRM"))
                                         {
-                                            var cr = XYZ2RGB(image.ChromaRedPrimary.X, image.ChromaRedPrimary.Y, image.ChromaRedPrimary.Z);
-                                            var cg = XYZ2RGB(image.ChromaGreenPrimary.X, image.ChromaGreenPrimary.Y, image.ChromaGreenPrimary.Z);
-                                            var cb = XYZ2RGB(image.ChromaBluePrimary.X, image.ChromaBluePrimary.Y, image.ChromaBluePrimary.Z);
+                                            var cr = XYZ2RGB(image.Chromaticity.Red.X, image.Chromaticity.Red.Y, image.Chromaticity.Red.Z);
+                                            var cg = XYZ2RGB(image.Chromaticity.Green.X, image.Chromaticity.Green.Y, image.Chromaticity.Green.Z);
+                                            var cb = XYZ2RGB(image.Chromaticity.Blue.X, image.Chromaticity.Blue.Y, image.Chromaticity.Blue.Z);
 
-                                            var r = $"[{image.ChromaRedPrimary.X:F5},{image.ChromaRedPrimary.Y:F5},{image.ChromaRedPrimary.Z:F5}]";
-                                            var g = $"[{image.ChromaGreenPrimary.X:F5},{image.ChromaGreenPrimary.Y:F5},{image.ChromaGreenPrimary.Z:F5}]";
-                                            var b = $"[{image.ChromaBluePrimary.X:F5},{image.ChromaBluePrimary.Y:F5},{image.ChromaBluePrimary.Z:F5}]";
+                                            var r = $"[{image.Chromaticity.Red.X:F5},{image.Chromaticity.Red.Y:F5},{image.Chromaticity.Red.Z:F5}]";
+                                            var g = $"[{image.Chromaticity.Green.X:F5},{image.Chromaticity.Green.Y:F5},{image.Chromaticity.Green.Z:F5}]";
+                                            var b = $"[{image.Chromaticity.Blue.X:F5},{image.Chromaticity.Blue.Y:F5},{image.Chromaticity.Blue.Z:F5}]";
                                             value = $"R:{cr.ToString()}, G:{cg.ToString()}, B:{cb.ToString()}{Environment.NewLine}XYZ-R: {r}{Environment.NewLine}XYZ-G: {g}{Environment.NewLine}XYZ-B: {b}";
                                         }
                                         //var values = value.Split(new string[] { Environment.NewLine }, StringSplitOptions.RemoveEmptyEntries).Select(t => t.Replace("\0", string.Empty).Trim());
@@ -5915,7 +5903,7 @@ namespace TouchMeta
                                 var xmp = image.HasProfile("xmp") ? image.GetXmpProfile() : null;
                                 if (xmp != null)
                                 {
-                                    var xml = Encoding.UTF8.GetString(xmp.GetData());
+                                    var xml = Encoding.UTF8.GetString(xmp.ToByteArray());
 
                                     var xml_doc = new XmlDocument();
                                     xml_doc.LoadXml(xml);
@@ -6133,7 +6121,7 @@ namespace TouchMeta
 
                             using (MagickImage image = new MagickImage(ms))
                             {
-                                if (image.FormatInfo.IsReadable && IsValidWrite(fmt))
+                                if (IsValidRead(image) && IsValidWrite(fmt))
                                 {
                                     if (exifdata is ExifData && image.Endian == Endian.Undefined) image.Endian = exifdata.ByteOrder == ExifByteOrder.BigEndian ? Endian.MSB : Endian.LSB;
 
@@ -6175,8 +6163,8 @@ namespace TouchMeta
                                 }
                                 else
                                 {
-                                    if (!image.FormatInfo.IsReadable)
-                                        Log($"Format \"{image.FormatInfo.MimeType}\" is not a read supported format!");
+                                    if (!IsValidRead(image))
+                                        Log($"Format \"{GetFormatInfo(image).MimeType}\" is not a read supported format!");
                                     if (!IsValidWrite(fmt))
                                         Log($"Format \"{GetFormatInfo(fmt).MimeType}\" is not a write supported format!");
                                 }
@@ -6360,7 +6348,7 @@ namespace TouchMeta
                                 if (meta is MetaInfo && meta.Profiles.ContainsKey("xmp") && 
                                     exif_in is ExifData && exif_in.ImageType != ImageType.Unknown && !exif_in.TagExists(CompactExifLib.ExifTag.XmpMetadata))
                                 {
-                                    var xml = meta.Profiles["xmp"].GetData();
+                                    var xml = meta.Profiles["xmp"].ToByteArray();
                                     exif_in.SetTagRawData(CompactExifLib.ExifTag.XmpMetadata, ExifTagType.Byte, xml.Length, xml);
                                 }
                                 meta_in = meta;
@@ -6481,7 +6469,7 @@ namespace TouchMeta
                     var bi = File.ReadAllBytes(file);
                     using (var image = new MagickImage(bi))
                     {
-                        if (image.FormatInfo.IsReadable && image.FormatInfo.IsWritable)
+                        if (IsValidRead(image) && IsValidWrite(image))
                         {
                             var _mod_ = true;
                             var exif_supported = ExifImageFormats.Contains(image.Format);
@@ -6525,10 +6513,10 @@ namespace TouchMeta
                         }
                         else
                         {
-                            if (!image.FormatInfo.IsReadable)
-                                Log($"Format \"{image.FormatInfo.MimeType}\" is not a read supported format!");
-                            if (!image.FormatInfo.IsWritable)
-                                Log($"Format \"{image.FormatInfo.MimeType}\" is not a write supported format!");
+                            if (!IsValidRead(image))
+                                Log($"Format \"{GetFormatInfo(image).MimeType}\" is not a read supported format!");
+                            if (!IsValidWrite(image))
+                                Log($"Format \"{GetFormatInfo(image).MimeType}\" is not a write supported format!");
                         }
                     }                    
 
@@ -6827,7 +6815,7 @@ namespace TouchMeta
 
                 foreach (var fmt in MagickNET.SupportedFormats)
                 {
-                    if (fmt.IsReadable)
+                    if (fmt.SupportsReading)
                     {
                         if (fmt.MimeType != null && fmt.MimeType.StartsWith("image", StringComparison.CurrentCultureIgnoreCase))
                             exts_image.Add($".{fmt.Format.ToString().ToLower()}");

@@ -428,14 +428,48 @@ namespace NetCharm
         #endregion
 
         #region Metadata Helper
+        public static IMagickFormatInfo GetFormatInfo(MagickImage image)
+        {
+            try { return (MagickFormatInfo.Create(image.Format)); }
+            catch { return (MagickFormatInfo.Create(MagickFormat.Unknown)); }
+        }
+
+        public static IMagickFormatInfo GetFormatInfo(MagickFormat format)
+        {
+            try { return (MagickFormatInfo.Create(format)); }
+            catch { return (MagickFormatInfo.Create(MagickFormat.Unknown)); }
+        }
+
         public static bool IsValidRead(MagickImage image)
         {
-            return (image is MagickImage && image.FormatInfo.IsReadable);
+            return (image is MagickImage && MagickFormatInfo.Create(image.Format).SupportsReading);
+        }
+
+        public static bool IsValidRead(MagickFormat format)
+        {
+            try { return (MagickFormatInfo.Create(format).SupportsReading); }
+            catch { return (false); }
+        }
+
+        public static bool IsValidRead(MagickFormatInfo formatinfo)
+        {
+            return (formatinfo is MagickFormatInfo && formatinfo.SupportsReading);
         }
 
         public static bool IsValidWrite(MagickImage image)
         {
-            return (image is MagickImage && image.FormatInfo.IsWritable);
+            return (image is MagickImage && MagickFormatInfo.Create(image.Format).SupportsWriting);
+        }
+
+        public static bool IsValidWrite(MagickFormat format)
+        {
+            try { return (MagickFormatInfo.Create(format).SupportsWriting); }
+            catch { return (false); }
+        }
+
+        public static bool IsValidWrite(MagickFormatInfo formatinfo)
+        {
+            return (formatinfo is MagickFormatInfo && formatinfo.SupportsWriting);
         }
 
         public static Point GetSystemDPI()
@@ -476,7 +510,7 @@ namespace NetCharm
             string result = null;
             try
             {
-                if (image is MagickImage && image.FormatInfo.IsReadable)
+                if (image is MagickImage && IsValidRead(image))
                 {
                     var exif = image.HasProfile("exif") ? image.GetExifProfile() : new ExifProfile();
                     var iptc = image.HasProfile("iptc") ? image.GetIptcProfile() : new IptcProfile();
@@ -581,7 +615,7 @@ namespace NetCharm
         {
             try
             {
-                if (image is MagickImage && image.FormatInfo.IsReadable && value != null)
+                if (image is MagickImage && IsValidRead(image) && value != null)
                 {
                     var exif = image.HasProfile("exif") ? image.GetExifProfile() : new ExifProfile();
                     var iptc = image.HasProfile("iptc") ? image.GetIptcProfile() : new IptcProfile();
@@ -669,7 +703,7 @@ namespace NetCharm
 
         public static void TouchProfile(MagickImage image, Dictionary<string, IImageProfile> profiles, bool force = false)
         {
-            if (force && image is MagickImage && image.FormatInfo.IsWritable && profiles is Dictionary<string, IImageProfile>)
+            if (force && image is MagickImage && IsValidWrite(image) && profiles is Dictionary<string, IImageProfile>)
             {
                 foreach (var kv in profiles)
                 {
@@ -679,9 +713,9 @@ namespace NetCharm
                         var profile = kv.Value;
                         if (force || !image.HasProfile(profile_name))
                         {
-                            var old_size = image.HasProfile(profile_name) ? image.GetProfile(profile_name).GetData().Length : 0;
+                            var old_size = image.HasProfile(profile_name) ? image.GetProfile(profile_name).ToByteArray().Length : 0;
                             image.SetProfile(profile);
-                            Log($"{$"Profile {profile_name}".PadRight(32)}= {(old_size == 0 ? "NULL" : $"{old_size}")} => {profile.GetData().Length} Bytes");
+                            Log($"{$"Profile {profile_name}".PadRight(32)}= {(old_size == 0 ? "NULL" : $"{old_size}")} => {profile.ToByteArray().Length} Bytes");
                         }
                         else
                         {
@@ -731,7 +765,7 @@ namespace NetCharm
 
         public static void TouchAttribute(MagickImage image, Dictionary<string, string> attrs, bool force = false)
         {
-            if (force && image is MagickImage && image.FormatInfo.IsWritable && attrs is Dictionary<string, string>)
+            if (force && image is MagickImage && IsValidWrite(image) && attrs is Dictionary<string, string>)
             {
                 foreach (var kv in attrs)
                 {
@@ -755,7 +789,7 @@ namespace NetCharm
         public static DateTime? GetMetaTime(MagickImage image)
         {
             DateTime? result = null;
-            if (image is MagickImage && image.FormatInfo.IsReadable)
+            if (image is MagickImage && IsValidRead(image))
             {
                 foreach (var tag in tag_date)
                 {
@@ -804,7 +838,7 @@ namespace NetCharm
         {
             MetaInfo result = new MetaInfo();
 
-            if (image is MagickImage && image.FormatInfo.IsReadable)
+            if (image is MagickImage && IsValidRead(image))
             {
                 #region EXIF, XMP Profiles
                 if (image.AttributeNames.Count() > 0)
@@ -821,7 +855,7 @@ namespace NetCharm
                 var xmp = image.HasProfile("xmp") ? image.GetXmpProfile() : null;
                 #endregion
 
-                bool is_png = image.FormatInfo.MimeType.Equals("image/png");
+                bool is_png = GetFormatInfo(image).MimeType.Equals("image/png");
                 #region Datetime
                 result.DateAcquired = GetMetaTime(image);
                 result.DateTaken = result.DateAcquired;
@@ -925,7 +959,7 @@ namespace NetCharm
 
                 using (MagickImage image = new MagickImage(fi.FullName))
                 {
-                    if (image.FormatInfo.IsReadable && image.FormatInfo.IsWritable)
+                    if (IsValidRead(image) && IsValidWrite(image))
                     {
                         foreach (var attr in image.AttributeNames)
                         {
@@ -951,9 +985,9 @@ namespace NetCharm
                     }
                     else
                     {
-                        if (!image.FormatInfo.IsReadable)
+                        if (!IsValidRead(image))
                             Log($"File \"{file}\" is not a read supported format!");
-                        if (!image.FormatInfo.IsWritable)
+                        if (!IsValidWrite(image))
                             Log($"File \"{file}\" is not a write supported format!");
                     }
                 }
@@ -992,10 +1026,10 @@ namespace NetCharm
 
                     using (MagickImage image = new MagickImage(fi.FullName))
                     {
-                        if (image.FormatInfo.IsReadable && image.FormatInfo.IsWritable)
+                        if (IsValidRead(image) && IsValidWrite(image))
                         {
-                            bool is_png = image.FormatInfo.MimeType.Equals("image/png", StringComparison.CurrentCultureIgnoreCase);
-                            bool is_jpg = image.FormatInfo.MimeType.Equals("image/jpeg", StringComparison.CurrentCultureIgnoreCase);
+                            bool is_png = GetFormatInfo(image).MimeType.Equals("image/png", StringComparison.CurrentCultureIgnoreCase);
+                            bool is_jpg = GetFormatInfo(image).MimeType.Equals("image/jpeg", StringComparison.CurrentCultureIgnoreCase);
 
                             #region touch attributes and profiles
                             if (meta is MetaInfo && meta.TouchProfiles)
@@ -1322,7 +1356,7 @@ namespace NetCharm
                             #endregion
                             if (xmp != null)
                             {
-                                var xml = Encoding.UTF8.GetString(xmp.GetData());
+                                var xml = Encoding.UTF8.GetString(xmp.ToByteArray());
                                 try
                                 {
                                     var xml_doc = new XmlDocument();
@@ -1763,9 +1797,9 @@ namespace NetCharm
                         }
                         else
                         {
-                            if (!image.FormatInfo.IsReadable)
+                            if (!IsValidRead(image))
                                 Log($"File \"{file}\" is not a read supported format!");
-                            if (!image.FormatInfo.IsWritable)
+                            if (!IsValidWrite(image))
                                 Log($"File \"{file}\" is not a write supported format!");
                         }
                     }
@@ -1842,7 +1876,7 @@ namespace NetCharm
                     {
                         using (MagickImage image = new MagickImage(ms))
                         {
-                            if (image.FormatInfo.IsReadable)
+                            if (IsValidRead(image))
                             {
                                 var exif = image.HasProfile("exif") ? image.GetExifProfile() : new ExifProfile();
                                 var exif_invalid = exif.InvalidTags;
@@ -1870,7 +1904,7 @@ namespace NetCharm
                                 Log($"{"HasAlpha".PadRight(cw)}= {image.HasAlpha.ToString()}");
                                 Log($"{"ColormapSize".PadRight(cw)}= {image.ColormapSize}");
                                 //Log($"{"TotalColors".PadRight(cw)}= {image.TotalColors}");
-                                Log($"{"FormatInfo".PadRight(cw)}= {image.FormatInfo.Format.ToString()}, MIME:{image.FormatInfo.MimeType}");
+                                Log($"{"FormatInfo".PadRight(cw)}= {GetFormatInfo(image).Format.ToString()}, MIME:{GetFormatInfo(image).MimeType}");
                                 Log($"{"Compression".PadRight(cw)}= {image.Compression.ToString()}");
                                 Log($"{"Filter".PadRight(cw)}= {(image.FilterType == FilterType.Undefined ? "Adaptive" : image.FilterType.ToString())}");
                                 Log($"{"Interlace".PadRight(cw)}= {image.Interlace.ToString()}");
@@ -1898,13 +1932,13 @@ namespace NetCharm
                                         else if (attr.Equals("png:bKGD")) value = image.BackgroundColor.ToString();
                                         else if (attr.Equals("png:cHRM"))
                                         {
-                                            var cr = XYZ2RGB(image.ChromaRedPrimary.X, image.ChromaRedPrimary.Y, image.ChromaRedPrimary.Z);
-                                            var cg = XYZ2RGB(image.ChromaGreenPrimary.X, image.ChromaGreenPrimary.Y, image.ChromaGreenPrimary.Z);
-                                            var cb = XYZ2RGB(image.ChromaBluePrimary.X, image.ChromaBluePrimary.Y, image.ChromaBluePrimary.Z);
+                                            var cr = XYZ2RGB(image.Chromaticity.Red.X, image.Chromaticity.Red.Y, image.Chromaticity.Red.Z);
+                                            var cg = XYZ2RGB(image.Chromaticity.Green.X, image.Chromaticity.Green.Y, image.Chromaticity.Green.Z);
+                                            var cb = XYZ2RGB(image.Chromaticity.Blue.X, image.Chromaticity.Blue.Y, image.Chromaticity.Blue.Z);
 
-                                            var r = $"[{image.ChromaRedPrimary.X:F5},{image.ChromaRedPrimary.Y:F5},{image.ChromaRedPrimary.Z:F5}]";
-                                            var g = $"[{image.ChromaGreenPrimary.X:F5},{image.ChromaGreenPrimary.Y:F5},{image.ChromaGreenPrimary.Z:F5}]";
-                                            var b = $"[{image.ChromaBluePrimary.X:F5},{image.ChromaBluePrimary.Y:F5},{image.ChromaBluePrimary.Z:F5}]";
+                                            var r = $"[{image.Chromaticity.Red.X:F5},{image.Chromaticity.Red.Y:F5},{image.Chromaticity.Red.Z:F5}]";
+                                            var g = $"[{image.Chromaticity.Green.X:F5},{image.Chromaticity.Green.Y:F5},{image.Chromaticity.Green.Z:F5}]";
+                                            var b = $"[{image.Chromaticity.Blue.X:F5},{image.Chromaticity.Blue.Y:F5},{image.Chromaticity.Blue.Z:F5}]";
                                             value = $"R:{cr.ToString()}, G:{cg.ToString()}, B:{cb.ToString()}{Environment.NewLine}XYZ-R: {r}{Environment.NewLine}XYZ-G: {g}{Environment.NewLine}XYZ-B: {b}";
                                         }
                                         var values = value.Split(new string[] { Environment.NewLine }, StringSplitOptions.RemoveEmptyEntries);
@@ -1936,7 +1970,7 @@ namespace NetCharm
                                 var xmp = image.HasProfile("xmp") ? image.GetXmpProfile() : null;
                                 if (xmp != null)
                                 {
-                                    var xml = Encoding.UTF8.GetString(xmp.GetData());
+                                    var xml = Encoding.UTF8.GetString(xmp.ToByteArray());
 
                                     var xml_doc = new XmlDocument();
                                     xml_doc.LoadXml(xml);
@@ -2005,7 +2039,7 @@ namespace NetCharm
             {
                 var magick_cache = Path.IsPathRooted(CachePath) ? CachePath : Path.Combine(AppPath, CachePath);
                 //if (!Directory.Exists(magick_cache)) Directory.CreateDirectory(magick_cache);
-                if (Directory.Exists(magick_cache)) MagickAnyCPU.CacheDirectory = magick_cache;
+                if (Directory.Exists(magick_cache)) MagickNET.SetTempDirectory(magick_cache);
                 ResourceLimits.Memory = 256 * 1024 * 1024;
                 ResourceLimits.LimitMemory(new Percentage(5));
                 ResourceLimits.Thread = 4;
