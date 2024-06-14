@@ -175,7 +175,7 @@ namespace TouchMeta
             get { return (Attributes is Dictionary<string, string> && Attributes.Count(a => Consts.tag_software.Contains(a.Key)) > 0 ? Attributes.First(a => Consts.tag_software.Contains(a.Key)).Value.Trim() : string.Empty); }
             set
             {
-                if (Attributes is Dictionary<string, string>) foreach(var key in Consts.tag_software) Attributes[key] = value;
+                if (Attributes is Dictionary<string, string>) foreach (var key in Consts.tag_software) Attributes[key] = value;
                 if (string.IsNullOrEmpty(value)) foreach (var key in Consts.tag_software) Attributes.Remove(key);
             }
         }
@@ -941,13 +941,13 @@ namespace TouchMeta
                 if (count_cjk > startindex)
                 {
                     var str = GBK.GetString(bytes, 0, startindex);
-                    if (char.IsLowSurrogate(str.Last())) 
+                    if (char.IsLowSurrogate(str.Last()))
                         result = text.Insert(startindex - 1, insert);
                     else
                         result = text.Insert(startindex, insert);
                 }
             }
-            catch(Exception ex) { Log(ex.Message); }
+            catch (Exception ex) { Log(ex.Message); }
             return (result);
         }
 
@@ -1051,7 +1051,7 @@ namespace TouchMeta
             var result = text;
             try
             {
-                if (cutting && text.Length > wrap_width) 
+                if (cutting && text.Length > wrap_width)
                     result = $"{string.Join("", text.Where(c => !LineBreak.Contains($"{c}")).Take(64))} ...";
                 else
                 {
@@ -1089,7 +1089,7 @@ namespace TouchMeta
                     result = string.Join(Environment.NewLine, lines);
                 }
             }
-            catch(Exception ex) { Log(ex.Message); }
+            catch (Exception ex) { Log(ex.Message); }
             return (result);
         }
 
@@ -1099,7 +1099,7 @@ namespace TouchMeta
             try
             {
                 var lines_new = new List<string>();
-                foreach(var line in lines)
+                foreach (var line in lines)
                 {
                     lines_new.Add(Align(line, padding_width, padding, cutting, wrap_mode, wrap_width, align));
                 }
@@ -2221,7 +2221,7 @@ namespace TouchMeta
         }
 
         public static bool IsValidRead(MagickImage image)
-        {         
+        {
             return (image is MagickImage && MagickFormatInfo.Create(image.Format).SupportsReading);
         }
 
@@ -3191,27 +3191,40 @@ namespace TouchMeta
                 /// VX2017 (c# 7.0+) work fina willout this line
                 ///
 #if DEBUG
-                if (bytes[0] != GZIP_MAGIC_HEADER[0] && bytes[1] != GZIP_MAGIC_HEADER[1]) bytes = GZIP_MAGIC_HEADER.Concat(bytes.Skip(2)).ToArray();
+                //if (bytes[0] != GZIP_MAGIC_HEADER[0] && bytes[1] != GZIP_MAGIC_HEADER[1]) bytes = GZIP_MAGIC_HEADER.Concat(bytes.Skip(2)).ToArray();
 #endif
                 using (var msi = new MemoryStream(bytes))
                 {
                     using (var mso = new MemoryStream())
                     {
-                        using (var ds = new System.IO.Compression.GZipStream(msi, System.IO.Compression.CompressionMode.Decompress))
+                        try
                         {
-                            ds.CopyTo(mso);
-                            ds.Close();
+                            using (var ds = new System.IO.Compression.GZipStream(msi, System.IO.Compression.CompressionMode.Decompress, true))
+                            {
+                                ds.CopyTo(mso);
+                                ds.Close();
+                            }
+                        }
+                        catch
+                        {
+                            msi.Seek(0, SeekOrigin.Begin);
+                            msi.CopyTo(mso);
                         }
                         var ret = mso.ToArray();
                         try
                         {
-                            var text = string.Join("", encoding.GetString(ret).Split().Skip(2));
+                            var lines = encoding.GetString(ret).Split(new string[]{ Environment.NewLine, "\n\r", "\r\n", "\n", "\r" }, StringSplitOptions.RemoveEmptyEntries);
+                            var title = lines[0].Trim();
+                            int.TryParse(lines[1].Trim(), out int len);
+                            var text = string.Join("", lines.Skip(2));
                             var buff = new byte[text.Length/2];
                             for (var i = 0; i < text.Length / 2; i++)
                             {
-                                buff[i] = Convert.ToByte($"0x{text[2 * i]}{text[2 * i + 1]}", 16);
+                                if (char.IsDigit(text[i]))
+                                    buff[i] = Convert.ToByte($"0x{text[2 * i]}{text[2 * i + 1]}", 16);
                             }
-                            result = encoding.GetString(buff.Skip(skip).ToArray());
+                            //result = $"{lines[0]} : {encoding.GetString(buff.Skip(skip).ToArray())}";
+                            result = $"{title}[{len}] : {encoding.GetString(buff)}";
                         }
                         catch (Exception ex) { Log($"{ex.Message}{Environment.NewLine}{ex.StackTrace}"); };
                     }
@@ -3558,7 +3571,7 @@ namespace TouchMeta
                         var attr = kv.Key;
                         if (attr.StartsWith("date:")) continue;
                         if (force || !image.AttributeNames.Contains(attr))
-                        {                            
+                        {
                             var old_value = image.AttributeNames.Contains(attr) ?  GetAttribute(image, attr) : "NULL";
                             var value = kv.Value;
                             SetAttribute(image, attr, value);
@@ -3577,7 +3590,7 @@ namespace TouchMeta
             {
                 if (image is MagickImage && IsValidRead(image))
                 {
-                    foreach (var tag in  Consts.tag_date)
+                    foreach (var tag in Consts.tag_date)
                     {
                         if (image.AttributeNames.Contains(tag))
                         {
@@ -3653,7 +3666,7 @@ namespace TouchMeta
                                     foreach (XmlNode li in subchild.ChildNodes) { contents.Add(li.InnerText.Trim()); }
                                 }
                             }
-                            result = $"{ string.Join("; ", contents)};";
+                            result = $"{string.Join("; ", contents)};";
                         }
                         else
                         {
@@ -3988,7 +4001,7 @@ namespace TouchMeta
             MetaInfo result = meta is MetaInfo ? meta : new MetaInfo();
             if (!string.IsNullOrEmpty(json))
             {
-                json = Regex.Replace(json, @"(\n\r|\r\n|\n|\r)", "\\n", RegexOptions.IgnoreCase); 
+                json = Regex.Replace(json, @"(\n\r|\r\n|\n|\r)", "\\n", RegexOptions.IgnoreCase);
                 json = Regex.Replace(json, @"([\{\[,\}\]])(\n\r|\r\n|\n|\r|\\n)", $"$1{Environment.NewLine}", RegexOptions.IgnoreCase);
                 json = Regex.Replace(json, @"(("")?(True|False)("")?)", "\"$3\"", RegexOptions.IgnoreCase);
                 var kvs = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(json, new System.Text.Json.JsonSerializerOptions(){ AllowTrailingCommas = true });
@@ -4007,7 +4020,7 @@ namespace TouchMeta
                             result.DateTaken = dt;
                         }
                     }
-                    else if(kv.Key.Equals("id", StringComparison.CurrentCultureIgnoreCase))
+                    else if (kv.Key.Equals("id", StringComparison.CurrentCultureIgnoreCase))
                     {
                         result.Subject = kv.Value;
                     }
@@ -4058,7 +4071,7 @@ namespace TouchMeta
                     else if (kv.Key.Equals("favorited", StringComparison.CurrentCultureIgnoreCase))
                     {
                         var faved = false;
-                        if (bool.TryParse(kv.Value, out faved)) 
+                        if (bool.TryParse(kv.Value, out faved))
                         {
                             result.Rating = faved ? 4 : 0;
                             result.RatingPercent = faved ? 75 : 0;
@@ -4190,7 +4203,7 @@ namespace TouchMeta
                     var xmp_doc = Encoding.UTF8.GetString(xmp.ToByteArray());
                     var xmp_meta = XmpCore.XmpMetaFactory.ParseFromString(xmp_doc);
                 }
-                else if(exif is ExifProfile)
+                else if (exif is ExifProfile)
                 {
                     if (image.AttributeNames.Contains("exif:ExtensibleMetadataPlatform"))
                     {
@@ -4483,7 +4496,7 @@ namespace TouchMeta
                             #region touch subject
                             if (meta is MetaInfo && meta.ChangeProperties.HasFlag(ChangePropertyType.Subject))
                             {
-                                foreach (var tag in  Consts.tag_subject)
+                                foreach (var tag in Consts.tag_subject)
                                 {
                                     try
                                     {
@@ -4513,7 +4526,7 @@ namespace TouchMeta
                             #region touch author
                             if (meta is MetaInfo && meta.ChangeProperties.HasFlag(ChangePropertyType.Authors))
                             {
-                                foreach (var tag in  Consts.tag_author)
+                                foreach (var tag in Consts.tag_author)
                                 {
                                     try
                                     {
@@ -4551,7 +4564,7 @@ namespace TouchMeta
                             #region touch copywright
                             if (meta is MetaInfo && meta.ChangeProperties.HasFlag(ChangePropertyType.Copyrights))
                             {
-                                foreach (var tag in  Consts.tag_copyright)
+                                foreach (var tag in Consts.tag_copyright)
                                 {
                                     try
                                     {
@@ -4581,7 +4594,7 @@ namespace TouchMeta
                             #region touch comment
                             if (meta is MetaInfo && meta.ChangeProperties.HasFlag(ChangePropertyType.Comment))
                             {
-                                foreach (var tag in  Consts.tag_comments)
+                                foreach (var tag in Consts.tag_comments)
                                 {
                                     try
                                     {
@@ -4627,7 +4640,7 @@ namespace TouchMeta
                             #region touch keywords
                             if (meta is MetaInfo && meta.ChangeProperties.HasFlag(ChangePropertyType.Keywords))
                             {
-                                foreach (var tag in  Consts.tag_keywords)
+                                foreach (var tag in Consts.tag_keywords)
                                 {
                                     try
                                     {
@@ -4657,7 +4670,7 @@ namespace TouchMeta
                             #region touch rating
                             if (meta is MetaInfo && (meta.ChangeProperties.HasFlag(ChangePropertyType.Rating) || meta.ChangeProperties.HasFlag(ChangePropertyType.Ranking)))
                             {
-                                foreach (var tag in  Consts.tag_rating)
+                                foreach (var tag in Consts.tag_rating)
                                 {
                                     try
                                     {
@@ -5039,7 +5052,7 @@ namespace TouchMeta
                                                     nodes[i].ParentNode.RemoveChild(nodes[i]);
                                                 }
                                             }
-                                            foreach(XmlNode desc in rdf_descriptions.Cast<XmlNode>().ToList())
+                                            foreach (XmlNode desc in rdf_descriptions.Cast<XmlNode>().ToList())
                                             {
                                                 if (desc.Attributes.Count > 0)
                                                 {
@@ -5472,7 +5485,7 @@ namespace TouchMeta
             {
                 if (IsValidRead(image) && IsValidWrite(image))
                 {
-                    foreach (var tag in  Consts.tag_date)
+                    foreach (var tag in Consts.tag_date)
                     {
                         if (tag.StartsWith("exif"))
                             //image.SetAttribute(tag, dt.Value.ToString("yyyy:MM:dd HH:mm:ss"));
@@ -6345,7 +6358,7 @@ namespace TouchMeta
                                 }
 
                                 var meta = GetMetaInfo(image);
-                                if (meta is MetaInfo && meta.Profiles.ContainsKey("xmp") && 
+                                if (meta is MetaInfo && meta.Profiles.ContainsKey("xmp") &&
                                     exif_in is ExifData && exif_in.ImageType != ImageType.Unknown && !exif_in.TagExists(CompactExifLib.ExifTag.XmpMetadata))
                                 {
                                     var xml = meta.Profiles["xmp"].ToByteArray();
@@ -6518,7 +6531,7 @@ namespace TouchMeta
                             if (!IsValidWrite(image))
                                 Log($"Format \"{GetFormatInfo(image).MimeType}\" is not a write supported format!");
                         }
-                    }                    
+                    }
 
                     var fo = new FileInfo(file);
                     fo.CreationTime = dc;
@@ -7187,7 +7200,7 @@ namespace TouchMeta
             {
                 FilesFromDataObject(e.Data as DataObject);
             }
-            catch(Exception ex) { Log(ex.Message); }
+            catch (Exception ex) { Log(ex.Message); }
         }
 
         private void ClipboardStringContent_Paste(object sender, DataObjectPastingEventArgs e)
@@ -8258,8 +8271,8 @@ namespace TouchMeta
                     if (IsLoaded)
                     {
                         var quality = Convert.ToInt32(ReduceToQuality.Value);
-                        ReduceToQuality.ToolTip = $"Reduce Quality: { quality }";
-                        ReduceToQualityValue.Text = $"{ quality }";
+                        ReduceToQuality.ToolTip = $"Reduce Quality: {quality}";
+                        ReduceToQualityValue.Text = $"{quality}";
                         ReduceToQualityValue.ToolTip = ReduceToQuality.ToolTip;
                         ReduceToQualityPanel.ToolTip = ReduceToQuality.ToolTip;
                     }
