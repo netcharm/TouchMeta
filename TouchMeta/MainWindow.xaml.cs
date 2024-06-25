@@ -1240,8 +1240,11 @@ namespace TouchMeta
             if (!string.IsNullOrEmpty(text))
             {
                 var bytes = ByteStringToBytes(text, msb);
-                if (bytes[offset] == 0x00) msb = true;
-                if (bytes.Length > offset) result = msb ? Encoding.BigEndianUnicode.GetString(bytes.Skip(offset).ToArray()) : Encoding.Unicode.GetString(bytes.Skip(offset).ToArray());
+                if (bytes.Length > 2)
+                {
+                    if (bytes[offset] == 0x00) msb = true;
+                    if (bytes.Length > offset) result = msb ? Encoding.BigEndianUnicode.GetString(bytes.Skip(offset).ToArray()) : Encoding.Unicode.GetString(bytes.Skip(offset).ToArray());
+                }
             }
             return (result);
         }
@@ -3582,6 +3585,8 @@ namespace TouchMeta
                             var old_value = image.AttributeNames.Contains(attr) ?  GetAttribute(image, attr) : "NULL";
                             var value = kv.Value;
                             SetAttribute(image, attr, value);
+                            if (string.IsNullOrEmpty(old_value)) old_value = "NULL";
+                            if (string.IsNullOrEmpty(value)) value = "NULL";
                             Log($"{$"{attr}".PadRight(32)}= {old_value.Replace("\0", string.Empty)} => {value.Replace("\0", string.Empty)}");
                         }
                     }
