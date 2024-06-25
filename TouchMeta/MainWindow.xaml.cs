@@ -1240,6 +1240,7 @@ namespace TouchMeta
             if (!string.IsNullOrEmpty(text))
             {
                 var bytes = ByteStringToBytes(text, msb);
+                if (bytes[offset] == 0x00) msb = true;
                 if (bytes.Length > offset) result = msb ? Encoding.BigEndianUnicode.GetString(bytes.Skip(offset).ToArray()) : Encoding.Unicode.GetString(bytes.Skip(offset).ToArray());
             }
             return (result);
@@ -1276,7 +1277,6 @@ namespace TouchMeta
                         }
                         else bytes.Add(byte.Parse(value));
                     }
-
                 }
                 result = bytes.Count > offset ? bytes.Skip(offset).ToArray() : bytes.ToArray();
             }
@@ -2584,9 +2584,12 @@ namespace TouchMeta
                             }
                             else if (!string.IsNullOrEmpty(result))
                             {
-                                if (tag_name.Equals("UserComment") && Regex.IsMatch(result, @"(0x\d{2,2},){2,}", RegexOptions.IgnoreCase))
+                                if (tag_name.Equals("UserComment") && Regex.IsMatch(result, @"(0x\d{1,2},){2,}", RegexOptions.IgnoreCase))
                                 {
-                                    result = BytesToUnicode(result, offset: 8);
+                                    var idcode = Encoding.ASCII.GetBytes("UNICODE\0");
+                                    var idcode_hex = idcode.Select(b => $"0x{b:x}").ToArray();
+                                    var idcode_str = string.Join(",", idcode_hex);
+                                    result = BytesToUnicode(result, msb: image.Endian == Endian.MSB, offset: result.StartsWith(idcode_str) ? 8 : 0);
                                 }
                             }
                         }
