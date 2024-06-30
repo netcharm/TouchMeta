@@ -167,6 +167,8 @@ namespace TouchMeta
         public string Authors { get; set; } = null;
         public string Copyrights { get; set; } = null;
 
+        public string Source { get; set; } = null;
+
         public int? RatingPercent { get; set; } = null;
         public int? Rating { get; set; } = null;
 
@@ -184,6 +186,45 @@ namespace TouchMeta
 
         public Dictionary<string, string> Attributes { get; set; } = new Dictionary<string, string>();
         public Dictionary<string, IImageProfile> Profiles { get; set; } = new Dictionary<string, IImageProfile>();
+
+        public static MetaInfo Create(Dictionary<string, string> meta)
+        {
+            MetaInfo result = null;
+            try
+            {
+                if (meta is (Dictionary<string, string>))
+                {
+                    result = new MetaInfo();
+
+                    if (meta.ContainsKey("Creation Time") && DateTime.TryParse(meta["Creation Time"], out DateTime dt)) result.DateCreated = dt;
+
+                    if (meta.ContainsKey("title")) result.Title = meta["Title"];
+                    if (meta.ContainsKey("Subject")) result.Subject = meta["Subject"];
+                    if (meta.ContainsKey("Author")) result.Authors = meta["Author"];
+                    if (meta.ContainsKey("Copyright")) result.Copyrights = meta["Copyright"];
+                    if (meta.ContainsKey("Description")) result.Comment = meta["Description"];
+                    if (meta.ContainsKey("Comment")) result.Comment = meta["Comment"];
+                    if (meta.ContainsKey("Source")) result.Source = meta["Source"];
+                    if (meta.ContainsKey("Software")) result.Software = meta["Software"];
+                    if (meta.ContainsKey("Keyword")) result.Keywords = meta["Keyword"];
+                    if (meta.ContainsKey("Tags")) result.Keywords = meta["Tags"];
+                    if (meta.ContainsKey("Tag")) result.Keywords = meta["Tag"];
+
+                    if (meta.ContainsKey("XML:com.adobe.xmp"))
+                    {
+                        var value = string.Join("", meta["XML:com.adobe.xmp"].Split(new char[]{ '\0' }).Last().ToArray().SkipWhile(c => c != '<'));
+                        result.Profiles.Add("xmp", new XmpProfile(Encoding.UTF8.GetBytes(value)));
+                    }
+                    else if (meta.ContainsKey("Raw profile type xmp"))
+                    {
+                        var value = string.Join("", meta["Raw profile type xmp"].Split(new char[]{ '\0' }).Last().ToArray().SkipWhile(c => c != '<'));
+                        result.Profiles.Add("xmp", new XmpProfile(Encoding.UTF8.GetBytes(value)));
+                    }
+                }
+            }
+            catch (Exception ex) { MainWindow.Log(ex.Message); }
+            return (result);
+        }
     }
 
     public enum ChangePropertyMode { None = 0, Append = 1, Remove = 2, Replace = 3, Empty = 4 };
@@ -367,7 +408,7 @@ namespace TouchMeta
 
         #region Log/MessageBox helper
         private static List<string> _log_ = new List<string>();
-        private static void Log(string text)
+        public static void Log(string text)
         {
             try
             {
@@ -3892,6 +3933,47 @@ namespace TouchMeta
             return (result);
         }
 
+        public static MetaInfo GetMetaInfo(Stream stream)
+        {
+            MetaInfo result = new MetaInfo();
+            try
+            {
+                var exifdata = new CompactExifLib.ExifData(stream);
+                stream.Seek(0, SeekOrigin.Begin);
+
+                using (MagickImage image = new MagickImage(stream))
+                {
+                    if (image.Endian == Endian.Undefined) image.Endian = exifdata.ByteOrder == ExifByteOrder.BigEndian ? Endian.MSB : Endian.LSB;
+                    result = GetMetaInfo(image);
+                }
+
+                if (exifdata.TagExists(CompactExifLib.ExifTag.Rating))
+                {
+                    int ranking;
+                    if (exifdata.GetTagValue(CompactExifLib.ExifTag.Rating, out ranking) && ranking != result.Rating)
+                        result.Rating = result.Rating ?? ranking;
+                    result.RatingPercent = RankingToRating(result.Rating);
+                    int rating;
+                    if (exifdata.GetTagValue(CompactExifLib.ExifTag.RatingPercent, out rating) && rating != result.RatingPercent)
+                        result.RatingPercent = result.RatingPercent ?? rating;
+                    result.Rating = RatingToRanking(result.RatingPercent);
+                }
+                if (exifdata.TagExists(CompactExifLib.ExifTag.XmpMetadata))
+                {
+                    CompactExifLib.ExifTagType type;
+                    int bytecounts;
+                    byte[] bytes;
+                    if (exifdata.GetTagRawData(CompactExifLib.ExifTag.XmpMetadata, out type, out bytecounts, out bytes))
+                    {
+                        if (!result.Profiles.ContainsKey("xmp"))
+                            result.Profiles["xmp"] = new XmpProfile(bytes);
+                    }
+                }
+            }
+            catch (Exception ex) { Log(ex.Message); }
+            return (result);
+        }
+
         public static MetaInfo GetMetaInfo(string file)
         {
             MetaInfo result = new MetaInfo();
@@ -3902,42 +3984,7 @@ namespace TouchMeta
                 result.DateTaken = fi.LastWriteTime;
                 using (var ms = new FileStream(fi.FullName, FileMode.Open, FileAccess.Read, FileShare.Read))
                 {
-                    try
-                    {
-                        var exifdata = new CompactExifLib.ExifData(ms);
-                        ms.Seek(0, SeekOrigin.Begin);
-
-                        using (MagickImage image = new MagickImage(ms))
-                        {
-                            if (image.Endian == Endian.Undefined) image.Endian = exifdata.ByteOrder == ExifByteOrder.BigEndian ? Endian.MSB : Endian.LSB;
-                            result = GetMetaInfo(image);
-                        }
-
-                        if (exifdata.TagExists(CompactExifLib.ExifTag.Rating))
-                        {
-                            int ranking;
-                            if (exifdata.GetTagValue(CompactExifLib.ExifTag.Rating, out ranking) && ranking != result.Rating)
-                                result.Rating = result.Rating ?? ranking;
-                            result.RatingPercent = RankingToRating(result.Rating);
-                            int rating;
-                            if (exifdata.GetTagValue(CompactExifLib.ExifTag.RatingPercent, out rating) && rating != result.RatingPercent)
-                                result.RatingPercent = result.RatingPercent ?? rating;
-                            result.Rating = RatingToRanking(result.RatingPercent);
-                        }
-                        if (exifdata.TagExists(CompactExifLib.ExifTag.XmpMetadata))
-                        {
-                            CompactExifLib.ExifTagType type;
-                            int bytecounts;
-                            byte[] bytes;
-                            if (exifdata.GetTagRawData(CompactExifLib.ExifTag.XmpMetadata, out type, out bytecounts, out bytes))
-                            {
-                                if (!result.Profiles.ContainsKey("xmp"))
-                                    result.Profiles["xmp"] = new XmpProfile(bytes);
-                            }
-                        }
-
-                    }
-                    catch (Exception ex) { Log(ex.Message); }
+                    result = GetMetaInfo(ms);
                 }
             }
             else Log($"File \"{file}\" not exists!");
@@ -5615,7 +5662,7 @@ namespace TouchMeta
                     var exif = new ExifData(file);
                     if (exif is ExifData)
                     {
-                        if (pngcs) UpdatePngMetaInfo(fi, dm, meta);
+                        if (pngcs && exif.ImageType == ImageType.Png) UpdatePngMetaInfo(fi, dm, meta);
 
                         #region CompactExifLib Update EXIF Metadata
                         DateTime date = dm;
@@ -6308,8 +6355,8 @@ namespace TouchMeta
                     using (var msi = new MemoryStream(bi))
                     {
                         var exif_in = new ExifData(msi);
+                        MetaInfo meta_in = GetMetaInfo(msi);
                         msi.Seek(0, SeekOrigin.Begin);
-                        MetaInfo meta_in = null;
                         if (exif_in is ExifData && exif_in.ImageType == ImageType.Png)
                         {
                             #region Get & Update PNG metadata
@@ -6321,43 +6368,90 @@ namespace TouchMeta
                                 if (!exif_in.TagExists(CompactExifLib.ExifTag.DateTime)) exif_in.SetDateChanged(dt);
                                 if (!exif_in.TagExists(CompactExifLib.ExifTag.DateTimeDigitized)) exif_in.SetDateDigitized(dt);
                                 if (!exif_in.TagExists(CompactExifLib.ExifTag.DateTimeOriginal)) exif_in.SetDateTaken(dt);
+                                meta_in.DateCreated = dt;
+                                meta_in.DateModified = dt;
+                                meta_in.DateAccesed = dt;
+                                meta_in.DateTaken = dt;
+                                meta_in.DateAcquired = dt;
                             }
                             if (!exif_in.TagExists(CompactExifLib.ExifTag.XpTitle) && meta.ContainsKey("Title"))
+                            {
                                 exif_in.SetTagValue(CompactExifLib.ExifTag.XpTitle, meta["Title"], StrCoding.Utf16Le_Byte);
+                                meta_in.Title = meta["Title"];
+                            }
                             if (!exif_in.TagExists(CompactExifLib.ExifTag.XpSubject) && meta.ContainsKey("Subject"))
+                            {
                                 exif_in.SetTagValue(CompactExifLib.ExifTag.XpSubject, meta["Subject"], StrCoding.Utf16Le_Byte);
+                                meta_in.Subject = meta["Subject"];
+                            }
                             if (!exif_in.TagExists(CompactExifLib.ExifTag.XpAuthor) && meta.ContainsKey("Author"))
                             {
                                 exif_in.SetTagValue(CompactExifLib.ExifTag.Artist, meta["Author"], StrCoding.Utf8);
                                 exif_in.SetTagValue(CompactExifLib.ExifTag.XpAuthor, meta["Author"], StrCoding.Utf16Le_Byte);
+                                meta_in.Authors = meta["Author"];
                             }
                             if (!exif_in.TagExists(CompactExifLib.ExifTag.Copyright) && meta.ContainsKey("Copyright"))
+                            {
                                 exif_in.SetTagValue(CompactExifLib.ExifTag.Copyright, meta["Copyright"], StrCoding.Utf8);
-
+                                meta_in.Copyrights = meta["Copyright"];
+                            }
                             if (!exif_in.TagExists(CompactExifLib.ExifTag.XpComment) && meta.ContainsKey("Description"))
+                            {
                                 exif_in.SetTagValue(CompactExifLib.ExifTag.XpComment, meta["Description"], StrCoding.Utf16Le_Byte);
+                                meta_in.Comment = meta["Description"];
+                            }
                             if (!exif_in.TagExists(CompactExifLib.ExifTag.UserComment) && meta.ContainsKey("Description"))
+                            {
                                 exif_in.SetTagValue(CompactExifLib.ExifTag.UserComment, meta["Description"], StrCoding.IdCode_Utf16);
+                                meta_in.Comment = meta["Description"];
+                            }
 
-                            if (!exif_in.TagExists(CompactExifLib.ExifTag.XpKeywords) && meta.ContainsKey("Comment"))
-                                exif_in.SetTagValue(CompactExifLib.ExifTag.XpKeywords, meta["Comment"], StrCoding.Utf16Le_Byte);
+                            if (!exif_in.TagExists(CompactExifLib.ExifTag.XpKeywords) && meta.ContainsKey("Keywords"))
+                            {
+                                exif_in.SetTagValue(CompactExifLib.ExifTag.XpKeywords, meta["Keywords"], StrCoding.Utf16Le_Byte);
+                                meta_in.Keywords = meta["Keywords"];
+                            }
+                            if (!exif_in.TagExists(CompactExifLib.ExifTag.XpKeywords) && meta.ContainsKey("Keyword"))
+                            {
+                                exif_in.SetTagValue(CompactExifLib.ExifTag.XpKeywords, meta["Keyword"], StrCoding.Utf16Le_Byte);
+                                meta_in.Keywords = meta["Keyword"];
+                            }
+                            if (!exif_in.TagExists(CompactExifLib.ExifTag.XpKeywords) && meta.ContainsKey("Tags"))
+                            {
+                                exif_in.SetTagValue(CompactExifLib.ExifTag.XpKeywords, meta["Tags"], StrCoding.Utf16Le_Byte);
+                                meta_in.Keywords = meta["Tags"];
+                            }
+                            if (!exif_in.TagExists(CompactExifLib.ExifTag.XpKeywords) && meta.ContainsKey("Tag"))
+                            {
+                                exif_in.SetTagValue(CompactExifLib.ExifTag.XpKeywords, meta["Tag"], StrCoding.Utf16Le_Byte);
+                                meta_in.Keywords = meta["Tag"];
+                            }
 
                             if (!exif_in.TagExists(CompactExifLib.ExifTag.FileSource) && meta.ContainsKey("Source"))
+                            {
                                 exif_in.SetTagValue(CompactExifLib.ExifTag.FileSource, meta["Source"], StrCoding.Utf8);
+                                meta_in.Source = meta["Source"];
+                            }
 
                             if (!exif_in.TagExists(CompactExifLib.ExifTag.Software) && meta.ContainsKey("Software"))
+                            {
                                 exif_in.SetTagValue(CompactExifLib.ExifTag.Software, meta["Software"], StrCoding.Utf8);
+                                meta_in.Software = meta["Software"];
+                            }
 
                             if (!exif_in.TagExists(CompactExifLib.ExifTag.XmpMetadata) && meta.ContainsKey("XML:com.adobe.xmp"))
                             {
-                                var value = string.Join("", meta["XML:com.adobe.xmp"].Split(new char[]{ '\0' }).Last().ToArray().SkipWhile(c => c != '<'));
+                                var value = string.Join("", meta["XML:com.adobe.xmp"].Split(['\0']).Last().ToArray().SkipWhile(c => c != '<'));
                                 exif_in.SetTagRawData(CompactExifLib.ExifTag.XmpMetadata, ExifTagType.Byte, Encoding.UTF8.GetByteCount(value), Encoding.UTF8.GetBytes(value));
+                                meta_in.Profiles.Add("xmp", new XmpProfile(Encoding.UTF8.GetBytes(value)));
                             }
                             else if (!exif_in.TagExists(CompactExifLib.ExifTag.XmpMetadata) && meta.ContainsKey("Raw profile type xmp"))
                             {
-                                var value = string.Join("", meta["Raw profile type xmp"].Split(new char[]{ '\0' }).Last().ToArray().SkipWhile(c => c != '<'));
+                                var value = string.Join("", meta["Raw profile type xmp"].Split(['\0']).Last().ToArray().SkipWhile(c => c != '<'));
                                 exif_in.SetTagRawData(CompactExifLib.ExifTag.XmpMetadata, ExifTagType.Byte, Encoding.UTF8.GetByteCount(value), Encoding.UTF8.GetBytes(value));
+                                meta_in.Profiles.Add("xmp", new XmpProfile(Encoding.UTF8.GetBytes(value)));
                             }
+                            //meta_in = MetaInfo.Create(meta);
                             #endregion
                         }
                         else
