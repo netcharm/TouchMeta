@@ -5855,9 +5855,9 @@ namespace TouchMeta
                         try { exifdata = new ExifData(ms); } catch { }
                         ms.Seek(0, SeekOrigin.Begin);
                         //using (MagickImage image = new MagickImage(ms))
-                        using (MagickImage image = new MagickImage())
+                        using (MagickImage image = new MagickImage(ms))
                         {
-                            image.Ping(ms);
+                            //image.Ping(ms);
                             if (IsValidRead(image))
                             {
                                 if (exifdata is ExifData && image.Endian == Endian.Undefined) image.Endian = exifdata.ByteOrder == ExifByteOrder.BigEndian ? Endian.MSB : Endian.LSB;
