@@ -2620,6 +2620,15 @@ namespace TouchMeta
                                 {
                                     result = BytesToString(tag_value.GetValue() as byte[], msb: is_msb);
                                 }
+                                else if ((tag_value.DataType == ExifDataType.SignedShort || tag_value.DataType == ExifDataType.SignedShort) && tag_value.IsArray)
+                                {
+                                    // maybe error
+                                    result = BytesToString(tag_value.GetValue() as byte[], msb: is_msb);
+                                }
+                                else if (tag_value.DataType == ExifDataType.Short || tag_value.DataType == ExifDataType.SignedShort)
+                                {
+                                    result = tag_value.ToString();
+                                }
                                 else if (tag_value.DataType == ExifDataType.Unknown && tag_value.IsArray)
                                 {
                                     var is_ascii = tag_value.Tag.ToString().Contains("Version");
@@ -5912,7 +5921,7 @@ namespace TouchMeta
                                 }
                                 #endregion
                                 #region Attribures Metadata
-                                foreach (var attr in image.AttributeNames)
+                                foreach (var attr in image.AttributeNames.Union([ "exif:Rating", "exif:RatingPercent" ]).OrderBy(a => a))
                                 {
                                     try
                                     {
