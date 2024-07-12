@@ -5989,9 +5989,8 @@ namespace TouchMeta
                                     var bytes = iptc.ToByteArray().Select(b => $"{b}");
                                     Log($"{prefix}= {bytes.Count()} bytes");
 
-                                    foreach (var attr in iptc.Values)
+                                    foreach (var attr in iptc.Values.OrderBy(v => v.Tag.ToString()))
                                     {
-                                        //v.
                                         Log($"{$"  {attr.Tag}".PadRight(cw)}= {attr.Value}");
                                     }
                                 }
