@@ -5970,6 +5970,7 @@ namespace TouchMeta
                                 Log($"{"Profiles".PadRight(cw)}= {string.Join(", ", image.ProfileNames)}");
                                 foreach (var profile_name in image.ProfileNames)
                                 {
+                                    if (new string[] { "iptc", "xmp" }.Contains(profile_name)) continue;
                                     try
                                     {
                                         var profile = image.GetProfile(profile_name);
@@ -5980,10 +5981,29 @@ namespace TouchMeta
                                     catch (Exception ex) { Log(ex.Message); }
                                 }
                                 #endregion
+                                #region IPTC Metadata
+                                var iptc = image.HasProfile("iptc") ? image.GetIptcProfile() : null;
+                                if (iptc != null)
+                                {
+                                    var prefix = $"Profile iptc".PadRight(cw);
+                                    var bytes = iptc.ToByteArray().Select(b => $"{b}");
+                                    Log($"{prefix}= {bytes.Count()} bytes");
+
+                                    foreach (var attr in iptc.Values)
+                                    {
+                                        //v.
+                                        Log($"{$"  {attr.Tag}".PadRight(cw)}= {attr.Value}");
+                                    }
+                                }
+                                #endregion
                                 #region XMP Metadata
                                 var xmp = image.HasProfile("xmp") ? image.GetXmpProfile() : null;
                                 if (xmp != null)
                                 {
+                                    var prefix = $"Profile xmp".PadRight(cw);
+                                    var bytes = xmp.ToByteArray().Select(b => $"{b}");
+                                    Log($"{prefix}= {bytes.Count()} bytes");
+
                                     var xml = Encoding.UTF8.GetString(xmp.ToByteArray());
 
                                     var xml_doc = new XmlDocument();
