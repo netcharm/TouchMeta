@@ -2715,7 +2715,7 @@ namespace TouchMeta
                             else if (tag_type == typeof(byte[]) && value is string)
                             {
                                 byte[] v = !IsWinXP && image.Endian == Endian.MSB && !IsJPG(image) ? Encoding.BigEndianUnicode.GetBytes(value) : Encoding.Unicode.GetBytes(value);
-                                if (tag_name.Equals("UserComment")) v = Encoding.ASCII.GetBytes("UNICODE\0").Concat(v).ToArray();
+                                if (tag_name.Equals("UserComment") && v.Length > 0) v = Encoding.ASCII.GetBytes("UNICODE\0").Concat(v).ToArray();
                                 else if (tag_name.Equals("ExifVersion")) v = Encoding.UTF8.GetBytes(value);
                                 exif.SetValue(tag_property.GetValue(exif), v);
                             }
