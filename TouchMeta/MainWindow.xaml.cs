@@ -133,6 +133,8 @@ namespace TouchMeta
         public static string[] tag_rating = new string[] {
           "Rating",
           "RatingPercent",
+          "exif:Rating",
+          "exif:RatingPercent",
           "MicrosoftPhoto:Rating",
           "xmp:rating",
           "xmp:Rating",
@@ -2709,8 +2711,9 @@ namespace TouchMeta
                             var tag_type = (tag_property as PropertyInfo).GetMethod.ReturnType.GenericTypeArguments.First();
                             if (tag_type == typeof(byte))
                             {
-                                byte v;
-                                if (byte.TryParse(value, out v)) exif.SetValue(tag_property.GetValue(exif), v);
+                                byte v = Convert.ToByte(value);
+                                if (value is string && byte.TryParse(value, out v)) exif.SetValue(tag_property.GetValue(exif), v);
+                                else exif.SetValue(tag_property.GetValue(exif), v);
                             }
                             else if (tag_type == typeof(byte[]) && value is string)
                             {
@@ -2721,8 +2724,9 @@ namespace TouchMeta
                             }
                             else if (tag_type == typeof(ushort))
                             {
-                                ushort v;
-                                if (ushort.TryParse(value, out v)) exif.SetValue(tag_property.GetValue(exif), v);
+                                ushort v = Convert.ToUInt16(value);
+                                if (value is string && ushort.TryParse(value, out v)) exif.SetValue(tag_property.GetValue(exif), v);
+                                else exif.SetValue(tag_property.GetValue(exif), v);
                             }
                             else if (tag_type == typeof(ushort[]) && value is string && !string.IsNullOrEmpty(value))
                             {
@@ -2733,8 +2737,9 @@ namespace TouchMeta
                             }
                             else if (tag_type == typeof(Number))
                             {
-                                uint v;
-                                if (uint.TryParse(value, out v)) exif.SetValue(tag_property.GetValue(exif), new Number(v));
+                                uint v = Convert.ToUInt32(value);
+                                if (value is string && uint.TryParse(value, out v)) exif.SetValue(tag_property.GetValue(exif), new Number(v));
+                                else if (value is Number) exif.SetValue(tag_property.GetValue(exif), value);
                             }
                             else if (tag_type == typeof(Rational[]) && value is string)
                             {
@@ -4745,9 +4750,9 @@ namespace TouchMeta
                                         var value_old = GetAttribute(image, tag);
                                         if (force || (!image.AttributeNames.Contains(tag) && rating.HasValue))
                                         {
-                                            if (tag.Equals("RatingPercent", StringComparison.CurrentCultureIgnoreCase))
+                                            if (tag.EndsWith("RatingPercent", StringComparison.CurrentCultureIgnoreCase))
                                                 SetAttribute(image, tag, rating);
-                                            else if (tag.Equals("Rating", StringComparison.CurrentCultureIgnoreCase))
+                                            else if (tag.EndsWith("Rating", StringComparison.CurrentCultureIgnoreCase))
                                                 SetAttribute(image, tag, RatingToRanking(rating));
                                             else if (tag.Equals("xmp:Rating", StringComparison.CurrentCultureIgnoreCase))
                                                 SetAttribute(image, tag, RatingToRanking(rating));
