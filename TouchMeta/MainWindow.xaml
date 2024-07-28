@@ -227,9 +227,9 @@
                               Text="85"/>
                     </StackPanel>
                     <MenuItem x:Name="RotateSelected" x:Uid="RotateSelected" Header="Rotate Selected Files">
+                        <MenuItem x:Name="RotateSelected_270" x:Uid="RotateSelected_270" Header="Rotate Left 90°" Click="FilesListAction_Click"/>
                         <MenuItem x:Name="RotateSelected_090" x:Uid="RotateSelected_090" Header="Rotate Right 90°" Click="FilesListAction_Click"/>
                         <MenuItem x:Name="RotateSelected_180" x:Uid="RotateSelected_180" Header="Rotate 180°" Click="FilesListAction_Click"/>
-                        <MenuItem x:Name="RotateSelected_270" x:Uid="RotateSelected_270" Header="Rotate Left 90°" Click="FilesListAction_Click"/>
                         <Separator/>
                         <MenuItem x:Name="RotateSelected_FlipH" x:Uid="RotateSelected_FlipH" Header="Flip Horizontal" Click="FilesListAction_Click"/>
                         <MenuItem x:Name="RotateSelected_FlipV" x:Uid="RotateSelected_FlipV" Header="Flip Vertical" Click="FilesListAction_Click"/>
