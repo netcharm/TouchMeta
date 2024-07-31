@@ -20,13 +20,12 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Input;
 using System.Windows.Interop;
-using System.Windows.Shapes;
 using System.Windows.Threading;
 using System.Xml;
+using System.Xml.Linq;
 
 using ImageMagick;
 using CompactExifLib;
-using System.Xml.Linq;
 
 
 namespace TouchMeta
@@ -4325,6 +4324,24 @@ namespace TouchMeta
                     image.Settings.Endian = image.Endian == Endian.Undefined ? Endian.MSB : image.Endian;
                     image.Endian = image.Settings.Endian;
                 }
+                else
+                {
+                    if (IsTIF(fmt) && (compress ?? CompressionMethod.Zip) == CompressionMethod.JPEG)
+                    {
+                        image.SetCompression(compress ?? CompressionMethod.JPEG);
+                        image.Settings.Compression = compress ?? CompressionMethod.JPEG;
+                        image.Settings.ColorType = image.ColorType;
+                        image.Settings.ColorSpace = image.ColorSpace;
+                        image.Settings.Depth = image.Depth;
+                        image.Quality = quality ?? image.Quality;
+                        image.SetAttribute("tiff:JPEGQUALITY", image.Quality.ToString());
+                        image.SetAttribute("tiff:jpegquality", image.Quality.ToString());
+                        image.SetAttribute("tiff:JpegQuality", image.Quality.ToString());
+                    }
+                    image.Settings.Format = fmt;
+                    image.Settings.Endian = image.Endian == Endian.Undefined ? Endian.MSB : image.Endian;
+                    image.Endian = image.Settings.Endian;
+                }
                 foreach (var profile in profiles) image.SetProfile(profile);
 
                 if (exif is ExifProfile) image.SetProfile(exif);
@@ -6326,6 +6343,7 @@ namespace TouchMeta
                     fmt = fmt.ToLower();
                     if (fmt.Equals("png")) pFmt = System.Drawing.Imaging.ImageFormat.Png;
                     else if (fmt.Equals("jpg")) pFmt = System.Drawing.Imaging.ImageFormat.Jpeg;
+                    else if (fmt.Equals("tiff")) pFmt = System.Drawing.Imaging.ImageFormat.Tiff;
                     else return (buffer);
 
                     if (force || !GuessAlpha(buffer))
@@ -6337,13 +6355,33 @@ namespace TouchMeta
                                 var bmp = new System.Drawing.Bitmap(mi);
                                 if (bmp is System.Drawing.Bitmap)
                                 {
-                                    var codec_info = GetEncoderInfo("image/jpeg");
-                                    var qualityParam = new System.Drawing.Imaging.EncoderParameter(System.Drawing.Imaging.Encoder.Quality, quality);
-                                    var encoderParams = new System.Drawing.Imaging.EncoderParameters(1);
-                                    encoderParams.Param[0] = qualityParam;
-
                                     if (pFmt == System.Drawing.Imaging.ImageFormat.Jpeg)
                                     {
+                                        var codec_info = GetEncoderInfo("image/jpeg");
+                                        var qualityParam = new System.Drawing.Imaging.EncoderParameter(System.Drawing.Imaging.Encoder.Quality, quality);
+                                        var encoderParams = new System.Drawing.Imaging.EncoderParameters(1);
+                                        encoderParams.Param[0] = qualityParam;
+
+                                        var img = new System.Drawing.Bitmap(bmp.Width, bmp.Height, System.Drawing.Imaging.PixelFormat.Format32bppRgb);
+                                        img.SetResolution(bmp.HorizontalResolution, bmp.VerticalResolution);
+                                        using (System.Drawing.Graphics g = System.Drawing.Graphics.FromImage(img))
+                                        {
+                                            var bg = ConvertBGColor;
+                                            g.Clear(System.Drawing.Color.FromArgb(bg.A, bg.R, bg.G, bg.B));
+                                            g.DrawImage(bmp, 0, 0, new System.Drawing.Rectangle(new System.Drawing.Point(), bmp.Size), System.Drawing.GraphicsUnit.Pixel);
+                                        }
+                                        img.Save(mo, codec_info, encoderParams);
+                                        img.Dispose();
+                                    }
+                                    else if (pFmt == System.Drawing.Imaging.ImageFormat.Tiff)
+                                    {
+                                        var codec_info = GetEncoderInfo("image/tiff");
+                                        var qualityParam = new System.Drawing.Imaging.EncoderParameter(System.Drawing.Imaging.Encoder.Quality, quality);
+                                        var compressParam = new System.Drawing.Imaging.EncoderParameter(System.Drawing.Imaging.Encoder.Compression, (long)System.Drawing.Imaging.EncoderValue.CompressionLZW);
+                                        var encoderParams = new System.Drawing.Imaging.EncoderParameters(2);
+                                        encoderParams.Param[0] = qualityParam;
+                                        encoderParams.Param[1] = compressParam;
+
                                         var img = new System.Drawing.Bitmap(bmp.Width, bmp.Height, System.Drawing.Imaging.PixelFormat.Format32bppRgb);
                                         img.SetResolution(bmp.HorizontalResolution, bmp.VerticalResolution);
                                         using (System.Drawing.Graphics g = System.Drawing.Graphics.FromImage(img))
@@ -6476,13 +6514,13 @@ namespace TouchMeta
                             {
                                 var value = string.Join("", meta["XML:com.adobe.xmp"].Split(['\0']).Last().ToArray().SkipWhile(c => c != '<'));
                                 exif_in.SetTagRawData(CompactExifLib.ExifTag.XmpMetadata, ExifTagType.Byte, Encoding.UTF8.GetByteCount(value), Encoding.UTF8.GetBytes(value));
-                                meta_in.Profiles.Add("xmp", new XmpProfile(Encoding.UTF8.GetBytes(value)));
+                                meta_in.Profiles["xmp"] = new XmpProfile(Encoding.UTF8.GetBytes(value));
                             }
                             else if (!exif_in.TagExists(CompactExifLib.ExifTag.XmpMetadata) && meta.ContainsKey("Raw profile type xmp"))
                             {
                                 var value = string.Join("", meta["Raw profile type xmp"].Split(['\0']).Last().ToArray().SkipWhile(c => c != '<'));
                                 exif_in.SetTagRawData(CompactExifLib.ExifTag.XmpMetadata, ExifTagType.Byte, Encoding.UTF8.GetByteCount(value), Encoding.UTF8.GetBytes(value));
-                                meta_in.Profiles.Add("xmp", new XmpProfile(Encoding.UTF8.GetBytes(value)));
+                                meta_in.Profiles["xmp"] = new XmpProfile(Encoding.UTF8.GetBytes(value));
                             }
                             //meta_in = MetaInfo.Create(meta);
                             #endregion
@@ -6507,18 +6545,28 @@ namespace TouchMeta
                             }
                         }
 
+                        if (meta_in.Profiles.ContainsKey("xmp") && meta_in.Profiles["xmp"].ToByteArray().Length >= 65536 && fmt.Equals("jpg", StringComparison.CurrentCultureIgnoreCase)) fmt = "tiff";
                         var bo = ReduceImageQuality(bi, fmt, quality: quality, force: force);
                         if (bo is byte[] && bo.Length > 0)
                         {
                             using (var msp = new MemoryStream(bo))
                             {
                                 var exif_out = new ExifData(msp);
-                                if (exif_in is ExifData && exif_in.ImageType != ImageType.Unknown) exif_out.ReplaceAllTagsBy(exif_in);
+                                if(exif_in is ExifData)
+                                {
+                                    if (exif_in.ImageType != ImageType.Unknown) exif_out.ReplaceAllTagsBy(exif_in);
 
-                                DateTime dt;
-                                if (exif_in is ExifData && exif_in.ImageType != ImageType.Unknown && exif_in.GetDateTaken(out dt)) { exif_out.SetDateTaken(dt); dc = dt; }
-                                if (exif_in is ExifData && exif_in.ImageType != ImageType.Unknown && exif_in.GetDateDigitized(out dt)) { exif_out.SetDateDigitized(dt); dm = dt; }
-                                if (exif_in is ExifData && exif_in.ImageType != ImageType.Unknown && exif_in.GetDateChanged(out dt)) { exif_out.SetDateChanged(dt); da = dt; }
+                                    DateTime dt;
+                                    if (exif_in.ImageType != ImageType.Unknown && exif_in.GetDateTaken(out dt)) { exif_out.SetDateTaken(dt); dc = dt; }
+                                    if (exif_in.ImageType != ImageType.Unknown && exif_in.GetDateDigitized(out dt)) { exif_out.SetDateDigitized(dt); dm = dt; }
+                                    if (exif_in.ImageType != ImageType.Unknown && exif_in.GetDateChanged(out dt)) { exif_out.SetDateChanged(dt); da = dt; }
+
+                                    if (exif_in.TagExists(CompactExifLib.ExifTag.XmpMetadata) && !exif_out.TagExists(CompactExifLib.ExifTag.XmpMetadata))
+                                    {
+                                        if (exif_in.GetTagRawData(CompactExifLib.ExifTag.XmpMetadata, out var xmp_type, out var xmp_len, out var xmp_raw))
+                                            exif_out.SetTagRawData(CompactExifLib.ExifTag.XmpMetadata, xmp_type, xmp_len, xmp_raw);
+                                    }
+                                }
 
                                 using (var mso = new MemoryStream())
                                 {
@@ -6538,7 +6586,7 @@ namespace TouchMeta
                                                 {
                                                     var xml = Encoding.UTF8.GetString(xmp);
                                                     image.SetProfile(new XmpProfile(xmp));
-                                                    SetParameters(image, image.Format, quality);
+                                                    SetParameters(image, image.Format, quality, compress: CompressionMethod.JPEG);
                                                     image.Write(mso, image.Format);
                                                 }
                                             }
