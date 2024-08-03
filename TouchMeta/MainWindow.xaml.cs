@@ -605,7 +605,7 @@ namespace TouchMeta
             if (action is Action<string, bool> && bgWorker is BackgroundWorker && !bgWorker.IsBusy)
             {
                 IList<string> files = GetFiles(FilesList);
-                var selected_file = FilesList.SelectedItem != null ? FilesList.SelectedItem as string : string.Empty;
+                var selected_file = FilesList.SelectedItem != null ? (FilesList.SelectedItem as ListBoxItem).Content as string : string.Empty;
                 if (files.Count > 0)
                 {
                     bgWorker.RunWorkerAsync(new Action(() =>
@@ -759,6 +759,70 @@ namespace TouchMeta
             return (result);
         }
 
+        private string GetFileToolTip(FileInfo fi)
+        {
+            List<string> info = new List<string>();
+            info.Add($"Full Name     : {fi.FullName}");
+            info.Add($"File Size     : {fi.Length:N} Bytes / {SmartFileSize(fi.Length)}");
+            //info.Add($"Created  Time : {fi.CreationTime.ToString()} => {DateCreated.SelectedDate}");
+            //info.Add($"Modified Time : {fi.LastWriteTime.ToString()} => {DateModified.SelectedDate}");
+            //info.Add($"Accessed Time : {fi.LastAccessTime.ToString()} => {DateAccessed.SelectedDate}");
+            return (string.Join(Environment.NewLine, info));
+        }
+
+        private string GetFileTooltip(string file)
+        {
+            return (GetFileToolTip(new FileInfo(file)));
+        }
+
+        private bool FileIn(string file)
+        {
+            var result = false;
+
+            //var flist = new List<string>();
+            //foreach (var f in FilesList.Items) flist.Add((f as ListBoxItem).Content as string);
+            var flist = FilesList.Items.OfType<ListBoxItem>().Select(f => f.Content as string).ToList();
+            result = flist.IndexOf(file) >= 0;
+
+            return (result);
+        }
+
+        private int FileIndexOf(string file)
+        {
+            var result = -1;
+
+            //var flist = new List<string>();
+            //foreach (var f in FilesList.Items) flist.Add((f as ListBoxItem).Content as string);
+            var flist = FilesList.Items.OfType<ListBoxItem>().Select(f => f.Content as string).ToList();
+            result = flist.IndexOf(file);
+
+            return (result);
+        }
+
+        private int FileIndexOf(string file, int index )
+        {
+            var result = -1;
+
+            //var flist = new List<string>();
+            //foreach (var f in FilesList.Items) flist.Add((f as ListBoxItem).Content as string);
+            var flist = FilesList.Items.OfType<ListBoxItem>().Select(f => f.Content as string).ToList();
+            result = flist.IndexOf(file, index);
+
+            return (result);
+        }
+
+        private int FileIndexOf(string file, int index, int count)
+        {
+            var result = -1;
+
+            //var flist = new List<string>();
+            //foreach (var f in FilesList.Items) flist.Add((f as ListBoxItem).Content as string);
+            var flist = FilesList.Items.OfType<ListBoxItem>().Select(f => f.Content as string).ToList();
+            result = flist.IndexOf(file, index, count);
+
+            return (result);
+        }
+
         private void OrderFiles(bool descending = true)
         {
             try
@@ -786,8 +850,7 @@ namespace TouchMeta
                 var flist = new List<string>();
                 foreach (var file in files)
                 {
-                    //var entries = Directory.GetFileSystemEntries(Path.GetDirectoryName(Path.GetFullPath(file)), Path.GetFileName(file), SearchOption.TopDirectoryOnly);
-                    var entries = Directory.GetFileSystemEntries(System.IO.Path.IsPathRooted(file) ? System.IO.Path.GetDirectoryName(file) : Directory.GetCurrentDirectory(), System.IO.Path.GetFileName(file), SearchOption.TopDirectoryOnly);
+                    var entries = Directory.GetFileSystemEntries(Path.IsPathRooted(file) ? Path.GetDirectoryName(file) : Directory.GetCurrentDirectory(), Path.GetFileName(file), SearchOption.TopDirectoryOnly);
                     flist.AddRange(NaturlSort(entries, true));
                 }
 
@@ -795,11 +858,27 @@ namespace TouchMeta
                 {
                     if (Directory.Exists(file))
                     {
-                        if (with_folder) FilesList.Items.Add(file);
+                        if (with_folder) FilesList.Items.Add(new ListBoxItem() { Content = file, ToolTip = new ToolTip() { Content = file } });
                         var fs = NaturlSort(Directory.EnumerateFiles(file), false);
-                        foreach (var f in fs) if (FilesList.Items.IndexOf(f) < 0) FilesList.Items.Add(f);
+                        foreach (var f in fs)
+                        {
+                            var fi = new FileInfo(f);
+                            if (fi.Exists && !FileIn(fi.FullName))
+                            {
+                                var item = new ListBoxItem() { Content = fi.FullName, ToolTip = new ToolTip(){ Content = GetFileToolTip(fi)} };
+                                FilesList.Items.Add(item);
+                            }
+                        }
                     }
-                    else if (FilesList.Items.IndexOf(file) < 0) FilesList.Items.Add(file);
+                    else if (!FileIn(file))
+                    {
+                        var fi = new FileInfo(file);
+                        if (fi.Exists)
+                        {
+                            var item = new ListBoxItem() { Content = fi.FullName, ToolTip = new ToolTip(){ Content = GetFileToolTip(fi) } };
+                            FilesList.Items.Add(item);
+                        }
+                    }
                 }
                 result = true;
             }
@@ -825,54 +904,13 @@ namespace TouchMeta
             return (result);
         }
 
-        private void UpdateFileTimeInfo(string file = null)
-        {
-            Dispatcher.InvokeAsync(() =>
-            {
-                try
-                {
-                    if (string.IsNullOrEmpty(file))
-                    {
-                        if (FilesList.SelectedItem != null)
-                        {
-                            file = FilesList.SelectedItem as string;
-                            UpdateFileTimeInfo(file);
-                        }
-                    }
-                    else if (File.Exists(file))
-                    {
-                        var fi = new FileInfo(file);
-
-                        List<string> info = new List<string>();
-                        info.Add($"Created  Time : {fi.CreationTime.ToString()} => {DateCreated.SelectedDate}");
-                        info.Add($"Modified Time : {fi.LastWriteTime.ToString()} => {DateModified.SelectedDate}");
-                        info.Add($"Accessed Time : {fi.LastAccessTime.ToString()} => {DateAccessed.SelectedDate}");
-                        FileTimeInfo.Text = string.Join(Environment.NewLine, info);
-                        FileTimeInfo.ToolTip = $"File Size: {fi.Length} Bytes / {SmartFileSize(fi.Length)}";
-                    }
-                    else if (Directory.Exists(file))
-                    {
-                        var fi = new DirectoryInfo(file);
-
-                        List<string> info = new List<string>();
-                        info.Add($"Created  Time : {fi.CreationTime.ToString()} => {DateCreated.SelectedDate}");
-                        info.Add($"Modified Time : {fi.LastWriteTime.ToString()} => {DateModified.SelectedDate}");
-                        info.Add($"Accessed Time : {fi.LastAccessTime.ToString()} => {DateAccessed.SelectedDate}");
-                        FileTimeInfo.Text = string.Join(Environment.NewLine, info);
-                        FileTimeInfo.ToolTip = string.Empty;
-                    }
-                }
-                catch (Exception ex) { ShowMessage(ex.Message, "ERROR"); }
-            });
-        }
-
         private void AddFile(string file)
         {
             Dispatcher.InvokeAsync(() =>
             {
-                var idx = FilesList.Items.IndexOf(file);
+                var idx = FileIndexOf(file);
                 if (idx >= 0) FilesList.Items.RemoveAt(idx);
-                FilesList.Items.Add(file);
+                LoadFiles([file]);
             });
         }
 
@@ -883,7 +921,7 @@ namespace TouchMeta
             {
                 element.Dispatcher.Invoke(() =>
                 {
-                    foreach (var item in element.SelectedItems.Count > 0 ? element.SelectedItems : element.Items) files.Add(item as string);
+                    foreach (var item in element.SelectedItems.Count > 0 ? element.SelectedItems : element.Items) files.Add((item as ListBoxItem).Content as string);
                 });
             }
             return(files);
@@ -896,7 +934,7 @@ namespace TouchMeta
             {
                 Dispatcher.InvokeAsync(() =>
                 {
-                    foreach (var item in FilesList.SelectedItems.Count > 0 ? FilesList.SelectedItems : FilesList.Items) files.Add(item as string);
+                    foreach (var item in FilesList.SelectedItems.Count > 0 ? FilesList.SelectedItems : FilesList.Items) files.Add((item as ListBoxItem).Content as string);
                 });
             }
             return (files);
@@ -931,7 +969,7 @@ namespace TouchMeta
                 {
                     Dispatcher.InvokeAsync(() =>
                     {
-                        LoadFiles((files as IEnumerable<string>).Where(f => File.Exists(f)).ToArray(), with_folder: ctrl);
+                        LoadFiles((files as IEnumerable<string>).Where(f => File.Exists(f) || Directory.Exists(f)).ToArray(), with_folder: ctrl);
                     });
                 }
             }
@@ -955,6 +993,47 @@ namespace TouchMeta
                 Clipboard.SetDataObject(dp);
             }
             catch (Exception ex) { ShowMessage(ex.Message, "ERROR"); }
+        }
+
+        private void UpdateFileTimeInfo(string file = null)
+        {
+            Dispatcher.InvokeAsync(() =>
+            {
+                try
+                {
+                    if (string.IsNullOrEmpty(file))
+                    {
+                        if (FilesList.SelectedItem != null)
+                        {
+                            file = (FilesList.SelectedItem as ListBoxItem).Content as string;
+                            UpdateFileTimeInfo(file);
+                        }
+                    }
+                    else if (File.Exists(file))
+                    {
+                        var fi = new FileInfo(file);
+
+                        List<string> info = new List<string>();
+                        info.Add($"Created  Time : {fi.CreationTime.ToString()} => {DateCreated.SelectedDate}");
+                        info.Add($"Modified Time : {fi.LastWriteTime.ToString()} => {DateModified.SelectedDate}");
+                        info.Add($"Accessed Time : {fi.LastAccessTime.ToString()} => {DateAccessed.SelectedDate}");
+                        FileTimeInfo.Text = string.Join(Environment.NewLine, info);
+                        FileTimeInfo.ToolTip = $"File Size: {fi.Length:N} Bytes / {SmartFileSize(fi.Length)}";
+                    }
+                    else if (Directory.Exists(file))
+                    {
+                        var fi = new DirectoryInfo(file);
+
+                        List<string> info = new List<string>();
+                        info.Add($"Created  Time : {fi.CreationTime.ToString()} => {DateCreated.SelectedDate}");
+                        info.Add($"Modified Time : {fi.LastWriteTime.ToString()} => {DateModified.SelectedDate}");
+                        info.Add($"Accessed Time : {fi.LastAccessTime.ToString()} => {DateAccessed.SelectedDate}");
+                        FileTimeInfo.Text = string.Join(Environment.NewLine, info);
+                        FileTimeInfo.ToolTip = string.Empty;
+                    }
+                }
+                catch (Exception ex) { ShowMessage(ex.Message, "ERROR"); }
+            });
         }
         #endregion
 
@@ -7180,8 +7259,8 @@ namespace TouchMeta
         {
             try
             {
-                var items = FilesList.SelectedItems.Count>0 ? FilesList.SelectedItems : FilesList.Items;
-                foreach (var i in items.OfType<string>().ToList()) FilesList.Items.Remove(i);
+                var items = FilesList.SelectedItems.Count > 0 ? FilesList.SelectedItems : FilesList.Items;
+                foreach (var i in items.OfType<ListBoxItem>().ToList()) FilesList.Items.Remove(i);
             }
             catch (Exception ex) { ShowMessage(ex.Message, "ERROR"); }
         }
@@ -7205,7 +7284,7 @@ namespace TouchMeta
         {
             if (FilesList.SelectedItem != null)
             {
-                var file = FilesList.SelectedItem as string;
+                var file = (FilesList.SelectedItem as ListBoxItem).Content as string;
                 var filename = System.IO.Path.GetFileName(file);
 #if DEBUG
                 var ret = ShowCustomForm(FileRenameInputPopupCanvas, filename);
@@ -7322,6 +7401,16 @@ namespace TouchMeta
             };
             #endregion
 
+            #region Set DataObject Handle routines
+            DataObject.AddPastingHandler(TimeStringContent, ClipboardStringContent_Paste);
+
+            DataObject.AddPastingHandler(MetaInputTitleText, ClipboardStringContent_Paste);
+            DataObject.AddPastingHandler(MetaInputSubjectText, ClipboardStringContent_Paste);
+            DataObject.AddPastingHandler(MetaInputKeywordsText, ClipboardStringContent_Paste);
+            DataObject.AddPastingHandler(MetaInputAuthorText, ClipboardStringContent_Paste);
+            DataObject.AddPastingHandler(MetaInputCopyrightText, ClipboardStringContent_Paste);
+            #endregion
+
             TemplateLoad.Items.Add(new MenuItem() { Header = "Empty", IsEnabled = false });
             TemplateEdit.Items.Add(new MenuItem() { Header = "Empty", IsEnabled = false });
             TemplateRemove.Items.Add(new MenuItem() { Header = "Empty", IsEnabled = false });
@@ -7333,14 +7422,6 @@ namespace TouchMeta
                 FilesFromDataObject();
             else
                 LoadFiles(GetDropedFiles(args), with_folder: Keyboard.Modifiers == ModifierKeys.Control);
-
-            DataObject.AddPastingHandler(TimeStringContent, ClipboardStringContent_Paste);
-
-            DataObject.AddPastingHandler(MetaInputTitleText, ClipboardStringContent_Paste);
-            DataObject.AddPastingHandler(MetaInputSubjectText, ClipboardStringContent_Paste);
-            DataObject.AddPastingHandler(MetaInputKeywordsText, ClipboardStringContent_Paste);
-            DataObject.AddPastingHandler(MetaInputAuthorText, ClipboardStringContent_Paste);
-            DataObject.AddPastingHandler(MetaInputCopyrightText, ClipboardStringContent_Paste);
         }
 
         private void Window_LocationChanged(object sender, EventArgs e)
@@ -7569,7 +7650,7 @@ namespace TouchMeta
             e.Handled = true;
             if (FilesList.SelectedItem != null)
             {
-                var file = FilesList.SelectedItem as string;
+                var file = (FilesList.SelectedItem as ListBoxItem).Content as string;
                 UpdateFileTimeInfo(file);
             }
             SetTitle();
@@ -7585,7 +7666,7 @@ namespace TouchMeta
                 if (FilesList.SelectedItem != null)
                 {
                     #region Get File DateTime From Selected File
-                    var file = FilesList.SelectedItem as string;
+                    var file = (FilesList.SelectedItem as ListBoxItem).Content as string;
                     if (File.Exists(file))
                     {
                         var fi = new FileInfo(file);
@@ -7604,7 +7685,7 @@ namespace TouchMeta
                 if (FilesList.SelectedItem != null)
                 {
                     #region Get Metadata DateTime From Selected File
-                    var file = FilesList.SelectedItem as string;
+                    var file = (FilesList.SelectedItem as ListBoxItem).Content as string;
                     var dt = GetMetaTime(file);
                     if (dt != null) SetCustomDateTime(dt: dt);
                     #endregion
@@ -7631,7 +7712,7 @@ namespace TouchMeta
                 if (FilesList.SelectedItem != null)
                 {
                     #region Get Metadata Infomation From Selected File
-                    var file = FilesList.SelectedItem as string;
+                    var file = (FilesList.SelectedItem as ListBoxItem).Content as string;
                     CurrentMeta = GetMetaInfo(file);
                     #endregion
                 }
