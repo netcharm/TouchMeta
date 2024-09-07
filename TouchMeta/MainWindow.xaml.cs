@@ -781,6 +781,12 @@ namespace TouchMeta
 
             //var flist = new List<string>();
             //foreach (var f in FilesList.Items) flist.Add((f as ListBoxItem).Content as string);
+            
+            //
+            // T[] items = new T[lb.Items.Count];
+            // lb.Items.CopyTo(items, 0);
+            // var lst = new List<T>(items);
+            //
             var flist = FilesList.Items.OfType<ListBoxItem>().Select(f => f.Content as string).ToList();
             result = flist.IndexOf(file) >= 0;
 
@@ -3855,7 +3861,7 @@ namespace TouchMeta
                 }
                 #endregion
 
-                bool is_png = GetFormatInfo(image).MimeType.Equals("image/png");
+                bool is_png = IsPNG(image);
                 #region Datetime
                 result.DateAcquired = GetMetaTime(image);
                 result.DateTaken = result.DateAcquired;
@@ -5989,26 +5995,13 @@ namespace TouchMeta
                                 #endregion
 
                                 var cw = 35;
+                                var fmt_info = GetFormatInfo(image);
                                 #region General Metadata
                                 Log($"{"FileSize".PadRight(cw)}= {SmartFileSize(fi.Length)} [{fi.Length:N0} B]");
-                                Log($"{"Dimensions".PadRight(cw)}= {image.Width}x{image.Height}x{depth}");
-                                Log($"{"TotalPixels".PadRight(cw)}= {image.Width * image.Height / 1000.0 / 1000.0:F2} MegaPixels");
-                                Log($"{"ColorSpace".PadRight(cw)}= {image.ColorSpace.ToString()}");
-                                Log($"{"ColorType".PadRight(cw)}= {image.ColorType.ToString()}");
-                                Log($"{"HasAlpha".PadRight(cw)}= {image.HasAlpha.ToString()}");
-                                Log($"{"ColormapSize".PadRight(cw)}= {image.ColormapSize}");
-                                //Log($"{"TotalColors".PadRight(cw)}= {image.TotalColors}");
-                                Log($"{"FormatInfo".PadRight(cw)}= {GetFormatInfo(image).Format.ToString()}, MIME:{GetFormatInfo(image).MimeType}");
+                                Log($"{"FormatInfo".PadRight(cw)}= {fmt_info.Format }, MIME:{GetFormatInfo(image).MimeType}, {fmt_info.Description}");
                                 Log($"{"ByteOrder".PadRight(cw)}= {(exifdata is ExifData ? exifdata.ByteOrder.ToString() : image.Endian.ToString())}");
-                                Log($"{"ClassType".PadRight(cw)}= {image.ClassType.ToString()}");
                                 //Log($"{"Geometry".PadRight(cw)}= {image.Page.ToString()}");
-                                Log($"{"Compression".PadRight(cw)}= {image.Compression.ToString()}");
-                                if (GetFormatInfo(image).Format.ToString().Equals("jpeg", StringComparison.CurrentCultureIgnoreCase))
-                                    Log($"{"Quality".PadRight(cw)}= {(image.Quality == 0 ? 75 : image.Quality)}");
-                                Log($"{"Orientation".PadRight(cw)}= {image.Orientation.ToString()}");
-                                Log($"{"Filter".PadRight(cw)}= {(image.FilterType == FilterType.Undefined ? "Adaptive" : image.FilterType.ToString())}");
-                                Log($"{"Interlace".PadRight(cw)}= {image.Interlace.ToString()}");
-                                Log($"{"Interpolate".PadRight(cw)}= {image.Interpolate.ToString()}");
+                                Log($"{"Dimensions".PadRight(cw)}= {image.Width}x{image.Height}x{depth}, {image.Width * image.Height / 1000.0 / 1000.0:F2} MegaPixels");
                                 if (image.Density != null)
                                 {
                                     var is_ppi = image.Density.Units == DensityUnit.PixelsPerInch;
@@ -6020,6 +6013,19 @@ namespace TouchMeta
                                     else
                                         Log($"{"Resolution/Density".PadRight(cw)}= {density.X:F0} PPI x {density.Y:F0} PPI [{image.Density.X:F2} {unit} x {image.Density.Y:F2} {unit}]");
                                 }
+                                Log($"{"Orientation".PadRight(cw)}= {image.Orientation.ToString()}");
+                                //Log($"{"TotalColors".PadRight(cw)}= {image.TotalColors}");
+                                Log($"{"HasAlpha".PadRight(cw)}= {image.HasAlpha.ToString()}");
+                                Log($"{"ColorSpace".PadRight(cw)}= {image.ColorSpace.ToString()}");
+                                Log($"{"ColorType".PadRight(cw)}= {image.ColorType.ToString()}");
+                                Log($"{"ColormapSize".PadRight(cw)}= {image.ColormapSize}");
+                                Log($"{"ClassType".PadRight(cw)}= {image.ClassType.ToString()}");
+                                Log($"{"Compression".PadRight(cw)}= {image.Compression.ToString()}");
+                                if (fmt_info.Format.ToString().Equals("jpeg", StringComparison.CurrentCultureIgnoreCase))
+                                    Log($"{"Quality".PadRight(cw)}= {(image.Quality == 0 ? 75 : image.Quality)}");
+                                Log($"{"Filter".PadRight(cw)}= {(image.FilterType == FilterType.Undefined ? "Adaptive" : image.FilterType.ToString())}");
+                                Log($"{"Interlace".PadRight(cw)}= {image.Interlace.ToString()}");
+                                Log($"{"Interpolate".PadRight(cw)}= {image.Interpolate.ToString()}");
                                 #endregion
                                 #region Attribures Metadata
                                 foreach (var attr in image.AttributeNames.Union([ "exif:Rating", "exif:RatingPercent" ]).OrderBy(a => a))
