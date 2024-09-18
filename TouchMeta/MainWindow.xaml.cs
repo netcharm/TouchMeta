@@ -556,25 +556,25 @@ namespace TouchMeta
         private static bool ConfirmToAll { get; set; } = false;
         private static bool ConfirmNoToAll { get; set; } = false;
         private static bool ConfirmYesToAll { get; set; } = false;
-        private static readonly Func<string, string, MessageBoxResult> ShowConfirmFunc = (content, caption) =>
+        private static readonly Func<string, string, bool, MessageBoxResult> ShowConfirmFunc = (content, caption, shownote) =>
         {
             ConfirmToAll = false;
             ConfirmNoToAll = false;
             ConfirmYesToAll = false;
-            content = $"{content}{Environment.NewLine}{Environment.NewLine}[Click Button with SHIFT will Apply To All!]";
+            if(shownote) content = $"{content}{Environment.NewLine}{Environment.NewLine}[Click Button with SHIFT will Apply To All!]";
             var ret = Xceed.Wpf.Toolkit.MessageBox.Show(Application.Current.MainWindow, content, caption, MessageBoxButton.YesNo, MessageBoxImage.Question);
             ConfirmToAll = Keyboard.Modifiers.HasFlag(ModifierKeys.Shift);
             return(ret);
         };
 
-        private static bool ShowConfirm(string text, string title)
+        private static bool ShowConfirm(string text, string title, bool confirm_all = true)
         {
             var result = false;
 
             if (ConfirmNoToAll) return (false);
             if (ConfirmYesToAll) return (true);
 
-            var ret = Application.Current.Dispatcher.Invoke(ShowConfirmFunc, text, title);
+            var ret = Application.Current.Dispatcher.Invoke(ShowConfirmFunc, text, title, confirm_all);
             result = ret is MessageBoxResult && (MessageBoxResult)ret == MessageBoxResult.Yes ? true : false;
             if (ConfirmToAll)
             {
@@ -629,7 +629,7 @@ namespace TouchMeta
             if (ReportProgress is Action<double, double, string>) ReportProgress.Invoke(count, total, tooltip);
         }
 
-        private void RunBgWorker(Action<string, bool> action, bool showlog = true)
+        private void RunBgWorker(Action<string, bool> action, bool showlog = true, int confirm = 0)
         {
             ConfirmToAll = false;
             ConfirmNoToAll = false;
@@ -641,28 +641,33 @@ namespace TouchMeta
                 var selected_file = FilesList.SelectedItem != null ? (FilesList.SelectedItem as ListBoxItem).Content as string : string.Empty;
                 if (files.Count > 0)
                 {
-                    bgWorker.RunWorkerAsync(new Action(() =>
+                    var go = true;
+                    if (confirm > 0 && files.Count > confirm) go = ShowConfirm("Lot of files, execute may reduce the system response", "Continue?", confirm <= 0);
+                    if (go)
                     {
-                        ClearLog();
-                        ProgressReset();
-                        double count = 0;
-                        foreach (var file in files)
+                        bgWorker.RunWorkerAsync(new Action(() =>
                         {
-                            if (bgWorker.CancellationPending) break;
-                            ProgressReport(count, files.Count, file);
-                            Log($"{file}");
-                            Log("-".PadRight(ExtendedMessageWidth, '-'));
-                            if (File.Exists(file) || Directory.Exists(file)) action.Invoke(file, files.Count == 1);
-                            if (file.Equals(selected_file, StringComparison.CurrentCultureIgnoreCase))
+                            ClearLog();
+                            ProgressReset();
+                            double count = 0;
+                            foreach (var file in files)
                             {
-                                UpdateFileTimeInfo(file);
+                                if (bgWorker.CancellationPending) break;
+                                ProgressReport(count, files.Count, file);
+                                Log($"{file}");
+                                Log("-".PadRight(ExtendedMessageWidth, '-'));
+                                if (File.Exists(file) || Directory.Exists(file)) action.Invoke(file, files.Count == 1);
+                                if (file.Equals(selected_file, StringComparison.CurrentCultureIgnoreCase))
+                                {
+                                    UpdateFileTimeInfo(file);
+                                }
+                                Log("=".PadRight(ExtendedMessageWidth, '='));
+                                ProgressReport(++count, files.Count, file);
                             }
-                            Log("=".PadRight(ExtendedMessageWidth, '='));
-                            ProgressReport(++count, files.Count, file);
-                        }
-                        if (showlog) ShowLog();
-                        Common.TaskbarManager.ResetProgress();
-                    }));
+                            if (showlog) ShowLog();
+                            Common.TaskbarManager.ResetProgress();
+                        }));
+                    }
                 }
             }
         }
@@ -7427,7 +7432,7 @@ namespace TouchMeta
                     Process.Start($"\"{file}\"");
                 else
                     Process.Start(viewer, $"\"{file}\"");
-            }), showlog: false);
+            }), showlog: false, confirm: 10);
         }
 
         private void ShowRenamePanel()
@@ -8515,7 +8520,7 @@ namespace TouchMeta
                 RunBgWorker(new Action<string, bool>((file, show_xmp) =>
                 {
                     ShellUtils.Show(file);
-                }), showlog: false);
+                }), showlog: false, confirm: 10);
             }
             #endregion
         }

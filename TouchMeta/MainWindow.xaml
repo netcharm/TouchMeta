@@ -18,6 +18,8 @@
     <Grid x:Name="WindowContainer">
         <Grid.Resources>
             <Style x:Key="AlternatingWithTriggers" TargetType="{x:Type ListBoxItem}">
+                <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                <Setter Property="VerticalContentAlignment" Value="Center"/>
                 <Setter Property="Background" Value="{DynamicResource {x:Static SystemColors.WindowColorKey}}"/>
                 <Setter Property="Foreground" Value="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}"/>
                 <Style.Triggers>
@@ -101,7 +103,6 @@
         <ListBox Grid.Row="3" x:Name="FilesList" x:Uid="FilesList" Margin="6" 
                  HorizontalAlignment="Stretch" VerticalAlignment="Stretch" 
                  AlternationCount="2" IsTabStop="True" SelectionMode="Extended"
-
                  MouseDown="FilesList_MouseDown" MouseMove="FilesList_MouseMove" MouseDoubleClick="FilesList_MouseDoubleClick"
                  SelectionChanged="FilesList_SelectionChanged" >
             <ListBox.ItemContainerStyle>
