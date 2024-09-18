@@ -7143,6 +7143,9 @@ namespace TouchMeta
         #endregion
 
         #region Common Helper
+        /// <summary>
+        /// 
+        /// </summary>
         private void InitMagicK()
         {
             try
@@ -7175,6 +7178,9 @@ namespace TouchMeta
             catch (Exception ex) { Log(ex.Message); }
         }
 
+        /// <summary>
+        /// 
+        /// </summary>
         private void InitDefaultUI()
         {
             Dispatcher.InvokeAsync(() =>
@@ -7224,123 +7230,142 @@ namespace TouchMeta
             });
         }
 
+        /// <summary>
+        /// 
+        /// </summary>
         private void InitAccelerators()
         {
             // add keyboard accelerators for backwards navigation
-            RoutedCommand cmd_Copy = new RoutedCommand();
+            RoutedUICommand cmd_Copy = new RoutedUICommand(){ Text = $"{CopyToClipboard.Header}" };
             cmd_Copy.InputGestures.Add(new KeyGesture(Key.C, ModifierKeys.Control, $"Ctrl+{Key.C}"));
-            FilesList.CommandBindings.Add(new CommandBinding(cmd_Copy, (obj, evt) =>
+            CommandBindings.Add(new CommandBinding(cmd_Copy, (obj, evt) =>
             {
                 evt.Handled = true;
                 FilesToClipboard();
             }));
             CopyToClipboard.InputGestureText = string.Join(", ", cmd_Copy.InputGestures.OfType<KeyGesture>().Select(k => k.DisplayString));
 
-            RoutedCommand cmd_Paste = new RoutedCommand();
+            RoutedUICommand cmd_Paste = new RoutedUICommand(){ Text = $"{AddFromClipboard.Header}" };
             cmd_Paste.InputGestures.Add(new KeyGesture(Key.V, ModifierKeys.Control, $"Ctrl+{Key.V}"));
-            FilesList.CommandBindings.Add(new CommandBinding(cmd_Paste, (obj, evt) =>
+            CommandBindings.Add(new CommandBinding(cmd_Paste, (obj, evt) =>
             {
                 evt.Handled = true;
                 FilesFromDataObject();
             }));
             AddFromClipboard.InputGestureText = string.Join(", ", cmd_Paste.InputGestures.OfType<KeyGesture>().Select(k => k.DisplayString));
 
-            RoutedCommand cmd_Rename = new RoutedCommand();
+            RoutedUICommand cmd_Rename = new RoutedUICommand(){ Text = $"{RenameSelected.Header}" };
             cmd_Rename.InputGestures.Add(new KeyGesture(Key.F2, ModifierKeys.None, $"{Key.F2}"));
-            FilesList.CommandBindings.Add(new CommandBinding(cmd_Rename, (obj, evt) =>
+            CommandBindings.Add(new CommandBinding(cmd_Rename, (obj, evt) =>
             {
                 evt.Handled = true;
                 ShowRenamePanel();
             }));
             RenameSelected.InputGestureText = string.Join(", ", cmd_Rename.InputGestures.OfType<KeyGesture>().Select(k => k.DisplayString));
 
-            RoutedCommand cmd_Sorting_A = new RoutedCommand();
+            RoutedUICommand cmd_Sorting_A = new RoutedUICommand(){ Text = "Sorting Files Increasing" };
             cmd_Sorting_A.InputGestures.Add(new KeyGesture(Key.F3, ModifierKeys.Shift, $"Shift+{Key.F3}"));
-            FilesList.CommandBindings.Add(new CommandBinding(cmd_Sorting_A, (obj, evt) =>
+            CommandBindings.Add(new CommandBinding(cmd_Sorting_A, (obj, evt) =>
             {
                 evt.Handled = true;
                 OrderFileItems(false);
             }));
 
-            RoutedCommand cmd_Sorting_D = new RoutedCommand();
+            RoutedUICommand cmd_Sorting_D = new RoutedUICommand(){ Text = "Sorting Files Descending" };
             cmd_Sorting_D.InputGestures.Add(new KeyGesture(Key.F3, ModifierKeys.None, $"{Key.F3}"));
-            FilesList.CommandBindings.Add(new CommandBinding(cmd_Sorting_D, (obj, evt) =>
+            CommandBindings.Add(new CommandBinding(cmd_Sorting_D, (obj, evt) =>
             {
                 evt.Handled = true;
                 OrderFileItems(true);
             }));
 
-            RoutedCommand cmd_Reduce_Force = new RoutedCommand();
+            RoutedUICommand cmd_TouchTime = new RoutedUICommand(){ Text = "Touch Files Time" };
+            cmd_TouchTime.InputGestures.Add(new KeyGesture(Key.F5, ModifierKeys.None, $"{Key.F5}"));
+            CommandBindings.Add(new CommandBinding(cmd_TouchTime, (obj, evt) =>
+            {
+                evt.Handled = true;
+                BtnAction_Click(BtnTouchTime, evt);
+            }));
+
+            RoutedUICommand cmd_TouchMeta = new RoutedUICommand(){ Text = "Touch Files Meta" };
+            cmd_TouchMeta.InputGestures.Add(new KeyGesture(Key.F6, ModifierKeys.None, $"{Key.F6}"));
+            CommandBindings.Add(new CommandBinding(cmd_TouchMeta, (obj, evt) =>
+            {
+                evt.Handled = true;
+                BtnAction_Click(BtnTouchMeta, evt);
+            }));
+
+            RoutedUICommand cmd_Reduce_Force = new RoutedUICommand(){ Text = $"{ReduceSelected.Header} (force)" };
             cmd_Reduce_Force.InputGestures.Add(new KeyGesture(Key.F7, ModifierKeys.Control, $"Ctrl+{Key.F7}"));
-            FilesList.CommandBindings.Add(new CommandBinding(cmd_Reduce_Force, (obj, evt) =>
+            CommandBindings.Add(new CommandBinding(cmd_Reduce_Force, (obj, evt) =>
             {
                 evt.Handled = true;
                 ReduceImageQuality(MagickFormat.Jpg, keep_name: true, force: true);
             }));
 
-            RoutedCommand cmd_Reduce = new RoutedCommand();
+            RoutedUICommand cmd_Reduce = new RoutedUICommand(){ Text = $"{ReduceSelected.Header}" };
             cmd_Reduce.InputGestures.Add(new KeyGesture(Key.F7, ModifierKeys.None, $"{Key.F7}"));
-            FilesList.CommandBindings.Add(new CommandBinding(cmd_Reduce, (obj, evt) =>
+            CommandBindings.Add(new CommandBinding(cmd_Reduce, (obj, evt) =>
             {
                 evt.Handled = true;
-                ReduceImageQuality(MagickFormat.Jpg, keep_name: true, force: false);                
+                ReduceImageQuality(MagickFormat.Jpg, keep_name: true, force: false);
             }));
             ReduceSelected.InputGestureText = string.Join(", ", cmd_Reduce.InputGestures.OfType<KeyGesture>().Select(k => k.DisplayString));
 
-            RoutedCommand cmd_ReduceTo_Force = new RoutedCommand();
+            RoutedUICommand cmd_ReduceTo_Force = new RoutedUICommand(){ Text = $"{ReduceToSelected.Header} (force)" };
             cmd_ReduceTo_Force.InputGestures.Add(new KeyGesture(Key.F8, ModifierKeys.Control, $"Ctrl+{Key.F8}"));
-            FilesList.CommandBindings.Add(new CommandBinding(cmd_ReduceTo_Force, (obj, evt) =>
+            CommandBindings.Add(new CommandBinding(cmd_ReduceTo_Force, (obj, evt) =>
             {
                 evt.Handled = true;
                 ReduceImageQuality(MagickFormat.Jpg, quality: Convert.ToInt32(ReduceToQuality.Value), keep_name: true, force: true);
             }));
 
-            RoutedCommand cmd_ReduceTo = new RoutedCommand();
+            RoutedUICommand cmd_ReduceTo = new RoutedUICommand(){ Text = $"{ReduceToSelected.Header}" };
             cmd_ReduceTo.InputGestures.Add(new KeyGesture(Key.F8, ModifierKeys.None, $"{Key.F8}"));
-            FilesList.CommandBindings.Add(new CommandBinding(cmd_ReduceTo, (obj, evt) =>
+            CommandBindings.Add(new CommandBinding(cmd_ReduceTo, (obj, evt) =>
             {
                 evt.Handled = true;
                 ReduceImageQuality(MagickFormat.Jpg, quality: Convert.ToInt32(ReduceToQuality.Value), keep_name: true, force: false);
             }));
             ReduceToSelected.InputGestureText = string.Join(", ", cmd_ReduceTo.InputGestures.OfType<KeyGesture>().Select(k => k.DisplayString));
 
-            RoutedCommand cmd_Remove = new RoutedCommand();
+            RoutedUICommand cmd_Remove = new RoutedUICommand(){ Text = $"{RemoveSelected.Header}" };
             cmd_Remove.InputGestures.Add(new KeyGesture(Key.Delete, ModifierKeys.None, $"{Key.Delete}"));
-            FilesList.CommandBindings.Add(new CommandBinding(cmd_Remove, (obj, evt) =>
+            CommandBindings.Add(new CommandBinding(cmd_Remove, (obj, evt) =>
             {
                 evt.Handled = true;
                 RemoveFileListItems();
             }));
             RemoveSelected.InputGestureText = string.Join(", ", cmd_Remove.InputGestures.OfType<KeyGesture>().Select(k => k.DisplayString));
 
-            RoutedCommand cmd_DisplayWith = new RoutedCommand();
+            RoutedUICommand cmd_DisplayWith = new RoutedUICommand(){ Text = $"{ViewSelected.Header} With..." };
             cmd_DisplayWith.InputGestures.Add(new KeyGesture(Key.Enter, ModifierKeys.Control, $"Ctrl+{Key.Enter}"));
-            FilesList.CommandBindings.Add(new CommandBinding(cmd_DisplayWith, (obj, evt) =>
+            CommandBindings.Add(new CommandBinding(cmd_DisplayWith, (obj, evt) =>
             {
                 evt.Handled = true;
-                OpenFiles(alt: false, use_default:true);
+                OpenFiles(alt: false, use_default: true);
             }));
 
-            RoutedCommand cmd_DisplayAlt = new RoutedCommand();
+            RoutedUICommand cmd_DisplayAlt = new RoutedUICommand(){ Text = $"{ViewSelected.Header} By System" };
             cmd_DisplayAlt.InputGestures.Add(new KeyGesture(Key.Enter, ModifierKeys.Shift, $"Shift+{Key.Enter}"));
-            FilesList.CommandBindings.Add(new CommandBinding(cmd_DisplayAlt, (obj, evt) =>
+            CommandBindings.Add(new CommandBinding(cmd_DisplayAlt, (obj, evt) =>
             {
                 evt.Handled = true;
                 OpenFiles(alt: true, use_default: false);
             }));
 
-            RoutedCommand cmd_DisplayProp = new RoutedCommand();
+            RoutedUICommand cmd_DisplayProp = new RoutedUICommand(){ Text = $"{ShowProperties.Header}" };
             cmd_DisplayProp.InputGestures.Add(new KeyGesture(Key.Enter, ModifierKeys.Alt, $"Alt+{Key.Enter}"));
-            FilesList.CommandBindings.Add(new CommandBinding(cmd_DisplayProp, (obj, evt) =>
+            CommandBindings.Add(new CommandBinding(cmd_DisplayProp, (obj, evt) =>
             {
                 evt.Handled = true;
                 FilesListAction_Click(ShowProperties, evt);
             }));
             ShowProperties.InputGestureText = string.Join(", ", cmd_DisplayProp.InputGestures.OfType<KeyGesture>().Select(k => k.DisplayString));
 
-            RoutedCommand cmd_Display = new RoutedCommand();
+            RoutedUICommand cmd_Display = new RoutedUICommand(){ Text = $"{ViewSelected.Header}" };
             cmd_Display.InputGestures.Add(new KeyGesture(Key.Enter, ModifierKeys.None, $"{Key.Enter}"));
-            FilesList.CommandBindings.Add(new CommandBinding(cmd_Display, (obj, evt) =>
+            CommandBindings.Add(new CommandBinding(cmd_Display, (obj, evt) =>
             {
                 evt.Handled = true;
                 OpenFiles();
@@ -7348,6 +7373,10 @@ namespace TouchMeta
             ViewSelected.InputGestureText = string.Join(", ", cmd_Display.InputGestures.OfType<KeyGesture>().Select(k => k.DisplayString));
         }
 
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="popup"></param>
         private void PopupFlowWindowsLocation(Popup popup)
         {
             try
@@ -7365,6 +7394,13 @@ namespace TouchMeta
             catch { }
         }
 
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="sc"></param>
+        /// <param name="order"></param>
+        /// <param name="descending"></param>
+        /// <returns></returns>
         private IEnumerable<string> GetDropedFiles(object sc, bool order = true, bool descending = true)
         {
             var result = new List<string>();
@@ -7395,6 +7431,10 @@ namespace TouchMeta
             return (result);
         }
 
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="text"></param>
         private void SetTitle(string text = "")
         {
             Dispatcher.InvokeAsync(() =>
@@ -7410,6 +7450,9 @@ namespace TouchMeta
             });
         }
 
+        /// <summary>
+        /// 
+        /// </summary>
         private void RemoveFileListItems()
         {
             try
@@ -7420,6 +7463,11 @@ namespace TouchMeta
             catch (Exception ex) { ShowMessage(ex.Message, "ERROR"); }
         }
 
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="alt"></param>
+        /// <param name="use_default"></param>
         private void OpenFiles(bool alt = false, bool use_default = false)
         {
             var viewer = GetConfigValue(ImageViewer);
@@ -7435,6 +7483,9 @@ namespace TouchMeta
             }), showlog: false, confirm: 10);
         }
 
+        /// <summary>
+        /// 
+        /// </summary>
         private void ShowRenamePanel()
         {
             if (FilesList.SelectedItem != null)
@@ -7456,6 +7507,11 @@ namespace TouchMeta
             }
         }
 
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="file"></param>
+        /// <param name="name"></param>
         private void RenameFileName(string file, string name)
         {
             if (File.Exists(file))
@@ -7470,6 +7526,9 @@ namespace TouchMeta
             }
         }
 
+        /// <summary>
+        /// 
+        /// </summary>
         private void CloseRenamePanel()
         {
             FileRenameInputPopup.IsOpen = false;
@@ -7477,6 +7536,9 @@ namespace TouchMeta
             FileRenameInputNameText.Text = string.Empty;
         }
 
+        /// <summary>
+        /// 
+        /// </summary>
         private void ShowMetaPanel()
         {
             MetaInputPopup.Tag = null;
@@ -8675,8 +8737,20 @@ namespace TouchMeta
                     lines.Add("Usage");
                     lines.Add("-".PadRight(NormallyMessageWidth, '-'));
 
-                    lines.Add("Ctrl+Click Touch Time Button : Force Touching DateTime");
-                    lines.Add("Ctrl+Click Touch Meta Button : Force Touching Metadata");
+                    var cmds = new List<string>();
+                    foreach (CommandBinding cmdbind in CommandBindings)
+                    {
+                        if (cmdbind.Command is RoutedUICommand)
+                        {
+                            var cmd = cmdbind.Command as RoutedUICommand;
+                            cmds.Add($"{cmd.Text.PadRight(32)} : {string.Join(",", cmd.InputGestures.OfType<KeyGesture>().Select(k => k.DisplayString))}");
+                        }
+                    }
+                    lines.AddRange(cmds.OrderBy(x => x));
+                    lines.Add("");
+
+                    lines.Add("Ctrl+Click Touch Time Button     : Force Touching DateTime");
+                    lines.Add("Ctrl+Click Touch Meta Button     : Force Touching Metadata");
 
                     lines.Add("~".PadRight(NormallyMessageWidth, '~'));
                     lines.Add("Note:");
