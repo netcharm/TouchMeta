@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Configuration;
@@ -26,9 +27,6 @@ using System.Xml.Linq;
 
 using ImageMagick;
 using CompactExifLib;
-using System.Collections.ObjectModel;
-using System.Windows.Data;
-using System.Runtime.Remoting.Messaging;
 
 
 namespace TouchMeta
@@ -505,7 +503,7 @@ namespace TouchMeta
             {
                 var contents_style = (Style)Application.Current.FindResource("MessageDialogWidth");
                 var contents = string.Join(Environment.NewLine, _log_.Skip(_log_.Count-500));
-                var dlg = new Xceed.Wpf.Toolkit.MessageBox() { };
+                var dlg = new Xceed.Wpf.Toolkit.MessageBox();
                 dlg.Resources.Add(typeof(TextBlock), contents_style);
                 dlg.CaptionIcon = Application.Current.MainWindow.Icon;
                 dlg.Language = System.Windows.Markup.XmlLanguage.GetLanguage(CultureInfo.CurrentCulture.IetfLanguageTag);
@@ -528,24 +526,22 @@ namespace TouchMeta
             Xceed.Wpf.Toolkit.MessageBox.Show(Application.Current.MainWindow, text);
         }
 
-        private static void ShowMessage(string text, string title, double? width = null)
+        private static void ShowMessage(string text, string title, double? width = null, double? height = null)
         {
             Application.Current.Dispatcher.InvokeAsync(() =>
             {
                 var contents_style = (Style)Application.Current.FindResource("MessageDialogWidth");
-                var dlg = new Xceed.Wpf.Toolkit.MessageBox() { };
+                var dlg = new Xceed.Wpf.Toolkit.MessageBox();
                 dlg.Resources.Add(typeof(TextBlock), contents_style);
                 dlg.CaptionIcon = Application.Current.MainWindow.Icon;
                 dlg.Language = System.Windows.Markup.XmlLanguage.GetLanguage(CultureInfo.CurrentCulture.IetfLanguageTag);
                 dlg.FontFamily = Application.Current.FindResource("MonoSpaceFamily") as FontFamily;
                 dlg.Text = text;
                 dlg.Caption = title;
-                if (width.HasValue)
-                {
-                    //dlg.Width = width.Value;
-                    dlg.MaxWidth = width.Value;
-                }
                 dlg.HorizontalContentAlignment = HorizontalAlignment.Stretch;
+                dlg.MaxHeight = 680;
+                if (width.HasValue) { dlg.MaxWidth = width.Value; }
+                if (height.HasValue) { dlg.MaxHeight = height.Value; }
                 dlg.MouseDoubleClick += (o, e) => { Clipboard.SetText(dlg.Text.Replace("\0", string.Empty).TrimEnd('\0')); };
                 dlg.PreviewMouseDown += (o, e) => { if (e.MiddleButton == MouseButtonState.Pressed) Send(Key.Escape); };
                 Application.Current.MainWindow.Activate();
@@ -913,6 +909,7 @@ namespace TouchMeta
                 var flist = _fileItems_.Select(f=> f.Content as string).ToList();
                 var files = GetSelected(1);
                 var files_idx = files.Select(f => flist.IndexOf(f)).ToList();
+                var selected = FilesList.SelectedItem;
 
                 List<string> result = NaturlSort(files, descending).ToList();
 
@@ -923,6 +920,7 @@ namespace TouchMeta
                     if (idx_new != idx_old) _fileItems_.Move(idx_old, idx_new);
                 }
                 FilesList.UpdateLayout();
+                if (selected is not null) FilesList.ScrollIntoView(selected);
             }
             catch (Exception ex) { ShowMessage(ex.Message, "ERROR"); }
         }
@@ -933,6 +931,7 @@ namespace TouchMeta
             {
                 var files = GetSelectedItems(1);
                 var files_idx = files.Select(_fileItems_.IndexOf).ToList();
+                var selected = FilesList.SelectedItem;
 
                 List<MyListBoxItem> result = NaturlSortItems(files, descending).ToList();
 
@@ -943,6 +942,7 @@ namespace TouchMeta
                     if (idx_new != idx_old) _fileItems_.Move(idx_old, idx_new);
                 }
                 FilesList.UpdateLayout();
+                if (selected is not null) FilesList.ScrollIntoView(selected);
             }
             catch (Exception ex) { ShowMessage(ex.Message, "ERROR"); }
         }

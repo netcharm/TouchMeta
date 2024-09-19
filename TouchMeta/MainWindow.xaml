@@ -103,11 +103,18 @@
         <ListBox Grid.Row="3" x:Name="FilesList" x:Uid="FilesList" Margin="6" 
                  HorizontalAlignment="Stretch" VerticalAlignment="Stretch" 
                  AlternationCount="2" IsTabStop="True" SelectionMode="Extended"
+                 ScrollViewer.CanContentScroll="True"
+                 VirtualizingStackPanel.IsVirtualizing="True" VirtualizingPanel.ScrollUnit="Item" VirtualizingStackPanel.VirtualizationMode="Standard"
                  MouseDown="FilesList_MouseDown" MouseMove="FilesList_MouseMove" MouseDoubleClick="FilesList_MouseDoubleClick"
                  SelectionChanged="FilesList_SelectionChanged" >
             <ListBox.ItemContainerStyle>
                 <StaticResource ResourceKey="AlternatingWithTriggers"/>
             </ListBox.ItemContainerStyle>
+            <ListBox.ItemsPanel>
+                <ItemsPanelTemplate >
+                    <VirtualizingStackPanel Orientation="Vertical" />
+                </ItemsPanelTemplate>
+            </ListBox.ItemsPanel>
             <ListBox.ContextMenu>
                 <ContextMenu x:Name="ActionListMenu">
                     <MenuItem x:Name="GetFileTimeFromSelected" x:Uid="GetFileTimeFromSelected" Header="Get File Time From Selected File" Click="FilesListAction_Click"/>
