@@ -668,6 +668,49 @@ namespace TouchMeta
             }
         }
 
+        private void RunBgWorker(Action<string, bool> action, IEnumerable<string> files, bool showlog = true, int confirm = 0)
+        {
+            ConfirmToAll = false;
+            ConfirmNoToAll = false;
+            ConfirmYesToAll = false;
+
+            if (action is Action<string, bool> && bgWorker is BackgroundWorker && !bgWorker.IsBusy)
+            {
+                var total = files.Count();
+                var selected_file = FilesList.SelectedItem != null ? (FilesList.SelectedItem as ListBoxItem).Content as string : string.Empty;
+                if (total > 0)
+                {
+                    var go = true;
+                    if (confirm > 0 && total > confirm) go = ShowConfirm("Lot of files, execute may reduce the system response", "Continue?", confirm <= 0);
+                    if (go)
+                    {
+                        bgWorker.RunWorkerAsync(new Action(() =>
+                        {
+                            ClearLog();
+                            ProgressReset();
+                            double count = 0;
+                            foreach (var file in files)
+                            {
+                                if (bgWorker.CancellationPending) break;
+                                ProgressReport(count, total, file);
+                                Log($"{file}");
+                                Log("-".PadRight(ExtendedMessageWidth, '-'));
+                                if (File.Exists(file) || Directory.Exists(file)) action.Invoke(file, total == 1);
+                                if (file.Equals(selected_file, StringComparison.CurrentCultureIgnoreCase))
+                                {
+                                    UpdateFileTimeInfo(file);
+                                }
+                                Log("=".PadRight(ExtendedMessageWidth, '='));
+                                ProgressReport(++count, total, file);
+                            }
+                            if (showlog) ShowLog();
+                            Common.TaskbarManager.ResetProgress();
+                        }));
+                    }
+                }
+            }
+        }
+
         private void BgWorker_ProgressChanged(object sender, ProgressChangedEventArgs e)
         {
             if (ReportProgress is Action<double, double, string>) ReportProgress.Invoke(e.ProgressPercentage, 0, "");
@@ -822,8 +865,8 @@ namespace TouchMeta
             {
                 if (size >= VALUE_GB) result = (size / VALUE_GB).ToString("0.# MB");
                 else if (size >= 1048576) result = (size / 1048576D).ToString("0.## MB");
-                else if (size >= 104857.6) result = (size / 104857.6).ToString("0.# kB");
-                else if (size >= 10485.76) result = (size / 10485.76).ToString("0.## kB");
+                else if (size >= 104857.6) result = (size / 10485.76).ToString("0.# kB");
+                else if (size >= 10485.76) result = (size / 1048.576).ToString("0.## kB");
             }
             else
             {
@@ -868,37 +911,34 @@ namespace TouchMeta
 
         private int FileIndexOf(string file)
         {
-            var result = -1;
-
-            //var flist = new List<string>();
-            //foreach (var f in FilesList.Items) flist.Add((f as ListBoxItem).Content as string);
-            var flist = FilesList.Items.OfType<ListBoxItem>().Select(f => f.Content as string).ToList();
-            result = flist.IndexOf(file);
-
+            var result = FilesList.Dispatcher.Invoke(() => 
+            {
+                //var flist = FilesList.Items.OfType<MyListBoxItem>().Select(f => f.Content as string).ToList();
+                var flist = _fileItems_.OfType<MyListBoxItem>().Select(f => f.Content as string).ToList();
+                return (flist.IndexOf(file));
+            });
             return (result);
         }
 
         private int FileIndexOf(string file, int index)
         {
-            var result = -1;
-
-            //var flist = new List<string>();
-            //foreach (var f in FilesList.Items) flist.Add((f as ListBoxItem).Content as string);
-            var flist = FilesList.Items.OfType<ListBoxItem>().Select(f => f.Content as string).ToList();
-            result = flist.IndexOf(file, index);
-
+            var result = FilesList.Dispatcher.Invoke(() =>
+            {
+                //var flist = FilesList.Items.OfType<MyListBoxItem>().Select(f => f.Content as string).ToList();
+                var flist = _fileItems_.OfType<MyListBoxItem>().Select(f => f.Content as string).ToList();
+                return (flist.IndexOf(file, index));
+            });
             return (result);
         }
 
         private int FileIndexOf(string file, int index, int count)
         {
-            var result = -1;
-
-            //var flist = new List<string>();
-            //foreach (var f in FilesList.Items) flist.Add((f as ListBoxItem).Content as string);
-            var flist = FilesList.Items.OfType<ListBoxItem>().Select(f => f.Content as string).ToList();
-            result = flist.IndexOf(file, index, count);
-
+            var result = FilesList.Dispatcher.Invoke(() =>
+            {
+                //var flist = FilesList.Items.OfType<MyListBoxItem>().Select(f => f.Content as string).ToList();
+                var flist = _fileItems_.OfType<MyListBoxItem>().Select(f => f.Content as string).ToList();
+                return (flist.IndexOf(file, index, count));
+            });
             return (result);
         }
 
@@ -1097,6 +1137,28 @@ namespace TouchMeta
             catch (Exception ex) { ShowMessage(ex.Message, "ERROR"); }
         }
 
+        private void UpdateFileTooltip(string file = null)
+        {
+            if (!string.IsNullOrEmpty(file))
+            {
+                var fi = new FileInfo(file);
+                UpdateFileTooltip(fi);
+            }
+        }
+
+        private void UpdateFileTooltip(FileInfo fi = null)
+        {
+            if (fi != null)
+            {
+                var idx = FileIndexOf(fi.FullName);
+                if (idx >= 0 && fi.Exists)
+                {
+                    var item = _fileItems_[idx];
+                    Dispatcher.Invoke(() => { item.ToolTip = new ToolTip() { Content = GetFileToolTip(fi) }; });
+                }
+            }
+        }
+
         private void UpdateFileTimeInfo(string file = null)
         {
             Dispatcher.InvokeAsync(() =>
@@ -1121,6 +1183,7 @@ namespace TouchMeta
                         info.Add($"Accessed Time : {fi.LastAccessTime} => {DateAccessed.SelectedDate}");
                         FileTimeInfo.Text = string.Join(Environment.NewLine, info);
                         FileTimeInfo.ToolTip = $"File Size: {fi.Length:N} Bytes / {SmartFileSize(fi.Length)}";
+                        UpdateFileTooltip(fi);
                     }
                     else if (Directory.Exists(file))
                     {
@@ -6471,7 +6534,8 @@ namespace TouchMeta
                 {
                     var ret = ConvertImageTo(file, fmt, keep_name);
                     if (!string.IsNullOrEmpty(ret) && File.Exists(ret) && !keep_name) AddFile(ret);
-                }));
+                    else UpdateFileTooltip(ret);
+                }), files);
             }
         }
 
@@ -6796,7 +6860,8 @@ namespace TouchMeta
                 {
                     var ret = ReduceImageQuality(file, fmt, quality, keep_name, force: force);
                     if (!string.IsNullOrEmpty(ret) && File.Exists(ret) && !keep_name) AddFile(ret);
-                }));
+                    else UpdateFileTooltip(ret);
+                }), files);
             }
         }
 
