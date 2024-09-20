@@ -633,38 +633,8 @@ namespace TouchMeta
 
             if (action is Action<string, bool> && bgWorker is BackgroundWorker && !bgWorker.IsBusy)
             {
-                IList<string> files = GetSelected();
-                var selected_file = FilesList.SelectedItem != null ? (FilesList.SelectedItem as ListBoxItem).Content as string : string.Empty;
-                if (files.Count > 0)
-                {
-                    var go = true;
-                    if (confirm > 0 && files.Count > confirm) go = ShowConfirm("Lot of files, execute may reduce the system response", "Continue?", confirm <= 0);
-                    if (go)
-                    {
-                        bgWorker.RunWorkerAsync(new Action(() =>
-                        {
-                            ClearLog();
-                            ProgressReset();
-                            double count = 0;
-                            foreach (var file in files)
-                            {
-                                if (bgWorker.CancellationPending) break;
-                                ProgressReport(count, files.Count, file);
-                                Log($"{file}");
-                                Log("-".PadRight(ExtendedMessageWidth, '-'));
-                                if (File.Exists(file) || Directory.Exists(file)) action.Invoke(file, files.Count == 1);
-                                if (file.Equals(selected_file, StringComparison.CurrentCultureIgnoreCase))
-                                {
-                                    UpdateFileTimeInfo(file);
-                                }
-                                Log("=".PadRight(ExtendedMessageWidth, '='));
-                                ProgressReport(++count, files.Count, file);
-                            }
-                            if (showlog) ShowLog();
-                            Common.TaskbarManager.ResetProgress();
-                        }));
-                    }
-                }
+                List<string> files = GetSelected();
+                RunBgWorker(action, files, showlog, confirm);
             }
         }
 
@@ -677,7 +647,7 @@ namespace TouchMeta
             if (action is Action<string, bool> && bgWorker is BackgroundWorker && !bgWorker.IsBusy)
             {
                 var total = files.Count();
-                var selected_file = FilesList.SelectedItem != null ? (FilesList.SelectedItem as ListBoxItem).Content as string : string.Empty;
+                var selected_file = Dispatcher.Invoke(() => { return (FilesList.SelectedItem != null ? (FilesList.SelectedItem as ListBoxItem).Content as string : string.Empty); });
                 if (total > 0)
                 {
                     var go = true;
