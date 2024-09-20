@@ -835,7 +835,7 @@ namespace TouchMeta
             {
                 if (size >= VALUE_GB) result = (size / VALUE_GB).ToString("0.# MB");
                 else if (size >= 1048576) result = (size / 1048576D).ToString("0.## MB");
-                else if (size >= 104857.6) result = (size / 10485.76).ToString("0.# kB");
+                else if (size >= 104857.6) result = (size / 1048.576).ToString("0.# kB");
                 else if (size >= 10485.76) result = (size / 1048.576).ToString("0.## kB");
             }
             else
