@@ -813,6 +813,10 @@ namespace TouchMeta
         private static readonly double VALUE_MB = 1024 * 1024;
         private static readonly double VALUE_KB = 1024;
 
+        private static readonly double VALUE_Gb = 1000 * 1000 * 1000;
+        private static readonly double VALUE_Mb = 1000 * 1000;
+        private static readonly double VALUE_Kb = 1000;
+
         private static string SmartFileSize(long v, double factor = 1, bool unit = true, int padleft = 0) { return (SmartFileSize((double)v, factor, unit, padleft: padleft)); }
 
         private static string SmartFileSize(double v, double factor = 1, bool unit = true, bool trimzero = true, int padleft = 0)
@@ -834,16 +838,18 @@ namespace TouchMeta
             if (_2E10_)
             {
                 if (size >= VALUE_GB) result = (size / VALUE_GB).ToString("0.# MB");
-                else if (size >= 1048576) result = (size / 1048576D).ToString("0.## MB");
-                else if (size >= 104857.6) result = (size / 1048.576).ToString("0.# kB");
-                else if (size >= 10485.76) result = (size / 1048.576).ToString("0.## kB");
+                else if (size >= VALUE_MB) result = (size / VALUE_MB).ToString("0.## MB");
+                else if (size >= 104857.6) result = (size / VALUE_KB).ToString("0.# KB");
+                else if (size >= 10485.76) result = (size / VALUE_KB).ToString("0.## KB");
+                else if (size >= VALUE_KB) result = (size / VALUE_KB).ToString("0.# KB");
             }
             else
             {
-                if (size >= 100000000) result = (size / 1000000D).ToString("0.# MB");
-                else if (size >= 1000000) result = (size / 1000000D).ToString("0.## MB");
-                else if (size >= 100000) result = (size / 1000D).ToString("0.# kB");
-                else if (size >= 10000) result = (size / 1000D).ToString("0.## kB");
+                if (size >= VALUE_Gb) result = (size / VALUE_Gb).ToString("0.# Mb");
+                else if (size >= VALUE_Mb) result = (size / VALUE_Mb).ToString("0.## Mb");
+                else if (size >= 100000.0) result = (size / VALUE_Kb).ToString("0.# Kb");
+                else if (size >= 10000.00) result = (size / VALUE_Kb).ToString("0.## Kb");
+                else if (size >= VALUE_Kb) result = (size / VALUE_Kb).ToString("0.# Kb");
             }
             return (result);
         }
