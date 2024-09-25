@@ -4106,28 +4106,6 @@ namespace TouchMeta
                                 result.Rating = RatingToRanking(result.RatingPercent);
                             }
                         }
-                        //else if (exif is ExifProfile)
-                        //{
-                        //    var value = GetAttribute(image, tag);
-                        //    if (tag.Equals("Rating") && exif.Values.Where(t => t.Tag == ImageMagick.ExifTag.Rating).Any())
-                        //    {
-                        //        var ranking = exif.Values.Where(t => t.Tag == ImageMagick.ExifTag.Rating).FirstOrDefault();
-                        //        if (ranking is not null)
-                        //        {
-                        //            result.Rating = (ushort)ranking.GetValue();
-                        //            result.RatingPercent = RankingToRating(result.Rating);
-                        //        }
-                        //    }
-                        //    else if (tag.Equals("RatingPercent") && exif.Values.Where(t => t.Tag == ImageMagick.ExifTag.RatingPercent).Any())
-                        //    {
-                        //        var rating = exif.Values.Where(t => t.Tag == ImageMagick.ExifTag.RatingPercent).FirstOrDefault();
-                        //        if (rating is not null)
-                        //        {
-                        //            result.RatingPercent = (ushort)rating.GetValue();
-                        //            result.Rating = RatingToRanking(result.RatingPercent);
-                        //        }
-                        //    }
-                        //}
                         else if (xmp is XmpProfile)
                         {
                             if (tag.Equals("xmp:Rating"))
