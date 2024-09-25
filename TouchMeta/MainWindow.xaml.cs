@@ -4075,35 +4075,43 @@ namespace TouchMeta
                     {
                         if (image.AttributeNames.Contains(tag) || exif is ExifProfile)
                         {
+                            var value = GetAttribute(image, tag);
+                            if (value == null) continue;
                             if (tag.Equals("Rating"))
                             {
-                                result.Rating = Convert.ToInt32(GetAttribute(image, tag));
+                                result.Rating = Convert.ToInt32(value);
                                 result.RatingPercent = RankingToRating(result.Rating);
+                                break;
                             }
                             else if (tag.Equals("RatingPercent"))
                             {
-                                result.RatingPercent = Convert.ToInt32(GetAttribute(image, tag));
+                                result.RatingPercent = Convert.ToInt32(value);
                                 result.Rating = RatingToRanking(result.RatingPercent);
+                                break;
                             }
                             else if (tag.Equals("exif:Rating"))
                             {
-                                result.Rating = Convert.ToInt32(GetAttribute(image, tag));
+                                result.Rating = Convert.ToInt32(value);
                                 result.RatingPercent = RankingToRating(result.Rating);
+                                break;
                             }
                             else if (tag.Equals("exif:RatingPercent"))
                             {
-                                result.RatingPercent = Convert.ToInt32(GetAttribute(image, tag));
+                                result.RatingPercent = Convert.ToInt32(value);
                                 result.Rating = RatingToRanking(result.RatingPercent);
+                                break;
                             }
                             else if (tag.Equals("xmp:Rating"))
                             {
-                                result.Rating = Convert.ToInt32(GetAttribute(image, tag));
+                                result.Rating = Convert.ToInt32(value);
                                 result.RatingPercent = RankingToRating(result.Rating);
+                                break;
                             }
                             else if (tag.Equals("MicrosoftPhoto:Rating"))
                             {
-                                result.RatingPercent = Convert.ToInt32(GetAttribute(image, tag));
+                                result.RatingPercent = Convert.ToInt32(value);
                                 result.Rating = RatingToRanking(result.RatingPercent);
+                                break;
                             }
                         }
                         else if (xmp is XmpProfile)
