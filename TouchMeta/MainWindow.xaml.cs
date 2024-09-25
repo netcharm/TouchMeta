@@ -27,6 +27,7 @@ using System.Xml.Linq;
 
 using ImageMagick;
 using CompactExifLib;
+using System.Windows.Ink;
 
 
 namespace TouchMeta
@@ -4072,7 +4073,7 @@ namespace TouchMeta
                 {
                     try
                     {
-                        if (image.AttributeNames.Contains(tag))
+                        if (image.AttributeNames.Contains(tag) || exif is ExifProfile)
                         {
                             if (tag.Equals("Rating"))
                             {
@@ -4080,6 +4081,16 @@ namespace TouchMeta
                                 result.RatingPercent = RankingToRating(result.Rating);
                             }
                             else if (tag.Equals("RatingPercent"))
+                            {
+                                result.RatingPercent = Convert.ToInt32(GetAttribute(image, tag));
+                                result.Rating = RatingToRanking(result.RatingPercent);
+                            }
+                            else if (tag.Equals("exif:Rating"))
+                            {
+                                result.Rating = Convert.ToInt32(GetAttribute(image, tag));
+                                result.RatingPercent = RankingToRating(result.Rating);
+                            }
+                            else if (tag.Equals("exif:RatingPercent"))
                             {
                                 result.RatingPercent = Convert.ToInt32(GetAttribute(image, tag));
                                 result.Rating = RatingToRanking(result.RatingPercent);
@@ -4095,6 +4106,28 @@ namespace TouchMeta
                                 result.Rating = RatingToRanking(result.RatingPercent);
                             }
                         }
+                        //else if (exif is ExifProfile)
+                        //{
+                        //    var value = GetAttribute(image, tag);
+                        //    if (tag.Equals("Rating") && exif.Values.Where(t => t.Tag == ImageMagick.ExifTag.Rating).Any())
+                        //    {
+                        //        var ranking = exif.Values.Where(t => t.Tag == ImageMagick.ExifTag.Rating).FirstOrDefault();
+                        //        if (ranking is not null)
+                        //        {
+                        //            result.Rating = (ushort)ranking.GetValue();
+                        //            result.RatingPercent = RankingToRating(result.Rating);
+                        //        }
+                        //    }
+                        //    else if (tag.Equals("RatingPercent") && exif.Values.Where(t => t.Tag == ImageMagick.ExifTag.RatingPercent).Any())
+                        //    {
+                        //        var rating = exif.Values.Where(t => t.Tag == ImageMagick.ExifTag.RatingPercent).FirstOrDefault();
+                        //        if (rating is not null)
+                        //        {
+                        //            result.RatingPercent = (ushort)rating.GetValue();
+                        //            result.Rating = RatingToRanking(result.RatingPercent);
+                        //        }
+                        //    }
+                        //}
                         else if (xmp is XmpProfile)
                         {
                             if (tag.Equals("xmp:Rating"))
@@ -6706,6 +6739,17 @@ namespace TouchMeta
                             {
                                 exif_in.SetTagValue(CompactExifLib.ExifTag.Software, meta["Software"], StrCoding.Utf8);
                                 meta_in.Software = meta["Software"];
+                            }
+
+                            if (!exif_in.TagExists(CompactExifLib.ExifTag.Rating) && meta.ContainsKey("Rating") && int.TryParse(meta["Rating"], out int ranking))
+                            {
+                                exif_in.SetTagValue(CompactExifLib.ExifTag.Rating, ranking, TagType: ExifTagType.UShort);
+                                meta_in.Rating = ranking;
+                            }
+                            if (!exif_in.TagExists(CompactExifLib.ExifTag.RatingPercent) && meta.ContainsKey("RatingPercent") && int.TryParse(meta["RatingPercent"], out int rating))
+                            {
+                                exif_in.SetTagValue(CompactExifLib.ExifTag.Rating, rating, TagType: ExifTagType.UShort);
+                                meta_in.RatingPercent = rating;
                             }
 
                             if (!exif_in.TagExists(CompactExifLib.ExifTag.XmpMetadata) && meta.ContainsKey("XML:com.adobe.xmp"))
