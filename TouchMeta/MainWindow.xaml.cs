@@ -28,6 +28,9 @@ using System.Xml.Linq;
 using ImageMagick;
 using CompactExifLib;
 using System.Windows.Ink;
+using System.Resources;
+using System.Xaml;
+using System.Collections;
 
 
 namespace TouchMeta
@@ -82,6 +85,7 @@ namespace TouchMeta
           "xmp:ModifyDate",
           "xmp:DateTimeDigitized",
           "xmp:DateTimeOriginal",
+          "xmp:MetadataDate",
           "Creation Time",
           "create-date",
           "modify-date",
@@ -1875,6 +1879,18 @@ namespace TouchMeta
                     if (root_nodes.Count >= 1)
                     {
                         var root_node = root_nodes.Item(0);
+                        var attrs = new Dictionary<string, string>();
+                        foreach (XmlNode node in xml_doc.GetElementsByTagName("rdf:Description"))
+                        {
+                            if (node.Attributes is not null)
+                            {
+                                foreach (XmlAttribute attr in node.Attributes)
+                                {
+                                    attrs[attr.Name] = attr.Value;
+                                }
+                            }
+                        }
+
                         #region Title node
                         if (xml_doc.GetElementsByTagName("dc:title").Count <= 0)
                         {
@@ -1995,8 +2011,19 @@ namespace TouchMeta
                             root_node.AppendChild(desc);
                         }
                         #endregion
+                        #region CreateDate node
+                        if (xml_doc.GetElementsByTagName("xmp:CreateDate").Count <= 0 && !attrs.ContainsKey("xmp:CreateDate"))
+                        {
+                            var desc = xml_doc.CreateElement("rdf:Description", "rdf");
+                            desc.SetAttribute("rdf:about", "uuid:faf5bdd5-ba3d-11da-ad31-d33d75182f1b");
+                            desc.SetAttribute("xmlns:xmp", Consts.xmp_ns_lookup["xmp"]);
+                            desc.AppendChild(xml_doc.CreateElement("xmp:CreateDate", "xmp"));
+                            root_node.AppendChild(desc);
+                        }
+                        else if (attrs.ContainsKey("xmp:CreateDate")) attrs["xmp:CreateDate"] = dc_date;
+                        #endregion
                         #region ModifyDate node
-                        if (xml_doc.GetElementsByTagName("xmp:ModifyDate").Count <= 0)
+                        if (xml_doc.GetElementsByTagName("xmp:ModifyDate").Count <= 0 && !attrs.ContainsKey("xmp:ModifyDate"))
                         {
                             var desc = xml_doc.CreateElement("rdf:Description", "rdf");
                             desc.SetAttribute("rdf:about", "uuid:faf5bdd5-ba3d-11da-ad31-d33d75182f1b");
@@ -2004,9 +2031,10 @@ namespace TouchMeta
                             desc.AppendChild(xml_doc.CreateElement("xmp:ModifyDate", "xmp"));
                             root_node.AppendChild(desc);
                         }
+                        else if (attrs.ContainsKey("xmp:ModifyDate")) attrs["xmp:ModifyDate"] = dm_date;
                         #endregion
                         #region DateTimeOriginal node
-                        if (xml_doc.GetElementsByTagName("xmp:DateTimeOriginal").Count <= 0)
+                        if (xml_doc.GetElementsByTagName("xmp:DateTimeOriginal").Count <= 0 && !attrs.ContainsKey("xmp:DateTimeOriginal"))
                         {
                             var desc = xml_doc.CreateElement("rdf:Description", "rdf");
                             desc.SetAttribute("rdf:about", "uuid:faf5bdd5-ba3d-11da-ad31-d33d75182f1b");
@@ -2014,9 +2042,10 @@ namespace TouchMeta
                             desc.AppendChild(xml_doc.CreateElement("xmp:DateTimeOriginal", "xmp"));
                             root_node.AppendChild(desc);
                         }
+                        else if (attrs.ContainsKey("xmp:DateTimeOriginal")) attrs["xmp:DateTimeOriginal"] = dc_xmp;
                         #endregion
                         #region DateTimeDigitized node
-                        if (xml_doc.GetElementsByTagName("xmp:DateTimeDigitized").Count <= 0)
+                        if (xml_doc.GetElementsByTagName("xmp:DateTimeDigitized").Count <= 0 && !attrs.ContainsKey("xmp:DateTimeDigitized"))
                         {
                             var desc = xml_doc.CreateElement("rdf:Description", "rdf");
                             desc.SetAttribute("rdf:about", "uuid:faf5bdd5-ba3d-11da-ad31-d33d75182f1b");
@@ -2024,6 +2053,18 @@ namespace TouchMeta
                             desc.AppendChild(xml_doc.CreateElement("xmp:DateTimeDigitized", "xmp"));
                             root_node.AppendChild(desc);
                         }
+                        else if (attrs.ContainsKey("xmp:DateTimeDigitized")) attrs["xmp:DateTimeDigitized"] = dc_xmp;
+                        #endregion
+                        #region MetadataDate node
+                        if (xml_doc.GetElementsByTagName("xmp:MetadataDate").Count <= 0 && !attrs.ContainsKey("xmp:MetadataDate"))
+                        {
+                            var desc = xml_doc.CreateElement("rdf:Description", "rdf");
+                            desc.SetAttribute("rdf:about", "uuid:faf5bdd5-ba3d-11da-ad31-d33d75182f1b");
+                            desc.SetAttribute("xmlns:xmp", Consts.xmp_ns_lookup["xmp"]);
+                            desc.AppendChild(xml_doc.CreateElement("xmp:MetadataDate", "xmp"));
+                            root_node.AppendChild(desc);
+                        }
+                        else if (attrs.ContainsKey("xmp:MetadataDate")) attrs["xmp:MetadataDate"] = dm_date;
                         #endregion
                         #region Ranking/Rating node
                         if (xml_doc.GetElementsByTagName("xmp:Rating").Count <= 0 && rating > 0)
@@ -2195,6 +2236,15 @@ namespace TouchMeta
                         foreach (XmlNode node in xml_doc.GetElementsByTagName("rdf:Description"))
                         {
                             var nodes = new List<XmlNode>();
+                            #region Update attrs
+                            if (node.Attributes is not null)
+                            {
+                                foreach (XmlAttribute attr in node.Attributes)
+                                {
+                                    if (attrs.ContainsKey(attr.Name)) attr.Value = attrs[attr.Name];
+                                }
+                            }
+                            #endregion
                             foreach (XmlNode child in node.ChildNodes)
                             {
                                 if (child.Name.Equals("dc:title", StringComparison.CurrentCultureIgnoreCase))
@@ -2274,19 +2324,19 @@ namespace TouchMeta
                                     //else child.ParentNode.RemoveChild(child);
                                 }
                                 else if (child.Name.Equals("xmp:CreateDate", StringComparison.CurrentCultureIgnoreCase))
-                                    child.InnerText = dc_xmp;
+                                    child.InnerText = dc_date;
                                 else if (child.Name.Equals("xmp:ModifyDate", StringComparison.CurrentCultureIgnoreCase))
-                                    child.InnerText = dm_xmp;
+                                    child.InnerText = dm_date;
                                 else if (child.Name.Equals("xmp:DateTimeOriginal", StringComparison.CurrentCultureIgnoreCase))
                                     child.InnerText = dm_date;
                                 else if (child.Name.Equals("xmp:DateTimeDigitized", StringComparison.CurrentCultureIgnoreCase))
+                                    child.InnerText = dm_date;
+                                else if (child.Name.Equals("xmp:MetadataDate", StringComparison.CurrentCultureIgnoreCase))
                                     child.InnerText = dm_date;
                                 else if (child.Name.Equals("MicrosoftPhoto:DateAcquired", StringComparison.CurrentCultureIgnoreCase))
                                     child.InnerText = dm_msxmp;
                                 else if (child.Name.Equals("MicrosoftPhoto:DateTaken", StringComparison.CurrentCultureIgnoreCase))
                                     child.InnerText = dm_msxmp;
-                                //else if (child.Name.Equals("MicrosoftPhoto_1_:DateAcquired", StringComparison.CurrentCultureIgnoreCase))
-                                //    child.InnerText = dm_msxmp;
                                 else if (child.Name.Equals("exif:DateTimeDigitized", StringComparison.CurrentCultureIgnoreCase))
                                     child.InnerText = dm_ms;
                                 else if (child.Name.Equals("exif:DateTimeOriginal", StringComparison.CurrentCultureIgnoreCase))
@@ -2728,6 +2778,7 @@ namespace TouchMeta
                 if (image is MagickImage && IsValidRead(image))
                 {
                     var is_msb = image.Endian == Endian.MSB;
+                    var seqs = new string[]{ "XPKeywords", "XPAuthor", "Copyright" };
 
                     var exif = image.HasProfile("exif") ? image.GetExifProfile() : new ExifProfile();
                     var iptc = image.HasProfile("iptc") ? image.GetIptcProfile() : new IptcProfile();
@@ -2736,20 +2787,18 @@ namespace TouchMeta
                     result = attr.Contains("WinXP") ? BytesToUnicode(image.GetAttribute(attr)) : image.GetAttribute(attr);
                     if (attr.Contains("WinXP"))
                     {
-                        //if (image.AttributeNames.Contains(attr) && image.GetAttribute(attr).Length >= 4090)
+                        var tag_name = $"XP{attr.Substring(11)}";
+                        dynamic tag_property = exiftag_type.GetProperty(tag_name) ?? exiftag_type.GetProperty($"{tag_name}s") ?? exiftag_type.GetProperty(tag_name.Substring(0, tag_name.Length-1));
+                        if (tag_property != null)
                         {
-                            var tag_name = $"XP{attr.Substring(11)}";
-                            dynamic tag_property = exiftag_type.GetProperty(tag_name) ?? exiftag_type.GetProperty($"{tag_name}s") ?? exiftag_type.GetProperty(tag_name.Substring(0, tag_name.Length-1));
-                            if (tag_property != null)
+                            IExifValue tag_value = exif.GetValue(tag_property.GetValue(exif));
+                            if (tag_value != null)
                             {
-                                IExifValue tag_value = exif.GetValue(tag_property.GetValue(exif));
-                                if (tag_value != null)
-                                {
-                                    if (tag_value.DataType == ExifDataType.String)
-                                        result = tag_value.GetValue() as string;
-                                    else if (tag_value.DataType == ExifDataType.Byte)
-                                        result = Encoding.Unicode.GetString(tag_value.GetValue() as byte[]);
-                                }
+                                if (tag_value.DataType == ExifDataType.String)
+                                    result = tag_value.GetValue() as string;
+                                else if (tag_value.DataType == ExifDataType.Byte)
+                                    result = Encoding.Unicode.GetString(tag_value.GetValue() as byte[]);
+                                if (seqs.Contains(tag_name) && result.Length > 0) result = result.TrimEnd(';') + ';';
                             }
                         }
                     }
@@ -2843,6 +2892,7 @@ namespace TouchMeta
                                     result = BytesToUnicode(result, msb: image.Endian == Endian.MSB, offset: result.StartsWith(idcode_str) ? 8 : 0);
                                 }
                             }
+                            if (seqs.Contains(tag_name) && result.Length > 0) result = result.TrimEnd(';') + ';';
                         }
                         else if (attr.Equals("exif:ExtensibleMetadataPlatform"))
                         {
@@ -3853,6 +3903,16 @@ namespace TouchMeta
             {
                 if (image is MagickImage && IsValidRead(image))
                 {
+                    var exif = image.HasProfile("exif") ? image.GetExifProfile() : new ExifProfile();
+                    var xmp = image.HasProfile("xmp") ? image.GetXmpProfile() : null;
+                    if (exif is ExifProfile && xmp == null)
+                    {
+                        if (image.AttributeNames.Contains("exif:ExtensibleMetadataPlatform"))
+                        {
+                            var xmp_value = exif.GetValue(ImageMagick.ExifTag.XMP);
+                            if (xmp_value.Value is byte[]) xmp = new XmpProfile(xmp_value.Value);
+                        }
+                    }             
                     foreach (var tag in Consts.tag_date)
                     {
                         if (image.AttributeNames.Contains(tag))
@@ -3862,6 +3922,19 @@ namespace TouchMeta
                             //Log($"{tag.PadRight(32)}= {v} > {nv}");
                             result = DateTime.Parse(tag.Contains("png") ? nv.Substring(0, tag.Length - 1) : nv);
                             break;
+                        }
+                    }
+                    if (result is null)
+                    {
+                        var values = GetXmpValueByTags(xmp, Consts.tag_date);
+                        foreach (var dtv in values)
+                        {
+                            DateTime dt;
+                            if (DateTime.TryParse(dtv.Value, out dt))
+                            {
+                                result = dt;
+                                break;
+                            }
                         }
                     }
                 }
@@ -3892,6 +3965,48 @@ namespace TouchMeta
             return (result);
         }
 
+        private static Dictionary<string, string> GetXmpValueByTags(IXmpProfile xmp, string[] tags)
+        {
+            var result = new Dictionary<string, string>();
+            if (xmp is IXmpProfile)
+            {
+                try
+                {
+                    var xml_doc = UTF8.GetString(xmp.ToByteArray());
+                    var xml = new XmlDocument();
+                    xml.LoadXml(xml_doc);
+                    foreach (var tag in tags)
+                    {
+                        var value = GetXmpValueByTag(xml, tag);
+                        if (string.IsNullOrEmpty(value)) result[tag] = value;
+                    }
+                }
+                catch (Exception ex) { Log(ex.Message); }
+            }
+            return (result);
+        }
+
+        private static Dictionary<string, string> GetXmpValueByTags(XmpProfile xmp, string[] tags)
+        {
+            var result = new Dictionary<string, string>();
+            if (xmp is XmpProfile)
+            {
+                try
+                {
+                    var xml_doc = UTF8.GetString(xmp.ToByteArray());
+                    var xml = new XmlDocument();
+                    xml.LoadXml(xml_doc);
+                    foreach(var tag in tags)
+                    {
+                        var value = GetXmpValueByTag(xml, tag);
+                        if (string.IsNullOrEmpty(value)) result[tag] = value;
+                    }                    
+                }
+                catch (Exception ex) { Log(ex.Message); }
+            }
+            return (result);
+        }
+
         private static string GetXmpValueByTag(XmpProfile xmp, string tag)
         {
             var result = string.Empty;
@@ -3919,7 +4034,19 @@ namespace TouchMeta
                     var xmp_tags = xml.GetElementsByTagName(tag);
                     foreach (XmlNode xmp_tag in xmp_tags)
                     {
-                        if (xmp_tag.HasChildNodes && (xmp_tag.FirstChild.Name.Equals("rdf:Bag") || xmp_tag.FirstChild.Name.Equals("rdf:Seq")))
+                        var attrs = new Dictionary<string, string>();
+                        if (xmp_tag.Attributes is not null)
+                        {
+                            foreach(XmlAttribute attr in xmp_tag.Attributes)
+                            {
+                                attrs[attr.Name] = attr.Value;
+                            }
+                        }
+                        if (attrs.ContainsKey(tag))
+                        {
+                            result = attrs[tag];
+                        }
+                        else if (xmp_tag.HasChildNodes && (xmp_tag.FirstChild.Name.Equals("rdf:Bag") || xmp_tag.FirstChild.Name.Equals("rdf:Seq")))
                         {
                             var contents = new List<string>();
                             foreach (XmlNode subchild in xmp_tag.ChildNodes)
@@ -5053,565 +5180,12 @@ namespace TouchMeta
                             if (xmp != null)
                             {
                                 var xml = Encoding.UTF8.GetString(xmp.ToByteArray());
-                                try
-                                {
-                                    // fixed: for last error code :(
-                                    xml = Regex.Replace(xml, @"xmlns:tiff=['""]dc['""]", "xmlns:tiff='tiff'", RegexOptions.IgnoreCase);
-
-                                    var xml_doc = new XmlDocument();
-                                    xml_doc.LoadXml(xml);
-                                    var root_nodes = xml_doc.GetElementsByTagName("rdf:RDF");
-                                    if (root_nodes.Count >= 1)
-                                    {
-                                        var root_node = root_nodes.Item(0);
-                                        #region Title node
-                                        if (xml_doc.GetElementsByTagName("dc:title").Count <= 0)
-                                        {
-                                            var desc = xml_doc.CreateElement("rdf:Description", "rdf");
-                                            desc.SetAttribute("xmlns:dc", Consts.xmp_ns_lookup["dc"]);
-                                            desc.AppendChild(xml_doc.CreateElement("dc:title", "dc"));
-                                            root_node.AppendChild(desc);
-                                        }
-                                        #endregion
-                                        #region Subject node
-                                        if (xml_doc.GetElementsByTagName("dc:source").Count <= 0)
-                                        {
-                                            var desc = xml_doc.CreateElement("rdf:Description", "rdf");
-                                            desc.SetAttribute("xmlns:dc", Consts.xmp_ns_lookup["dc"]);
-                                            desc.AppendChild(xml_doc.CreateElement("dc:source", "dc"));
-                                            root_node.AppendChild(desc);
-                                        }
-                                        if (xml_doc.GetElementsByTagName("tiff:subject").Count <= 0)
-                                        {
-                                            var desc = xml_doc.CreateElement("rdf:Description", "rdf");
-                                            desc.SetAttribute("xmlns:tiff", Consts.xmp_ns_lookup["tiff"]);
-                                            desc.AppendChild(xml_doc.CreateElement("tiff:subject", "tiff"));
-                                            root_node.AppendChild(desc);
-                                        }
-                                        #endregion
-                                        #region Comment node
-                                        if (xml_doc.GetElementsByTagName("dc:description").Count <= 0)
-                                        {
-                                            var desc = xml_doc.CreateElement("rdf:Description", "rdf");
-                                            desc.SetAttribute("xmlns:dc", Consts.xmp_ns_lookup["dc"]);
-                                            desc.AppendChild(xml_doc.CreateElement("dc:description", "dc"));
-                                            root_node.AppendChild(desc);
-                                        }
-                                        if (xml_doc.GetElementsByTagName("tiff:comments").Count <= 0)
-                                        {
-                                            var desc = xml_doc.CreateElement("rdf:Description", "rdf");
-                                            desc.SetAttribute("xmlns:tiff", Consts.xmp_ns_lookup["tiff"]);
-                                            desc.AppendChild(xml_doc.CreateElement("tiff:comments", "tiff"));
-                                            root_node.AppendChild(desc);
-                                        }
-                                        #endregion
-                                        #region Author node
-                                        if (xml_doc.GetElementsByTagName("dc:creator").Count <= 0)
-                                        {
-                                            var desc = xml_doc.CreateElement("rdf:Description", "rdf");
-                                            desc.SetAttribute("xmlns:dc", Consts.xmp_ns_lookup["dc"]);
-                                            desc.AppendChild(xml_doc.CreateElement("dc:creator", "dc"));
-                                            root_node.AppendChild(desc);
-                                        }
-                                        if (xml_doc.GetElementsByTagName("xmp:creator").Count <= 0)
-                                        {
-                                            var desc = xml_doc.CreateElement("rdf:Description", "rdf");
-                                            desc.SetAttribute("xmlns:xmp", Consts.xmp_ns_lookup["xmp"]);
-                                            desc.AppendChild(xml_doc.CreateElement("xmp:creator", "xmp"));
-                                            root_node.AppendChild(desc);
-                                        }
-                                        #endregion
-                                        #region Keywords node
-                                        if (xml_doc.GetElementsByTagName("dc:subject").Count <= 0)
-                                        {
-                                            var desc = xml_doc.CreateElement("rdf:Description", "rdf");
-                                            desc.SetAttribute("xmlns:dc", Consts.xmp_ns_lookup["dc"]);
-                                            desc.AppendChild(xml_doc.CreateElement("dc:subject", "dc"));
-                                            root_node.AppendChild(desc);
-                                        }
-                                        if (xml_doc.GetElementsByTagName("lr:hierarchicalSubject").Count <= 0)
-                                        {
-                                            var desc = xml_doc.CreateElement("rdf:Description", "rdf");
-                                            desc.SetAttribute("xmlns:lr", Consts.xmp_ns_lookup["lr"]);
-                                            desc.AppendChild(xml_doc.CreateElement("lr:hierarchicalSubject", "lr"));
-                                            root_node.AppendChild(desc);
-                                        }
-                                        if (xml_doc.GetElementsByTagName("MicrosoftPhoto:LastKeywordXMP").Count <= 0)
-                                        {
-                                            var desc = xml_doc.CreateElement("rdf:Description", "rdf");
-                                            desc.SetAttribute("xmlns:MicrosoftPhoto", Consts.xmp_ns_lookup["MicrosoftPhoto"]);
-                                            desc.AppendChild(xml_doc.CreateElement("MicrosoftPhoto:LastKeywordXMP", "MicrosoftPhoto"));
-                                            root_node.AppendChild(desc);
-                                        }
-                                        if (xml_doc.GetElementsByTagName("MicrosoftPhoto:LastKeywordIPTC").Count <= 0)
-                                        {
-                                            var desc = xml_doc.CreateElement("rdf:Description", "rdf");
-                                            desc.SetAttribute("xmlns:MicrosoftPhoto", Consts.xmp_ns_lookup["MicrosoftPhoto"]);
-                                            desc.AppendChild(xml_doc.CreateElement("MicrosoftPhoto:LastKeywordIPTC", "MicrosoftPhoto"));
-                                            root_node.AppendChild(desc);
-                                        }
-                                        if (xml_doc.GetElementsByTagName("MicrosoftPhoto:LastKeywordIPTC_TIFF_IRB").Count <= 0)
-                                        {
-                                            var desc = xml_doc.CreateElement("rdf:Description", "rdf");
-                                            desc.SetAttribute("xmlns:MicrosoftPhoto", Consts.xmp_ns_lookup["MicrosoftPhoto"]);
-                                            desc.AppendChild(xml_doc.CreateElement("MicrosoftPhoto:LastKeywordIPTC_TIFF_IRB", "MicrosoftPhoto"));
-                                            root_node.AppendChild(desc);
-                                        }
-                                        #endregion
-                                        #region Copyright node
-                                        if (xml_doc.GetElementsByTagName("dc:rights").Count <= 0)
-                                        {
-                                            var desc = xml_doc.CreateElement("rdf:Description", "rdf");
-                                            desc.SetAttribute("xmlns:dc", Consts.xmp_ns_lookup["dc"]);
-                                            desc.AppendChild(xml_doc.CreateElement("dc:rights", "dc"));
-                                            root_node.AppendChild(desc);
-                                        }
-                                        if (xml_doc.GetElementsByTagName("tiff:copyright").Count <= 0)
-                                        {
-                                            var desc = xml_doc.CreateElement("rdf:Description", "rdf");
-                                            desc.SetAttribute("xmlns:tiff", Consts.xmp_ns_lookup["tiff"]);
-                                            desc.AppendChild(xml_doc.CreateElement("tiff:copyright", "tiff"));
-                                            root_node.AppendChild(desc);
-                                        }
-                                        #endregion
-                                        #region CreateTime node
-                                        if (xml_doc.GetElementsByTagName("xmp:CreateDate").Count <= 0)
-                                        {
-                                            var desc = xml_doc.CreateElement("rdf:Description", "rdf");
-                                            desc.SetAttribute("rdf:about", "uuid:faf5bdd5-ba3d-11da-ad31-d33d75182f1b");
-                                            desc.SetAttribute("xmlns:xmp", Consts.xmp_ns_lookup["xmp"]);
-                                            desc.AppendChild(xml_doc.CreateElement("xmp:CreateDate", "xmp"));
-                                            root_node.AppendChild(desc);
-                                        }
-                                        #endregion
-                                        #region ModifyDate node
-                                        if (xml_doc.GetElementsByTagName("xmp:ModifyDate").Count <= 0)
-                                        {
-                                            var desc = xml_doc.CreateElement("rdf:Description", "rdf");
-                                            desc.SetAttribute("rdf:about", "uuid:faf5bdd5-ba3d-11da-ad31-d33d75182f1b");
-                                            desc.SetAttribute("xmlns:xmp", Consts.xmp_ns_lookup["xmp"]);
-                                            desc.AppendChild(xml_doc.CreateElement("xmp:ModifyDate", "xmp"));
-                                            root_node.AppendChild(desc);
-                                        }
-                                        #endregion
-                                        #region DateTimeOriginal node
-                                        if (xml_doc.GetElementsByTagName("xmp:DateTimeOriginal").Count <= 0)
-                                        {
-                                            var desc = xml_doc.CreateElement("rdf:Description", "rdf");
-                                            desc.SetAttribute("rdf:about", "uuid:faf5bdd5-ba3d-11da-ad31-d33d75182f1b");
-                                            desc.SetAttribute("xmlns:xmp", Consts.xmp_ns_lookup["xmp"]);
-                                            desc.AppendChild(xml_doc.CreateElement("xmp:DateTimeOriginal", "xmp"));
-                                            root_node.AppendChild(desc);
-                                        }
-                                        #endregion
-                                        #region DateTimeDigitized node
-                                        if (xml_doc.GetElementsByTagName("xmp:DateTimeDigitized").Count <= 0)
-                                        {
-                                            var desc = xml_doc.CreateElement("rdf:Description", "rdf");
-                                            desc.SetAttribute("rdf:about", "uuid:faf5bdd5-ba3d-11da-ad31-d33d75182f1b");
-                                            desc.SetAttribute("xmlns:xmp", Consts.xmp_ns_lookup["xmp"]);
-                                            desc.AppendChild(xml_doc.CreateElement("xmp:DateTimeDigitized", "xmp"));
-                                            root_node.AppendChild(desc);
-                                        }
-                                        #endregion
-                                        #region Ranking/Rating node
-                                        if (xml_doc.GetElementsByTagName("xmp:Rating").Count <= 0 && rating > 0)
-                                        {
-                                            var desc = xml_doc.CreateElement("rdf:Description", "rdf");
-                                            desc.SetAttribute("rdf:about", "uuid:faf5bdd5-ba3d-11da-ad31-d33d75182f1b");
-                                            desc.SetAttribute("xmlns:xmp", Consts.xmp_ns_lookup["xmp"]);
-                                            desc.AppendChild(xml_doc.CreateElement("xmp:Rating", "xmp"));
-                                            root_node.AppendChild(desc);
-                                        }
-                                        if (xml_doc.GetElementsByTagName("MicrosoftPhoto:Rating").Count <= 0 && rating > 0)
-                                        {
-                                            var desc = xml_doc.CreateElement("rdf:Description", "rdf");
-                                            desc.SetAttribute("rdf:about", "uuid:faf5bdd5-ba3d-11da-ad31-d33d75182f1b");
-                                            desc.SetAttribute("xmlns:MicrosoftPhoto", Consts.xmp_ns_lookup["MicrosoftPhoto"]);
-                                            desc.AppendChild(xml_doc.CreateElement("MicrosoftPhoto:Rating", "MicrosoftPhoto"));
-                                            root_node.AppendChild(desc);
-                                        }
-                                        #endregion
-                                        #region EXIF DateTime node
-                                        if (xml_doc.GetElementsByTagName("exif:DateTimeDigitized").Count <= 0)
-                                        {
-                                            if (xml_doc.GetElementsByTagName("exif:DateTimeOriginal").Count > 0)
-                                            {
-                                                var node_msdt = xml_doc.GetElementsByTagName("exif:DateTimeOriginal").Item(0);
-                                                node_msdt.ParentNode.AppendChild(xml_doc.CreateElement("exif:DateTimeDigitized", "exif"));
-                                            }
-                                            else
-                                            {
-                                                var desc = xml_doc.CreateElement("rdf:Description", "rdf");
-                                                desc.SetAttribute("rdf:about", "");
-                                                desc.SetAttribute("xmlns:exif", Consts.xmp_ns_lookup["exif"]);
-                                                desc.AppendChild(xml_doc.CreateElement("exif:DateTimeDigitized", "exif"));
-                                                root_node.AppendChild(desc);
-                                            }
-                                        }
-                                        if (xml_doc.GetElementsByTagName("exif:DateTimeOriginal").Count <= 0)
-                                        {
-                                            if (xml_doc.GetElementsByTagName("exif:DateTimeDigitized").Count > 0)
-                                            {
-                                                var node_msdt = xml_doc.GetElementsByTagName("exif:DateTimeDigitized").Item(0);
-                                                node_msdt.ParentNode.AppendChild(xml_doc.CreateElement("exif:DateTimeOriginal", "exif"));
-                                            }
-                                            else
-                                            {
-                                                var desc = xml_doc.CreateElement("rdf:Description", "rdf");
-                                                desc.SetAttribute("rdf:about", "");
-                                                desc.SetAttribute("xmlns:exif", Consts.xmp_ns_lookup["exif"]);
-                                                desc.AppendChild(xml_doc.CreateElement("exif:DateTimeOriginal", "exif"));
-                                                root_node.AppendChild(desc);
-                                            }
-                                        }
-                                        #endregion
-                                        #region TIFF DateTime node
-                                        if (xml_doc.GetElementsByTagName("tiff:DateTime").Count <= 0)
-                                        {
-                                            var desc = xml_doc.CreateElement("rdf:Description", "rdf");
-                                            desc.SetAttribute("rdf:about", "");
-                                            desc.SetAttribute("xmlns:tiff", Consts.xmp_ns_lookup["tiff"]);
-                                            desc.AppendChild(xml_doc.CreateElement("tiff:DateTime", "tiff"));
-                                            root_node.AppendChild(desc);
-                                        }
-                                        #endregion
-                                        #region MicrosoftPhoto DateTime node
-                                        if (xml_doc.GetElementsByTagName("MicrosoftPhoto:DateAcquired").Count <= 0)
-                                        {
-                                            if (xml_doc.GetElementsByTagName("MicrosoftPhoto:DateTaken").Count > 0)
-                                            {
-                                                var node_msdt = xml_doc.GetElementsByTagName("MicrosoftPhoto:DateTaken").Item(0);
-                                                node_msdt.ParentNode.AppendChild(xml_doc.CreateElement("MicrosoftPhoto:DateAcquired", "MicrosoftPhoto"));
-                                            }
-                                            else
-                                            {
-                                                var desc = xml_doc.CreateElement("rdf:Description", "rdf");
-                                                desc.SetAttribute("rdf:about", "uuid:faf5bdd5-ba3d-11da-ad31-d33d75182f1b");
-                                                desc.SetAttribute("xmlns:MicrosoftPhoto", Consts.xmp_ns_lookup["MicrosoftPhoto"]);
-                                                desc.AppendChild(xml_doc.CreateElement("MicrosoftPhoto:DateAcquired", "MicrosoftPhoto"));
-                                                root_node.AppendChild(desc);
-                                            }
-                                        }
-                                        if (xml_doc.GetElementsByTagName("MicrosoftPhoto:DateTaken").Count <= 0)
-                                        {
-                                            if (xml_doc.GetElementsByTagName("MicrosoftPhoto:DateAcquired").Count > 0)
-                                            {
-                                                var node_msdt = xml_doc.GetElementsByTagName("MicrosoftPhoto:DateAcquired").Item(0);
-                                                node_msdt.ParentNode.AppendChild(xml_doc.CreateElement("MicrosoftPhoto:DateTaken", "MicrosoftPhoto"));
-                                            }
-                                            else
-                                            {
-                                                var desc = xml_doc.CreateElement("rdf:Description", "rdf");
-                                                desc.SetAttribute("rdf:about", "uuid:faf5bdd5-ba3d-11da-ad31-d33d75182f1b");
-                                                desc.SetAttribute("xmlns:MicrosoftPhoto", Consts.xmp_ns_lookup["MicrosoftPhoto"]);
-                                                desc.AppendChild(xml_doc.CreateElement("MicrosoftPhoto:DateTaken", "MicrosoftPhoto"));
-                                                root_node.AppendChild(desc);
-                                            }
-                                        }
-                                        //if (xml_doc.GetElementsByTagName("MicrosoftPhoto_1_:DateAcquired").Count <= 0)
-                                        //{
-                                        //    var desc = xml_doc.CreateElement("rdf:Description", "rdf");
-                                        //    desc.SetAttribute("rdf:about", "uuid:faf5bdd5-ba3d-11da-ad31-d33d75182f1b");
-                                        //    desc.SetAttribute("xmlns:MicrosoftPhoto_1_", Consts.xmp_ns_lookup["MicrosoftPhoto_1_"]);
-                                        //    desc.AppendChild(xml_doc.CreateElement("MicrosoftPhoto_1_:DateAcquired", "MicrosoftPhoto_1_"));
-                                        //    root_node.AppendChild(desc);
-                                        //}
-                                        #endregion
-                                        #region Remove duplicate node
-                                        var all_elements = new List<string>()
-                                        {
-                                            "dc:title",
-                                            "dc:description",
-                                            "dc:creator", "xmp:creator",
-                                            "dc:subject", "MicrosoftPhoto:LastKeywordXMP", "MicrosoftPhoto:LastKeywordIPTC", "MicrosoftPhoto:LastKeywordIPTC_TIFF_IRB",
-                                            "dc:rights",
-                                            "xmp:CreateDate", "xmp:ModifyDate", "xmp:DateTimeOriginal", "xmp:DateTimeDigitized", "xmp:MetadataDate",
-                                            "xmp:Rating", "MicrosoftPhoto:Rating",
-                                            "exif:DateTimeDigitized", "exif:DateTimeOriginal",
-                                            "tiff:DateTime", "tiff:Artist", "tiff:Copyright", "tiff:Endian", "tiff:Photometric", "tiff:Software", "tiff:Timestamp",
-                                            "tiff:datetime", "tiff:artist", "tiff:artist", "tiff:copyright", "tiff:endian", "tiff:photometric", "tiff:software", "tiff:timestamp",
-                                            "MicrosoftPhoto:DateAcquired", "MicrosoftPhoto:DateTaken",
-                                            "xmp:CreatorTool",
-                                        };
-                                        all_elements.AddRange(Consts.tag_author);
-                                        all_elements.AddRange(Consts.tag_comments);
-                                        all_elements.AddRange(Consts.tag_copyright);
-                                        all_elements.AddRange(Consts.tag_date);
-                                        all_elements.AddRange(Consts.tag_keywords);
-                                        all_elements.AddRange(Consts.tag_rating);
-                                        all_elements.AddRange(Consts.tag_subject);
-                                        all_elements.AddRange(Consts.tag_title);
-                                        all_elements.AddRange(Consts.tag_software);
-                                        var xdoc = XDocument.Parse(xml_doc.OuterXml);
-                                        var rdf_descriptions = xml_doc.GetElementsByTagName("rdf:Description");
-                                        foreach (var element in all_elements.Distinct())
-                                        {
-                                            var nodes = xml_doc.GetElementsByTagName(element);
-                                            //var elements = xdoc.Descendants(element);
-                                            var has_element = nodes.Count > 0;
-                                            if (nodes.Count > 1)
-                                            {
-                                                for (var i = 1; i < nodes.Count; i++)
-                                                {
-                                                    nodes[i].ParentNode.RemoveChild(nodes[i]);
-                                                }
-                                            }
-                                            foreach (XmlNode desc in rdf_descriptions.Cast<XmlNode>().ToList())
-                                            {
-                                                if (desc.Attributes.Count > 0)
-                                                {
-                                                    foreach (XmlAttribute attr in desc.Attributes.Cast<XmlAttribute>().Where(a => a.Name.Equals(element, StringComparison.CurrentCultureIgnoreCase)).ToList())
-                                                    {
-                                                        if (has_element) desc.Attributes.Remove(attr);
-                                                    }
-                                                }
-                                            }
-                                        }
-                                        #endregion
-
-                                        #region xml nodes updating
-                                        var rdf_attr = "xmlns:rdf";
-                                        var rdf_value = "http://www.w3.org/1999/02/22-rdf-syntax-ns#";
-                                        Action<XmlElement, dynamic> add_rdf_li = new Action<XmlElement, dynamic>((element, text)=>
-                                        {
-                                            if (text is string && !string.IsNullOrEmpty(text as string))
-                                            {
-                                                var items = (text as string).Split(new string[] { ";", "#" }, StringSplitOptions.RemoveEmptyEntries).Select(k => k.Trim()).Where(k => !string.IsNullOrEmpty(k)).Distinct();
-                                                foreach (var item in items)
-                                                {
-                                                    var node_author_li = xml_doc.CreateElement("rdf:li", "rdf");
-                                                    node_author_li.InnerText = item;
-                                                    element.AppendChild(node_author_li);
-                                                }
-                                            }
-                                            else if(text is IEnumerable<string> && (text as IEnumerable<string>).Count() > 0)
-                                            {
-                                                foreach (var item in (text as IEnumerable<string>))
-                                                {
-                                                    var node_author_li = xml_doc.CreateElement("rdf:li", "rdf");
-                                                    node_author_li.InnerText = item;
-                                                    element.AppendChild(node_author_li);
-                                                }
-                                            }
-                                        });
-                                        foreach (XmlNode node in xml_doc.GetElementsByTagName("rdf:Description"))
-                                        {
-                                            var nodes = new List<XmlNode>();
-                                            foreach (XmlNode child in node.ChildNodes)
-                                            {
-                                                //if (child.Prefix.Equals("tiff") && child.NamespaceURI.Equals("dc")) child.NamespaceURI = "tiff";
-                                                if (child.Name.Equals("dc:title", StringComparison.CurrentCultureIgnoreCase))
-                                                {
-                                                    child.RemoveAll();
-                                                    var node_title = xml_doc.CreateElement("rdf:Alt", "rdf");
-                                                    var node_title_li = xml_doc.CreateElement("rdf:li", "rdf");
-                                                    node_title_li.SetAttribute("xml:lang", "x-default");
-                                                    node_title_li.InnerText = title;
-                                                    node_title.AppendChild(node_title_li);
-                                                    child.AppendChild(node_title);
-                                                }
-                                                else if (child.Name.Equals("tiff:subject", StringComparison.CurrentCultureIgnoreCase) ||
-                                                         child.Name.Equals("dc:source", StringComparison.CurrentCultureIgnoreCase))
-                                                {
-                                                    child.RemoveAll();
-                                                    var node_subject = xml_doc.CreateElement("rdf:Alt", "rdf");
-                                                    var node_subject_li = xml_doc.CreateElement("rdf:li", "rdf");
-                                                    node_subject_li.SetAttribute("xml:lang", "x-default");
-                                                    node_subject_li.InnerText = subject;
-                                                    node_subject.AppendChild(node_subject_li);
-                                                    child.AppendChild(node_subject);
-                                                }
-                                                else if (child.Name.Equals("dc:description", StringComparison.CurrentCultureIgnoreCase) ||
-                                                         child.Name.Equals("tiff:comment", StringComparison.CurrentCultureIgnoreCase) ||
-                                                         child.Name.Equals("tiff:comments", StringComparison.CurrentCultureIgnoreCase))
-                                                {
-                                                    child.RemoveAll();
-                                                    var node_comment = xml_doc.CreateElement("rdf:Alt", "rdf");
-                                                    var node_comment_li = xml_doc.CreateElement("rdf:li", "rdf");
-                                                    node_comment_li.SetAttribute("xml:lang", "x-default");
-                                                    node_comment_li.InnerText = comment;
-                                                    node_comment.AppendChild(node_comment_li);
-                                                    child.AppendChild(node_comment);
-                                                }
-                                                else if (child.Name.Equals("xmp:creator", StringComparison.CurrentCultureIgnoreCase) ||
-                                                         child.Name.Equals("dc:creator", StringComparison.CurrentCultureIgnoreCase))
-                                                {
-                                                    child.RemoveAll();
-                                                    var node_author = xml_doc.CreateElement("rdf:Seq", "rdf");
-                                                    node_author.SetAttribute(rdf_attr, rdf_value);
-                                                    add_rdf_li.Invoke(node_author, authors);
-                                                    child.AppendChild(node_author);
-                                                }
-                                                else if (child.Name.Equals("dc:rights", StringComparison.CurrentCultureIgnoreCase) ||
-                                                         child.Name.Equals("tiff:copyright", StringComparison.CurrentCultureIgnoreCase))
-                                                {
-                                                    child.RemoveAll();
-                                                    var node_rights = xml_doc.CreateElement("rdf:Seq", "rdf");
-                                                    node_rights.SetAttribute(rdf_attr, rdf_value);
-                                                    add_rdf_li.Invoke(node_rights, copyrights);
-                                                    child.AppendChild(node_rights);
-                                                }
-                                                else if (child.Name.Equals("dc:subject", StringComparison.CurrentCultureIgnoreCase) ||
-                                                         child.Name.Equals("tiff:subject", StringComparison.CurrentCultureIgnoreCase) ||
-                                                         child.Name.Equals("lr:hierarchicalSubject", StringComparison.CurrentCultureIgnoreCase) ||
-                                                         child.Name.StartsWith("MicrosoftPhoto:LastKeyword", StringComparison.CurrentCultureIgnoreCase))
-                                                {
-                                                    child.RemoveAll();
-                                                    var node_subject = xml_doc.CreateElement("rdf:Bag", "rdf");
-                                                    node_subject.SetAttribute(rdf_attr, rdf_value);
-                                                    add_rdf_li.Invoke(node_subject, keyword_list);
-                                                    child.AppendChild(node_subject);
-                                                }
-                                                else if (child.Name.Equals("MicrosoftPhoto:Rating", StringComparison.CurrentCultureIgnoreCase))
-                                                {
-                                                    child.InnerText = $"{rating}";
-                                                    //if (rating > 0) child.InnerText = $"{rating}";
-                                                    //else child.ParentNode.RemoveChild(child);
-                                                }
-                                                else if (child.Name.Equals("xmp:Rating", StringComparison.CurrentCultureIgnoreCase))
-                                                {
-                                                    var rating_level = RatingToRanking(rating);
-                                                    var rating_value = rating_level <= 0 ? string.Empty : $"{rating_level}";
-                                                    child.InnerText = $"{rating_value}";
-                                                    //if (rating_level > 0) child.InnerText = $"{rating_level}";
-                                                    //else child.ParentNode.RemoveChild(child);
-                                                }
-                                                else if (child.Name.Equals("xmp:CreateDate", StringComparison.CurrentCultureIgnoreCase))
-                                                    child.InnerText = dc_xmp;
-                                                else if (child.Name.Equals("xmp:ModifyDate", StringComparison.CurrentCultureIgnoreCase))
-                                                    child.InnerText = dm_xmp;
-                                                else if (child.Name.Equals("xmp:DateTimeOriginal", StringComparison.CurrentCultureIgnoreCase))
-                                                    child.InnerText = dm_date;
-                                                else if (child.Name.Equals("xmp:DateTimeDigitized", StringComparison.CurrentCultureIgnoreCase))
-                                                    child.InnerText = dm_date;
-                                                else if (child.Name.Equals("MicrosoftPhoto:DateAcquired", StringComparison.CurrentCultureIgnoreCase))
-                                                    child.InnerText = dm_msxmp;
-                                                else if (child.Name.Equals("MicrosoftPhoto:DateTaken", StringComparison.CurrentCultureIgnoreCase))
-                                                    child.InnerText = dm_msxmp;
-                                                //else if (child.Name.Equals("MicrosoftPhoto_1_:DateAcquired", StringComparison.CurrentCultureIgnoreCase))
-                                                //    child.InnerText = dm_msxmp;
-                                                else if (child.Name.Equals("exif:DateTimeDigitized", StringComparison.CurrentCultureIgnoreCase))
-                                                    child.InnerText = dm_ms;
-                                                else if (child.Name.Equals("exif:DateTimeOriginal", StringComparison.CurrentCultureIgnoreCase))
-                                                    child.InnerText = dm_ms;
-                                                else if (child.Name.Equals("tiff:DateTime", StringComparison.CurrentCultureIgnoreCase))
-                                                    child.InnerText = dm_ms;
-
-                                                if (Consts.tag_date.Contains(child.Name, StringComparer.CurrentCultureIgnoreCase))
-                                                {
-                                                    if (nodes.Count(n => n.Name.Equals(child.Name, StringComparison.CurrentCultureIgnoreCase)) > 0) node.RemoveChild(child);
-                                                    else nodes.Add(child);
-                                                }
-                                            }
-                                            nodes.Clear();
-                                        }
-                                        #endregion
-                                        #region pretty xml
-                                        xml = FormatXML(xml_doc, true);
-                                        #endregion
-                                    }
-                                }
-#if DEBUG
-                                catch (Exception ex)
-                                {
-                                    Log($"{ex.Message}{ex.StackTrace}");
-#else
-                                catch
-                                {
-#endif
-                                    #region Title
-                                    var pattern_title = @"(<dc:title>.*?<rdf:li.*?xml:lang='.*?')(>).*?(</rdf:li></rdf:Alt></dc:title>)";
-                                    if (Regex.IsMatch(xml, pattern_title, RegexOptions.IgnoreCase | RegexOptions.Multiline))
-                                    {
-                                        xml = Regex.Replace(xml, pattern_title, $"$1$2{title}$3", RegexOptions.IgnoreCase | RegexOptions.Multiline);
-                                        xml = xml.Replace("$2", ">");
-                                    }
-                                    else
-                                    {
-                                        var title_xml = $"<rdf:Description rdf:about='' xmlns:dc='http://purl.org/dc/elements/1.1/'><dc:title><rdf:Alt><rdf:li xml:lang='x-default'>{title}</rdf:li></rdf:Alt></dc:title></rdf:Description>";
-                                        xml = Regex.Replace(xml, @"(</rdf:RDF>.*?</x:xmpmeta>)", $"{title_xml}$1", RegexOptions.IgnoreCase);
-                                    }
-                                    #endregion
-                                    #region MS Photo DateAcquired
-                                    var pattern_ms_da = @"(<MicrosoftPhoto:DateAcquired>).*?(</MicrosoftPhoto:DateAcquired>)";
-                                    //var pattern_ms_da_1 = @"(<MicrosoftPhoto_1_:DateAcquired>).*?(</MicrosoftPhoto_1_:DateAcquired>)";
-                                    if (Regex.IsMatch(xml, pattern_ms_da, RegexOptions.IgnoreCase))
-                                    {
-                                        xml = Regex.Replace(xml, pattern_ms_da, $"$1{dm_msxmp}$2", RegexOptions.IgnoreCase);
-                                        xml = xml.Replace("$1", "<MicrosoftPhoto:DateAcquired>");
-                                    }
-                                    //else if (Regex.IsMatch(xml, pattern_ms_da_1, RegexOptions.IgnoreCase))
-                                    //{
-                                    //    xml = Regex.Replace(xml, pattern_ms_da, $"$1{dm_msxmp}$2", RegexOptions.IgnoreCase);
-                                    //    xml = xml.Replace("$1", "<MicrosoftPhoto_1_:DateAcquired>");
-                                    //}
-                                    else
-                                    {
-                                        var msda_xml = $"<rdf:Description rdf:about=\"uuid:faf5bdd5-ba3d-11da-ad31-d33d75182f1b\" xmlns:MicrosoftPhoto=\"http://ns.microsoft.com/photo/1.0/\"><MicrosoftPhoto:DateAcquired>{dm_msxmp}</MicrosoftPhoto:DateAcquired></rdf:Description>";
-                                        xml = Regex.Replace(xml, @"(</rdf:RDF></x:xmpmeta>)", $"{msda_xml}$1", RegexOptions.IgnoreCase);
-                                    }
-                                    #endregion
-                                    #region MS Photo DateTaken
-                                    var pattern_ms_dt = @"(<MicrosoftPhoto:DateTaken>).*?(</MicrosoftPhoto:DateTaken>)";
-                                    if (Regex.IsMatch(xml, pattern_ms_dt, RegexOptions.IgnoreCase))
-                                    {
-                                        xml = Regex.Replace(xml, pattern_ms_dt, $"$1{dm_msxmp}$2", RegexOptions.IgnoreCase);
-                                        xml = xml.Replace("$1", "<MicrosoftPhoto:DateTaken>");
-                                    }
-                                    else
-                                    {
-                                        var msdt_xml = $"<rdf:Description rdf:about=\"uuid:faf5bdd5-ba3d-11da-ad31-d33d75182f1b\" xmlns:MicrosoftPhoto=\"http://ns.microsoft.com/photo/1.0/\"><MicrosoftPhoto:DateTaken>{dm_msxmp}</MicrosoftPhoto:DateTaken></rdf:Description>";
-                                        xml = Regex.Replace(xml, @"(</rdf:RDF></x:xmpmeta>)", $"{msdt_xml}$1", RegexOptions.IgnoreCase);
-                                    }
-                                    #endregion
-                                    #region tiff:DateTime
-                                    var pattern_tiff_dt = @"(<tiff:DateTime>).*?(</tiff:DateTime>)";
-                                    if (Regex.IsMatch(xml, pattern_tiff_dt, RegexOptions.IgnoreCase))
-                                    {
-                                        xml = Regex.Replace(xml, pattern_tiff_dt, $"$1{dm_ms}$2", RegexOptions.IgnoreCase);
-                                        xml = xml.Replace("$1", "<tiff:DateTime>");
-                                    }
-                                    else
-                                    {
-                                        var tiffdt_xml = $"<rdf:Description rdf:about='' xmlns:tiff='http://ns.adobe.com/tiff/1.0/'><tiff:DateTime>{dm_ms}</tiff:DateTime></rdf:Description>";
-                                        xml = Regex.Replace(xml, @"(</rdf:RDF></x:xmpmeta>)", $"{tiffdt_xml}$1", RegexOptions.IgnoreCase);
-                                    }
-                                    #endregion
-                                    #region exif:DateTimeDigitized
-                                    var pattern_exif_dd = @"(<exif:DateTimeDigitized>).*?(</exif:DateTimeDigitized>)";
-                                    if (Regex.IsMatch(xml, pattern_exif_dd, RegexOptions.IgnoreCase))
-                                    {
-                                        xml = Regex.Replace(xml, pattern_exif_dd, $"$1{dm_ms}$2", RegexOptions.IgnoreCase);
-                                        xml = xml.Replace("$1", "<exif:DateTimeDigitized>");
-                                    }
-                                    else
-                                    {
-                                        var exifdo_xml = $"<rdf:Description rdf:about='' xmlns:exif='http://ns.adobe.com/exif/1.0/'><exif:DateTimeDigitized>{dm_ms}</exif:DateTimeDigitized></rdf:Description>";
-                                        xml = Regex.Replace(xml, @"(</rdf:RDF></x:xmpmeta>)", $"{exifdo_xml}$1", RegexOptions.IgnoreCase);
-                                    }
-                                    #endregion
-                                    #region exif:DateTimeOriginal
-                                    var pattern_exif_do = @"(<exif:DateTimeOriginal>).*?(</exif:DateTimeOriginal>)";
-                                    if (Regex.IsMatch(xml, pattern_exif_do, RegexOptions.IgnoreCase))
-                                    {
-                                        xml = Regex.Replace(xml, pattern_exif_do, $"$1{dm_ms}$2", RegexOptions.IgnoreCase);
-                                        xml = xml.Replace("$1", "<exif:DateTimeOriginal>");
-                                    }
-                                    else
-                                    {
-                                        var exifdo_xml = $"<rdf:Description rdf:about='' xmlns:exif='http://ns.adobe.com/exif/1.0/'><exif:DateTimeOriginal>{dm_ms}</exif:DateTimeOriginal></rdf:Description>";
-                                        xml = Regex.Replace(xml, @"(</rdf:RDF></x:xmpmeta>)", $"{exifdo_xml}$1", RegexOptions.IgnoreCase);
-                                    }
-                                    #endregion
-                                }
+                                xml = TouchXMP(xml, fi, meta);
 
                                 exif = image.HasProfile("exif") ? image.GetExifProfile() : new ExifProfile();
-                                exif.SetValue<byte[]>(ImageMagick.ExifTag.XMP, Encoding.UTF8.GetBytes(xml));
+                                exif.SetValue(ImageMagick.ExifTag.XMP, Encoding.UTF8.GetBytes(xml));
                                 if (exif is ExifProfile) image.SetProfile(exif);
-#if DEBUG
-                                //var x = Encoding.UTF8.GetString(exif.GetValue<byte[]>(ImageMagick.ExifTag.XMP).Value);
-#endif
+
                                 xmp = new XmpProfile(Encoding.UTF8.GetBytes(xml));
                                 if (xmp is XmpProfile) image.SetProfile(xmp);
                                 if (meta is MetaInfo && meta.ShowXMP) Log($"{"XMP Profiles",-32}= {xml}");
@@ -6278,7 +5852,7 @@ namespace TouchMeta
                                                         foreach (XmlNode li in subchild.ChildNodes) { contents.Add(li.InnerText.Trim()); }
                                                     }
                                                 }
-                                                Log($"{$"    {child.Name}".PadRight(cw)}= {string.Join("; ", contents)};");
+                                                Log($"{$"    {child.Name}".PadRight(cw)}= {string.Join("; ", contents)}{(contents.Any() ? ";" : "")}");
                                             }
                                             else if (child.Name.Equals("MicrosoftPhoto:DateAcquired", StringComparison.CurrentCultureIgnoreCase))
                                                 Log($"{"    MicrosoftPhoto:DateAcquired".PadRight(cw)}= {child.InnerText}");
