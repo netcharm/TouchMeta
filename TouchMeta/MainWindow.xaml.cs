@@ -2892,7 +2892,7 @@ namespace TouchMeta
                                     result = BytesToUnicode(result, msb: image.Endian == Endian.MSB, offset: result.StartsWith(idcode_str) ? 8 : 0);
                                 }
                             }
-                            if (seqs.Contains(tag_name) && result.Length > 0) result = result.TrimEnd(';') + ';';
+                            if (seqs.Contains(tag_name) && !string.IsNullOrEmpty(result) && result.Length > 0) result = result.TrimEnd(';') + ';';
                         }
                         else if (attr.Equals("exif:ExtensibleMetadataPlatform"))
                         {
