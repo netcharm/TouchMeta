@@ -4644,7 +4644,7 @@ namespace TouchMeta
                             image.GifDisposeMethod = GifDisposeMethod.Background;
                             image.VirtualPixelMethod = VirtualPixelMethod.Transparent;
                         }
-                        else if (IsBMP(fmt) || IsWEBP(fmt))
+                        else if (IsBMP(fmt) || IsWEBP(fmt) || IsPNG(fmt))
                         {
                             image.VirtualPixelMethod = VirtualPixelMethod.Transparent;
                         }
@@ -4679,6 +4679,10 @@ namespace TouchMeta
                         image.SetAttribute("tiff:JPEGQUALITY", image.Quality.ToString());
                         image.SetAttribute("tiff:jpegquality", image.Quality.ToString());
                         image.SetAttribute("tiff:JpegQuality", image.Quality.ToString());
+                    }
+                    else if (IsWEBP(fmt) || IsPNG(fmt))
+                    {
+                        image.VirtualPixelMethod = VirtualPixelMethod.Transparent;
                     }
                     image.Settings.Format = fmt;
                     image.Settings.Endian = image.Endian == Endian.Undefined ? Endian.MSB : image.Endian;
@@ -6022,7 +6026,7 @@ namespace TouchMeta
                 {
                     try
                     {
-                        if (ConfirmYesToAll || !GuessAlpha(ms) || ShowConfirm($"Image File \"{fi.FullName}\" Has Alpha, {Environment.NewLine}Continue?", "Confirm"))
+                        if (ConfirmYesToAll || !GuessAlpha(ms) || IsTIF(fmt) || ShowConfirm($"Image File \"{fi.FullName}\" Has Alpha, {Environment.NewLine}Continue?", "Confirm"))
                         {
                             if (ms.CanSeek) ms.Seek(0, SeekOrigin.Begin);
 
@@ -6041,6 +6045,7 @@ namespace TouchMeta
                                     var fmt_info = MagickNET.SupportedFormats.Where(f => f.Format == fmt).FirstOrDefault();
                                     var ext = fmt_info is MagickFormatInfo ? fmt_info.Format.ToString() : fmt.ToString();
                                     var name = keep_name ? fi.FullName : System.IO.Path.ChangeExtension(fi.FullName, $".{ext.ToLower()}");
+                                    if (fmt.Equals(MagickFormat.Png8)) name = Path.ChangeExtension(name, ".png");
 
                                     #region touch software
                                     var tag_software = "Software";
@@ -8123,6 +8128,10 @@ namespace TouchMeta
             else if (sender == ConvertSelectedToPng)
             {
                 ConvertImagesTo(MagickFormat.Png, keep_name: alt);
+            }
+            else if (sender == ConvertSelectedToPng8)
+            {
+                ConvertImagesTo(MagickFormat.Png8, keep_name: alt);
             }
             else if (sender == ConvertSelectedToGif)
             {
