@@ -892,7 +892,7 @@ namespace TouchMeta
 
         private int FileIndexOf(string file)
         {
-            var result = FilesList.Dispatcher.Invoke(() => 
+            var result = FilesList.Dispatcher.Invoke(() =>
             {
                 //var flist = FilesList.Items.OfType<MyListBoxItem>().Select(f => f.Content as string).ToList();
                 var flist = _fileItems_.OfType<MyListBoxItem>().Select(f => f.Content as string).ToList();
@@ -1430,6 +1430,12 @@ namespace TouchMeta
 
             Color c = Color.FromScRgb(1, (float)r, (float)g, (float)b);
             return (MagickColor.FromRgba(c.R, c.G, c.B, c.A));
+        }
+
+        private static bool IsByteString(string text)
+        {
+            var result = string.IsNullOrEmpty(text) ? false : Regex.IsMatch(text, @"(0x\d\d,?)+", RegexOptions.IgnoreCase);
+            return (result);
         }
 
         private static string BytesToString(byte[] bytes, bool ascii = false, bool msb = false, Encoding encoding = null)
@@ -3913,7 +3919,7 @@ namespace TouchMeta
                             var xmp_value = exif.GetValue(ImageMagick.ExifTag.XMP);
                             if (xmp_value.Value is byte[]) xmp = new XmpProfile(xmp_value.Value);
                         }
-                    }             
+                    }
                     foreach (var tag in Consts.tag_date)
                     {
                         if (image.AttributeNames.Contains(tag))
@@ -3997,11 +4003,11 @@ namespace TouchMeta
                     var xml_doc = UTF8.GetString(xmp.ToByteArray());
                     var xml = new XmlDocument();
                     xml.LoadXml(xml_doc);
-                    foreach(var tag in tags)
+                    foreach (var tag in tags)
                     {
                         var value = GetXmpValueByTag(xml, tag);
                         if (string.IsNullOrEmpty(value)) result[tag] = value;
-                    }                    
+                    }
                 }
                 catch (Exception ex) { Log(ex.Message); }
             }
@@ -4038,7 +4044,7 @@ namespace TouchMeta
                         var attrs = new Dictionary<string, string>();
                         if (xmp_tag.Attributes is not null)
                         {
-                            foreach(XmlAttribute attr in xmp_tag.Attributes)
+                            foreach (XmlAttribute attr in xmp_tag.Attributes)
                             {
                                 attrs[attr.Name] = attr.Value;
                             }
@@ -5755,6 +5761,18 @@ namespace TouchMeta
                                             var g = $"[{image.Chromaticity.Green.X:F5},{image.Chromaticity.Green.Y:F5},{image.Chromaticity.Green.Z:F5}]";
                                             var b = $"[{image.Chromaticity.Blue.X:F5},{image.Chromaticity.Blue.Y:F5},{image.Chromaticity.Blue.Z:F5}]";
                                             value = $"R:{cr}, G:{cg}, B:{cb}{Environment.NewLine}XYZ-R: {r}{Environment.NewLine}XYZ-G: {g}{Environment.NewLine}XYZ-B: {b}";
+                                        }
+                                        else if (attr.Equals("exif:ExifVersion"))
+                                        {
+                                            value = exif.GetValue(ImageMagick.ExifTag.ExifVersion) != null ? Encoding.UTF8.GetString(exif.GetValue(ImageMagick.ExifTag.ExifVersion).Value) : value;
+                                            if (IsByteString(value)) value = ByteStringToString(value);
+                                        }
+                                        else if (attr.Equals("exif:ImageDescription"))
+                                            value = exif.GetValue(ImageMagick.ExifTag.ImageDescription) != null ? exif.GetValue(ImageMagick.ExifTag.ImageDescription).Value : value;
+                                        else if (attr.Equals("exif:UserComment"))// && exif.GetValue(ExifTag.UserComment) != null)
+                                        {
+                                            //if (exif.GetValue(ImageMagick.ExifTag.UserComment) != null) value = GetAttribute(image, attr);
+                                            if (IsByteString(value)) value = BytesToString(ByteStringToBytes(value), msb: image.Endian == Endian.MSB ? true : false);
                                         }
                                         //var values = value.Split(new string[] { Environment.NewLine }, StringSplitOptions.RemoveEmptyEntries).Select(t => t.Replace("\0", string.Empty).Trim());
                                         var values = value.Split(new string[] { Environment.NewLine, "\n\r", "\r\n", "\r", "\n" }, StringSplitOptions.None).Select(t => t.Replace("\0", string.Empty).Trim());
