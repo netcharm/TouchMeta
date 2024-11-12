@@ -1614,6 +1614,7 @@ namespace TouchMeta
             var result = text;
             try
             {
+                result = Regex.Replace(result, "上次编辑", "", RegexOptions.IgnoreCase);
                 result = Regex.Replace(result, @"号|號|日", "日 ", RegexOptions.IgnoreCase);
                 result = Regex.Replace(result, @"点|點|時|时", "时 ", RegexOptions.IgnoreCase);
                 result = Regex.Replace(result, $@"早 *?上|午 *?前|{AM}|AM", $"{AM} ", RegexOptions.IgnoreCase);
