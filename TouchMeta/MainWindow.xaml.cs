@@ -5208,6 +5208,30 @@ namespace TouchMeta
                             }
                             else SetAttribute(image, $"exif:{tag_software}", software);
                             #endregion
+                            #region touch make
+                            if (string.IsNullOrEmpty(meta.Make))
+                            {
+                                var tag_make = "Make";
+                                if (string.IsNullOrEmpty(GetAttribute(image, $"exif:{tag_make}")) &&
+                                    string.IsNullOrEmpty(GetAttribute(image, $"{tag_make}")))
+                                {
+                                    SetAttribute(image, $"exif:{tag_make}", GetAttribute(image, $"exif:Make"));
+                                }
+                                else SetAttribute(image, $"exif:{tag_make}", meta.Make);
+                            }
+                            #endregion
+                            #region touch model
+                            if (string.IsNullOrEmpty(meta.Model))
+                            {
+                                var tag_model = "Model";
+                                if (string.IsNullOrEmpty(GetAttribute(image, $"exif:{tag_model}")) &&
+                                    string.IsNullOrEmpty(GetAttribute(image, $"{tag_model}")))
+                                {
+                                    SetAttribute(image, $"exif:{tag_model}", GetAttribute(image, $"exif:Model"));
+                                }
+                                else SetAttribute(image, $"exif:{tag_model}", meta.Model);
+                            }
+                            #endregion
                             #region exif version
                             var tag_exifversion = "ExifVersion";
                             if (string.IsNullOrEmpty(GetAttribute(image, $"exif:{tag_exifversion}")))
@@ -5812,7 +5836,7 @@ namespace TouchMeta
                                 Log($"{"Interpolate".PadRight(cw)}= {image.Interpolate}");
                                 #endregion
                                 #region Attribures Metadata
-                                foreach (var attr in image.AttributeNames.Union(["exif:Rating", "exif:RatingPercent"]).OrderBy(a => a))
+                                foreach (var attr in image.AttributeNames.Union(["exif:Rating", "exif:RatingPercent", "exif:Make", "exif:Model"]).OrderBy(a => a))
                                 {
                                     try
                                     {
