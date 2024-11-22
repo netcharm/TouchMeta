@@ -308,8 +308,8 @@ namespace TouchMeta
         private const string ReduceQualityKey = "ReduceQuality";
         private const string AlwaysTopMostKey = "TopMost";
         private static Color ConvertBGColor = Properties.Settings.Default.ConvertBGColor;
-        private static int ConvertQuality = Properties.Settings.Default.ConvertQuality;
-        private static int ReduceQuality = Properties.Settings.Default.ReduceQuality;
+        private static uint ConvertQuality = Properties.Settings.Default.ConvertQuality;
+        private static uint ReduceQuality = Properties.Settings.Default.ReduceQuality;
         private bool AlwaysTopMost = Properties.Settings.Default.TopMost;
 
         private static readonly Configuration config = ConfigurationManager.OpenExeConfiguration(AppExec);
@@ -4659,7 +4659,7 @@ namespace TouchMeta
             catch (Exception ex) { ShowMessage(ex.Message); }
         }
 
-        private static void SetParameters(MagickImage image, MagickFormat? format = null, int? quality = null, CompressionMethod? compress = null)
+        private static void SetParameters(MagickImage image, MagickFormat? format = null, uint? quality = null, CompressionMethod? compress = null)
         {
             if (image is MagickImage)
             {
@@ -5794,8 +5794,8 @@ namespace TouchMeta
                                 if (image.ColorType == ColorType.Bilevel) depth = 2;
                                 else if (image.ColorType == ColorType.Grayscale) depth = 8;
                                 else if (image.ColorType == ColorType.GrayscaleAlpha) depth = 8 + 8;
-                                else if (image.ColorType == ColorType.Palette) depth = (int)Math.Ceiling(Math.Log(image.ColormapSize, 2));
-                                else if (image.ColorType == ColorType.PaletteAlpha) depth = (int)Math.Ceiling(Math.Log(image.ColormapSize, 2)) + 8;
+                                else if (image.ColorType == ColorType.Palette) depth = (uint)Math.Ceiling(Math.Log(image.ColormapSize, 2));
+                                else if (image.ColorType == ColorType.PaletteAlpha) depth = (uint)Math.Ceiling(Math.Log(image.ColormapSize, 2)) + 8;
                                 else if (image.ColorType == ColorType.TrueColor) depth = 24;
                                 else if (image.ColorType == ColorType.TrueColorAlpha) depth = 32;
                                 else if (image.ColorType == ColorType.ColorSeparation) depth = 24;
@@ -6239,7 +6239,7 @@ namespace TouchMeta
             return (exif is ExifData && exif.ImageType != ImageType.Unknown);
         }
 
-        public byte[] ReduceImageQuality(byte[] buffer, string fmt, int quality = 75, bool force = false)
+        public byte[] ReduceImageQuality(byte[] buffer, string fmt, uint quality = 75, bool force = false)
         {
             byte[] result = buffer;
             try
@@ -6316,7 +6316,7 @@ namespace TouchMeta
             return (result);
         }
 
-        public string ReduceImageQuality(string file, string fmt, int quality = 75, bool keep_name = false, bool force = false)
+        public string ReduceImageQuality(string file, string fmt, uint quality = 75, bool keep_name = false, bool force = false)
         {
             string result = string.Empty;
             try
@@ -6539,7 +6539,7 @@ namespace TouchMeta
             return (result);
         }
 
-        public string ReduceImageQuality(string file, MagickFormat fmt, int quality = 0, bool keep_name = false, bool force = false)
+        public string ReduceImageQuality(string file, MagickFormat fmt, uint quality = 0, bool keep_name = false, bool force = false)
         {
             if (quality <= 0)
             {
@@ -6549,7 +6549,7 @@ namespace TouchMeta
                 return (ReduceImageQuality(file, fmt.ToString().ToLower(), quality, keep_name, force: force));
         }
 
-        public void ReduceImageQuality(IEnumerable<string> files, MagickFormat fmt, int quality = 0, bool keep_name = false, bool force = false)
+        public void ReduceImageQuality(IEnumerable<string> files, MagickFormat fmt, uint quality = 0, bool keep_name = false, bool force = false)
         {
             if (files is IEnumerable<string>)
             {
@@ -6562,7 +6562,7 @@ namespace TouchMeta
             }
         }
 
-        public void ReduceImageQuality(MagickFormat fmt = MagickFormat.Jpg, int quality = 0, bool keep_name = true, bool force = false)
+        public void ReduceImageQuality(MagickFormat fmt = MagickFormat.Jpg, uint quality = 0, bool keep_name = true, bool force = false)
         {
             if (_fileItems_.Count > 0)
             {
@@ -7079,7 +7079,7 @@ namespace TouchMeta
             CommandBindings.Add(new CommandBinding(cmd_ReduceTo_Force, (obj, evt) =>
             {
                 evt.Handled = true;
-                ReduceImageQuality(MagickFormat.Jpg, quality: Convert.ToInt32(ReduceToQuality.Value), keep_name: true, force: true);
+                ReduceImageQuality(MagickFormat.Jpg, quality: Convert.ToUInt32(ReduceToQuality.Value), keep_name: true, force: true);
             }));
 
             RoutedUICommand cmd_ReduceTo = new RoutedUICommand(){ Text = $"{ReduceToSelected.Header}" };
@@ -7087,7 +7087,7 @@ namespace TouchMeta
             CommandBindings.Add(new CommandBinding(cmd_ReduceTo, (obj, evt) =>
             {
                 evt.Handled = true;
-                ReduceImageQuality(MagickFormat.Jpg, quality: Convert.ToInt32(ReduceToQuality.Value), keep_name: true, force: false);
+                ReduceImageQuality(MagickFormat.Jpg, quality: Convert.ToUInt32(ReduceToQuality.Value), keep_name: true, force: false);
             }));
             ReduceToSelected.InputGestureText = string.Join(", ", cmd_ReduceTo.InputGestures.OfType<KeyGesture>().Select(k => k.DisplayString));
 
@@ -7329,8 +7329,8 @@ namespace TouchMeta
             try
             {
                 bool.TryParse(GetConfigValue(AlwaysTopMostKey, AlwaysTopMost), out AlwaysTopMost);
-                int.TryParse(GetConfigValue(ConvertQualityKey, ConvertQuality), out ConvertQuality);
-                int.TryParse(GetConfigValue(ReduceQualityKey, ReduceQuality), out ReduceQuality);
+                uint.TryParse(GetConfigValue(ConvertQualityKey, ConvertQuality), out ConvertQuality);
+                uint.TryParse(GetConfigValue(ReduceQualityKey, ReduceQuality), out ReduceQuality);
                 ConvertBGColor = (Color)ColorConverter.ConvertFromString(GetConfigValue(ConvertBGColorKey, ConvertBGColor));
             }
             catch (Exception ex) { ShowMessage($"Config Error!{Environment.NewLine}{ex.Message}"); }
@@ -8285,7 +8285,7 @@ namespace TouchMeta
             }
             else if (sender == ReduceToSelected)
             {
-                ReduceImageQuality(MagickFormat.Jpg, quality: Convert.ToInt32(ReduceToQuality.Value), keep_name: true, force: force);
+                ReduceImageQuality(MagickFormat.Jpg, quality: Convert.ToUInt32(ReduceToQuality.Value), keep_name: true, force: force);
             }
             #endregion
             #region Rotate Image File(s)

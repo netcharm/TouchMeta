@@ -26,18 +26,18 @@ namespace TouchMeta.Properties {
         [global::System.Configuration.ApplicationScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("85")]
-        public int ConvertQuality {
+        public uint ConvertQuality {
             get {
-                return ((int)(this["ConvertQuality"]));
+                return ((uint)(this["ConvertQuality"]));
             }
         }
         
         [global::System.Configuration.ApplicationScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("75")]
-        public int ReduceQuality {
+        public uint ReduceQuality {
             get {
-                return ((int)(this["ReduceQuality"]));
+                return ((uint)(this["ReduceQuality"]));
             }
         }
         
