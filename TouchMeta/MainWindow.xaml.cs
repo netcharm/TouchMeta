@@ -2768,6 +2768,21 @@ namespace TouchMeta
             }
         }
 
+        public static uint CalcColorDepth(MagickImage image)
+        {
+            var depth = image.Depth * image.ChannelCount;
+            if (image.ColorType == ColorType.Bilevel) depth = 2;
+            else if (image.ColorType == ColorType.Grayscale) depth = 8;
+            else if (image.ColorType == ColorType.GrayscaleAlpha) depth = 8 + 8;
+            else if (image.ColorType == ColorType.Palette) depth = (uint)Math.Ceiling(Math.Log(image.ColormapSize, 2));
+            else if (image.ColorType == ColorType.PaletteAlpha) depth = (uint)Math.Ceiling(Math.Log(image.ColormapSize, 2)) + 8;
+            else if (image.ColorType == ColorType.TrueColor) depth = 24;
+            else if (image.ColorType == ColorType.TrueColorAlpha) depth = 32;
+            else if (image.ColorType == ColorType.ColorSeparation) depth = 24;
+            else if (image.ColorType == ColorType.ColorSeparationAlpha) depth = 32;
+            return (depth);
+        }
+
         public static DateTime? ParseDateTime(string text, bool is_file = true)
         {
             DateTime? result = null;
@@ -4771,7 +4786,7 @@ namespace TouchMeta
 #if DEBUG
                 var exifdata = new CompactExifLib.ExifData(fi.FullName);
 #endif
-                using (MagickImage image = new MagickImage(fi.FullName))
+                using (MagickImage image = LoadImage(fi.FullName))
                 {
                     if (IsValidRead(image) && IsValidWrite(image))
                     {
@@ -4830,7 +4845,7 @@ namespace TouchMeta
                     var fi = new FileInfo(file);
 
                     var exifdata = new CompactExifLib.ExifData(fi.FullName);
-                    using (MagickImage image = new MagickImage(fi.FullName))
+                    using (MagickImage image = LoadImage(fi.FullName))
                     {
                         if (IsValidRead(image) && IsValidWrite(image))
                         {
@@ -5488,7 +5503,7 @@ namespace TouchMeta
                 if (dt.HasValue)
                 {
                     var fi = new FileInfo(file);
-                    using (var image = new MagickImage(fi.FullName))
+                    using (var image = LoadImage(fi.FullName))
                     {
                         if (IsValidRead(image) && IsValidWrite(image))
                         {
@@ -5531,7 +5546,7 @@ namespace TouchMeta
             {
                 if (dt.HasValue && src is Stream && src.CanRead)
                 {
-                    using (var image = new MagickImage(src))
+                    using (var image = LoadImage(src))
                     {
                         if (IsValidRead(image) && IsValidWrite(image))
                         {
@@ -5778,10 +5793,8 @@ namespace TouchMeta
                         ExifData exifdata = null;
                         try { exifdata = new ExifData(ms); } catch { }
                         ms.Seek(0, SeekOrigin.Begin);
-                        //using (MagickImage image = new MagickImage(ms))
-                        using (MagickImage image = new MagickImage(ms))
+                        using (MagickImage image = LoadImage(ms))
                         {
-                            //image.Ping(ms);
                             if (IsValidRead(image))
                             {
                                 if (exifdata is ExifData && image.Endian == Endian.Undefined) image.Endian = exifdata.ByteOrder == ExifByteOrder.BigEndian ? Endian.MSB : Endian.LSB;
@@ -5790,16 +5803,7 @@ namespace TouchMeta
                                 var exif_invalid = exif.InvalidTags;
 
                                 #region Calc color Bit-Depth
-                                var depth = image.Depth * image.ChannelCount;
-                                if (image.ColorType == ColorType.Bilevel) depth = 2;
-                                else if (image.ColorType == ColorType.Grayscale) depth = 8;
-                                else if (image.ColorType == ColorType.GrayscaleAlpha) depth = 8 + 8;
-                                else if (image.ColorType == ColorType.Palette) depth = (uint)Math.Ceiling(Math.Log(image.ColormapSize, 2));
-                                else if (image.ColorType == ColorType.PaletteAlpha) depth = (uint)Math.Ceiling(Math.Log(image.ColormapSize, 2)) + 8;
-                                else if (image.ColorType == ColorType.TrueColor) depth = 24;
-                                else if (image.ColorType == ColorType.TrueColorAlpha) depth = 32;
-                                else if (image.ColorType == ColorType.ColorSeparation) depth = 24;
-                                else if (image.ColorType == ColorType.ColorSeparationAlpha) depth = 32;
+                                var depth = CalcColorDepth(image);
                                 #endregion
 
                                 var cw = 35;
@@ -6124,6 +6128,44 @@ namespace TouchMeta
             return (result);
         }
 
+        public static MagickImage LoadImage(string file)
+        {
+            MagickImage result = null;
+            using (var ms = new MemoryStream(File.ReadAllBytes(file)))
+            {
+                result = LoadImage(ms);
+            }
+            return (result);
+        }
+
+        public static MagickImage LoadImage(Stream stream)
+        {
+            MagickImage result = null;
+            if (stream is Stream)
+            {
+                if (stream.CanSeek) stream.Seek(0, SeekOrigin.Begin);
+
+                ExifData exifdata = null;
+                try { exifdata = new ExifData(stream); } catch { };
+                if (stream.CanSeek) stream.Seek(0, SeekOrigin.Begin);
+
+                var image = new MagickImage(stream);
+                var count = 0;
+                var depth_m = CalcColorDepth(image);
+                var depth = exifdata is ExifData ? (uint)exifdata.ColorDepth : depth_m;
+                while (depth != depth_m && count < 20)
+                {
+                    stream.Seek(0, SeekOrigin.Begin);
+                    image = new MagickImage(stream);
+                    depth_m = CalcColorDepth(image);
+                }
+                if (exifdata is ExifData && image.Endian == Endian.Undefined) image.Endian = exifdata.ByteOrder == ExifByteOrder.BigEndian ? Endian.MSB : Endian.LSB;
+                result = new MagickImage(image);
+                image.Dispose();
+            }
+            return (result);
+        }
+
         public string ConvertImageTo(string file, MagickFormat fmt, bool keep_name = false)
         {
             var result = file;
@@ -6142,16 +6184,10 @@ namespace TouchMeta
                         {
                             if (ms.CanSeek) ms.Seek(0, SeekOrigin.Begin);
 
-                            ExifData exifdata = null;
-                            try { exifdata = new ExifData(ms); } catch { };
-                            if (ms.CanSeek) ms.Seek(0, SeekOrigin.Begin);
-
-                            using (MagickImage image = new MagickImage(ms))
+                            using (MagickImage image = LoadImage(ms))
                             {
                                 if (IsValidRead(image) && IsValidWrite(fmt))
                                 {
-                                    if (exifdata is ExifData && image.Endian == Endian.Undefined) image.Endian = exifdata.ByteOrder == ExifByteOrder.BigEndian ? Endian.MSB : Endian.LSB;
-
                                     var meta = GetMetaInfo(image);
 
                                     var fmt_info = MagickNET.SupportedFormats.Where(f => f.Format == fmt).FirstOrDefault();
