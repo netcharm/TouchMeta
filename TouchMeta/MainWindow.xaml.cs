@@ -6152,11 +6152,13 @@ namespace TouchMeta
                 var image = new MagickImage(stream);
                 var count = 0;
                 var depth_m = CalcColorDepth(image);
-                var depth = exifdata is ExifData ? (uint)exifdata.ColorDepth : depth_m;
-                while (depth != depth_m && count < 20)
+                var depth = exifdata is ExifData && exifdata.ImageType != ImageType.Unknown ? (uint)exifdata.ColorDepth : depth_m;
+                var endian = exifdata is ExifData && exifdata.ImageType != ImageType.Unknown ? (exifdata.ByteOrder == ExifByteOrder.LittleEndian ? Endian.LSB : Endian.MSB) : Endian.Undefined;
+                while (depth > depth_m && count < 20)
                 {
                     stream.Seek(0, SeekOrigin.Begin);
                     image = new MagickImage(stream);
+                    if (image.Endian == Endian.Undefined && endian != Endian.Undefined) image.Endian = endian;
                     depth_m = CalcColorDepth(image);
                 }
                 if (exifdata is ExifData && image.Endian == Endian.Undefined) image.Endian = exifdata.ByteOrder == ExifByteOrder.BigEndian ? Endian.MSB : Endian.LSB;
