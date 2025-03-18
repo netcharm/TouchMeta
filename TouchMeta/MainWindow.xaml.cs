@@ -1708,17 +1708,18 @@ namespace TouchMeta
             var result = FormatXML(xml);
             if (merge_nodes && xml is XmlDocument)
             {
+                Func<XmlElement, IList<XmlElement>> ChildList = (element)=>
+                {
+                    var list = new List<XmlElement>();
+                    foreach(XmlElement node in element.ChildNodes) list.Add(node);
+                    return(list);
+                };
                 foreach (XmlElement root in xml.DocumentElement.ChildNodes)
                 {
                     var elements_list = new Dictionary<string, XmlElement>();
-                    Func<XmlElement, IList<XmlElement>> ChildList = (elements)=>
-                    {
-                        var list = new List<XmlElement>();
-                        foreach(XmlElement node in elements.ChildNodes) list.Add(node);
-                        return(list);
-                    };
                     foreach (XmlElement node in ChildList.Invoke(root))
                     {
+                        var attrs = new List<string>();
                         foreach (XmlAttribute attr in node.Attributes)
                         {
                             if (attr.Name.StartsWith("xmlns:"))
@@ -1755,6 +1756,7 @@ namespace TouchMeta
                                         elements_list[key] = xml.CreateElement("rdf:Description", "rdf");
                                         elements_list[key].SetAttribute($"xmlns:{key}", value);
                                     }
+                                    else attrs.Add(attr.Name);
                                     if (!Consts.xmp_ns.Contains(key)) Consts.xmp_ns.Append(key);
                                     var child = xml.CreateElement(attr.Name, key);
                                     child.InnerText = attr.Value;
@@ -1767,6 +1769,7 @@ namespace TouchMeta
                         {
                             foreach (XmlElement item in ChildList.Invoke(node))
                             {
+                                var nodes = new List<string>();
                                 var xmlns = $"xmlns:{item.Prefix}";
                                 var ns = item.NamespaceURI;
                                 if (item.HasAttribute(xmlns))
@@ -1788,11 +1791,16 @@ namespace TouchMeta
                                         elements_list[item.Prefix].SetAttribute($"xmlns:{item.Prefix}", Consts.xmp_ns_lookup[item.Prefix]);
                                     }
                                 }
-                                elements_list[item.Prefix].AppendChild(item);
+                                if (elements_list[item.Prefix].GetElementsByTagName(item.Name).Count <= 0)
+                                    elements_list[item.Prefix].AppendChild(item);
                             }
                             root.RemoveChild(node);
                         }
                         catch (Exception ex) { Log(ex.Message); }
+                        foreach(XmlElement item in ChildList.Invoke(node))
+                        {
+
+                        }
                     }
                     foreach (var kv in elements_list) { if (kv.Value is XmlElement && kv.Value.HasChildNodes) root.AppendChild(kv.Value); }
                 }
@@ -2031,7 +2039,8 @@ namespace TouchMeta
                         }
                         #endregion
                         #region CreateDate node
-                        if (xml_doc.GetElementsByTagName("xmp:CreateDate").Count <= 0 && !attrs.ContainsKey("xmp:CreateDate"))
+                        if (attrs.ContainsKey("xmp:CreateDate")) attrs["xmp:CreateDate"] = dc_date;
+                        else if (xml_doc.GetElementsByTagName("xmp:CreateDate").Count <= 0 && !attrs.ContainsKey("xmp:CreateDate"))
                         {
                             var desc = xml_doc.CreateElement("rdf:Description", "rdf");
                             desc.SetAttribute("rdf:about", "uuid:faf5bdd5-ba3d-11da-ad31-d33d75182f1b");
@@ -2039,10 +2048,10 @@ namespace TouchMeta
                             desc.AppendChild(xml_doc.CreateElement("xmp:CreateDate", "xmp"));
                             root_node.AppendChild(desc);
                         }
-                        else if (attrs.ContainsKey("xmp:CreateDate")) attrs["xmp:CreateDate"] = dc_date;
                         #endregion
                         #region ModifyDate node
-                        if (xml_doc.GetElementsByTagName("xmp:ModifyDate").Count <= 0 && !attrs.ContainsKey("xmp:ModifyDate"))
+                        if (attrs.ContainsKey("xmp:ModifyDate")) attrs["xmp:ModifyDate"] = dm_date;
+                        else if (xml_doc.GetElementsByTagName("xmp:ModifyDate").Count <= 0 && !attrs.ContainsKey("xmp:ModifyDate"))
                         {
                             var desc = xml_doc.CreateElement("rdf:Description", "rdf");
                             desc.SetAttribute("rdf:about", "uuid:faf5bdd5-ba3d-11da-ad31-d33d75182f1b");
@@ -2050,10 +2059,10 @@ namespace TouchMeta
                             desc.AppendChild(xml_doc.CreateElement("xmp:ModifyDate", "xmp"));
                             root_node.AppendChild(desc);
                         }
-                        else if (attrs.ContainsKey("xmp:ModifyDate")) attrs["xmp:ModifyDate"] = dm_date;
                         #endregion
                         #region DateTimeOriginal node
-                        if (xml_doc.GetElementsByTagName("xmp:DateTimeOriginal").Count <= 0 && !attrs.ContainsKey("xmp:DateTimeOriginal"))
+                        if (attrs.ContainsKey("xmp:DateTimeOriginal")) attrs["xmp:DateTimeOriginal"] = dc_xmp;
+                        else if(xml_doc.GetElementsByTagName("xmp:DateTimeOriginal").Count <= 0 && !attrs.ContainsKey("xmp:DateTimeOriginal"))
                         {
                             var desc = xml_doc.CreateElement("rdf:Description", "rdf");
                             desc.SetAttribute("rdf:about", "uuid:faf5bdd5-ba3d-11da-ad31-d33d75182f1b");
@@ -2061,10 +2070,10 @@ namespace TouchMeta
                             desc.AppendChild(xml_doc.CreateElement("xmp:DateTimeOriginal", "xmp"));
                             root_node.AppendChild(desc);
                         }
-                        else if (attrs.ContainsKey("xmp:DateTimeOriginal")) attrs["xmp:DateTimeOriginal"] = dc_xmp;
                         #endregion
                         #region DateTimeDigitized node
-                        if (xml_doc.GetElementsByTagName("xmp:DateTimeDigitized").Count <= 0 && !attrs.ContainsKey("xmp:DateTimeDigitized"))
+                        if (attrs.ContainsKey("xmp:DateTimeDigitized")) attrs["xmp:DateTimeDigitized"] = dc_xmp;
+                        else if(xml_doc.GetElementsByTagName("xmp:DateTimeDigitized").Count <= 0 && !attrs.ContainsKey("xmp:DateTimeDigitized"))
                         {
                             var desc = xml_doc.CreateElement("rdf:Description", "rdf");
                             desc.SetAttribute("rdf:about", "uuid:faf5bdd5-ba3d-11da-ad31-d33d75182f1b");
@@ -2072,10 +2081,10 @@ namespace TouchMeta
                             desc.AppendChild(xml_doc.CreateElement("xmp:DateTimeDigitized", "xmp"));
                             root_node.AppendChild(desc);
                         }
-                        else if (attrs.ContainsKey("xmp:DateTimeDigitized")) attrs["xmp:DateTimeDigitized"] = dc_xmp;
                         #endregion
                         #region MetadataDate node
-                        if (xml_doc.GetElementsByTagName("xmp:MetadataDate").Count <= 0 && !attrs.ContainsKey("xmp:MetadataDate"))
+                        if (attrs.ContainsKey("xmp:MetadataDate")) attrs["xmp:MetadataDate"] = dm_date;
+                        else if (xml_doc.GetElementsByTagName("xmp:MetadataDate").Count <= 0 && !attrs.ContainsKey("xmp:MetadataDate"))
                         {
                             var desc = xml_doc.CreateElement("rdf:Description", "rdf");
                             desc.SetAttribute("rdf:about", "uuid:faf5bdd5-ba3d-11da-ad31-d33d75182f1b");
@@ -2083,7 +2092,6 @@ namespace TouchMeta
                             desc.AppendChild(xml_doc.CreateElement("xmp:MetadataDate", "xmp"));
                             root_node.AppendChild(desc);
                         }
-                        else if (attrs.ContainsKey("xmp:MetadataDate")) attrs["xmp:MetadataDate"] = dm_date;
                         #endregion
                         #region Ranking/Rating node
                         if (xml_doc.GetElementsByTagName("xmp:Rating").Count <= 0 && rating > 0)
