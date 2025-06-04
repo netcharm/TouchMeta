@@ -203,7 +203,7 @@ namespace TouchMeta
 
         public string Make { get; set; } = null;
         public string Model { get; set; } = null;
-        
+
         public string ExifVersion { get; set; } = "0230";
 
         public Dictionary<string, string> Attributes { get; set; } = new Dictionary<string, string>();
@@ -1797,7 +1797,7 @@ namespace TouchMeta
                             root.RemoveChild(node);
                         }
                         catch (Exception ex) { Log(ex.Message); }
-                        foreach(XmlElement item in ChildList.Invoke(node))
+                        foreach (XmlElement item in ChildList.Invoke(node))
                         {
 
                         }
@@ -2062,7 +2062,7 @@ namespace TouchMeta
                         #endregion
                         #region DateTimeOriginal node
                         if (attrs.ContainsKey("xmp:DateTimeOriginal")) attrs["xmp:DateTimeOriginal"] = dc_xmp;
-                        else if(xml_doc.GetElementsByTagName("xmp:DateTimeOriginal").Count <= 0 && !attrs.ContainsKey("xmp:DateTimeOriginal"))
+                        else if (xml_doc.GetElementsByTagName("xmp:DateTimeOriginal").Count <= 0 && !attrs.ContainsKey("xmp:DateTimeOriginal"))
                         {
                             var desc = xml_doc.CreateElement("rdf:Description", "rdf");
                             desc.SetAttribute("rdf:about", "uuid:faf5bdd5-ba3d-11da-ad31-d33d75182f1b");
@@ -2073,7 +2073,7 @@ namespace TouchMeta
                         #endregion
                         #region DateTimeDigitized node
                         if (attrs.ContainsKey("xmp:DateTimeDigitized")) attrs["xmp:DateTimeDigitized"] = dc_xmp;
-                        else if(xml_doc.GetElementsByTagName("xmp:DateTimeDigitized").Count <= 0 && !attrs.ContainsKey("xmp:DateTimeDigitized"))
+                        else if (xml_doc.GetElementsByTagName("xmp:DateTimeDigitized").Count <= 0 && !attrs.ContainsKey("xmp:DateTimeDigitized"))
                         {
                             var desc = xml_doc.CreateElement("rdf:Description", "rdf");
                             desc.SetAttribute("rdf:about", "uuid:faf5bdd5-ba3d-11da-ad31-d33d75182f1b");
@@ -3602,7 +3602,7 @@ namespace TouchMeta
                             //result = $"{lines[0]} : {encoding.GetString(buff.Skip(skip).ToArray())}";
                             result = $"{title}[{len}] : {encoding.GetString(buff)}";
                         }
-                        catch (Exception ex) { Log($"{ex.Message}{Environment.NewLine}{ex.StackTrace}"); };
+                        catch (Exception ex) { Log($"{ex.Message}{Environment.NewLine}{ex.StackTrace}"); }
                     }
                 }
             }
@@ -4663,7 +4663,7 @@ namespace TouchMeta
                 sb_xml.AppendLine($"  <tags>{NormStr(meta.Keywords)}</tags>");
                 sb_xml.AppendLine($"  <description>{NormStr(meta.Comment)}</description>");
                 sb_xml.AppendLine($"  <user>{NormStr(meta.Authors)}</user>");
-                sb_xml.AppendLine($"  <author>{NormStr(meta.Authors)}</user>");
+                sb_xml.AppendLine($"  <author>{NormStr(meta.Authors)}</author>");
                 sb_xml.AppendLine($"  <copyright>{NormStr(meta.Authors)}</copyright>");
                 sb_xml.AppendLine($"  <favorited>{is_fav}</favorited>");
                 sb_xml.AppendLine($"  <software>{meta.Software}</software>");
@@ -5203,7 +5203,7 @@ namespace TouchMeta
                                             else
                                                 SetAttribute(image, tag, rating);
                                             var value_new = GetAttribute(image, tag);
-                                            Log($"{$"{tag}",-32}= {(value_old == null ? "NULL" : value_old)} => {value_new}");
+                                            Log($"{$"{tag}", -32}= {(value_old == null ? "NULL" : value_old)} => {value_new}");
                                         }
                                         else
                                         {
@@ -6154,7 +6154,7 @@ namespace TouchMeta
                 if (stream.CanSeek) stream.Seek(0, SeekOrigin.Begin);
 
                 ExifData exifdata = null;
-                try { exifdata = new ExifData(stream); } catch { };
+                try { exifdata = new ExifData(stream); } catch { }
                 if (stream.CanSeek) stream.Seek(0, SeekOrigin.Begin);
 
                 var image = new MagickImage(stream);
@@ -6168,6 +6168,7 @@ namespace TouchMeta
                     image = new MagickImage(stream);
                     if (image.Endian == Endian.Undefined && endian != Endian.Undefined) image.Endian = endian;
                     depth_m = CalcColorDepth(image);
+                    count++;
                 }
                 if (exifdata is ExifData && image.Endian == Endian.Undefined) image.Endian = exifdata.ByteOrder == ExifByteOrder.BigEndian ? Endian.MSB : Endian.LSB;
                 result = new MagickImage(image);
