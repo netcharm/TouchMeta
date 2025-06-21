@@ -15,6 +15,13 @@
         Loaded="Window_Loaded" DragOver="Window_DragOver" Drop="Window_Drop" 
         LocationChanged="Window_LocationChanged"
         PreviewKeyDown="Window_PreviewKeyDown" PreviewMouseDown="Window_PreviewMouseDown">
+
+    <Window.TaskbarItemInfo>
+        <TaskbarItemInfo x:Name="MyTaskBarInfo" Description="My Taskbar Item Info" />
+                         <!--Overlay="{StaticResource ResourceKey=StopImage}"
+                         ThumbnailClipMargin="80,0,80,140"-->
+    </Window.TaskbarItemInfo> 
+
     <Grid x:Name="WindowContainer">
         <Grid.Resources>
             <Style x:Key="AlternatingWithTriggers" TargetType="{x:Type ListBoxItem}">

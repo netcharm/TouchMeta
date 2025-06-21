@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
@@ -9,7 +10,9 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Resources;
 using System.Runtime.InteropServices;
+using System.Runtime.InteropServices.ComTypes;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -17,20 +20,18 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
+using System.Windows.Ink;
 using System.Windows.Input;
 using System.Windows.Interop;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
 using System.Windows.Threading;
+using System.Xaml;
 using System.Xml;
 using System.Xml.Linq;
 
-using ImageMagick;
 using CompactExifLib;
-using System.Windows.Ink;
-using System.Resources;
-using System.Xaml;
-using System.Collections;
+using ImageMagick;
 
 
 namespace TouchMeta
@@ -356,10 +357,7 @@ namespace TouchMeta
         public event PropertyChangedEventHandler PropertyChanged;
         private void NotifyPropertyChanged(string property)
         {
-            if (PropertyChanged != null)
-            {
-                PropertyChanged(this, new PropertyChangedEventArgs(property));
-            }
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(property));
         }
 
         #region Config Helper
@@ -581,7 +579,7 @@ namespace TouchMeta
             if (ConfirmYesToAll) return (true);
 
             var ret = Application.Current.Dispatcher.Invoke(ShowConfirmFunc, text, title, confirm_all);
-            result = ret is MessageBoxResult && (MessageBoxResult)ret == MessageBoxResult.Yes ? true : false;
+            result = ret is MessageBoxResult && (MessageBoxResult)ret == MessageBoxResult.Yes;
             if (ConfirmToAll)
             {
                 ConfirmYesToAll = result;
@@ -596,6 +594,9 @@ namespace TouchMeta
             var result = input;
             Application.Current.Dispatcher.InvokeAsync(() =>
             {
+                FileRenameInputClose.Visibility = Visibility.Collapsed;
+                FileRenameInputNameText.Tag = input;
+                FileRenameInputNameText.Text = input;
                 var dlg = new Xceed.Wpf.Toolkit.CollectionControlDialog
                 {
                     Icon = Application.Current.MainWindow.Icon,
@@ -604,10 +605,13 @@ namespace TouchMeta
                     FontFamily = Application.Current.FindResource("MonoSpaceFamily") as FontFamily,
                     Title = string.IsNullOrEmpty(title) ? "Metadata Info" : title,
                     Content = form,
+                    Height = 128,
                     MaxWidth = 720,
                     MaxHeight = 480,
-                    HorizontalContentAlignment = HorizontalAlignment.Stretch
+                    HorizontalContentAlignment = HorizontalAlignment.Stretch,
+                    VerticalAlignment = VerticalAlignment.Stretch
                 };
+
                 Application.Current.MainWindow.Activate();
                 dlg.ShowDialog();
             });
@@ -623,10 +627,29 @@ namespace TouchMeta
         private readonly int NormallyMessageWidth = 75;
         private void ProgressReset()
         {
-            Dispatcher.InvokeAsync(() =>
+            Dispatcher.Invoke(() =>
             {
                 Progress.Value = 0;
-                Common.TaskbarManager.ResetProgress(Progress.Value, Progress.Maximum);
+                MyTaskBarInfo.ProgressState = System.Windows.Shell.TaskbarItemProgressState.Normal;
+                MyTaskBarInfo.ProgressValue = Progress.Value;
+                //MyTaskBarInfo.Dispatcher.Invoke(() => { 
+                //    MyTaskBarInfo.ProgressState = System.Windows.Shell.TaskbarItemProgressState.Normal; 
+                //    MyTaskBarInfo.ProgressValue = Progress.Value; 
+                //});
+            });
+        }
+
+        private void ProgressStart()
+        {
+            Dispatcher.Invoke(() =>
+            {
+                Progress.Value = 0;
+                MyTaskBarInfo.ProgressState = System.Windows.Shell.TaskbarItemProgressState.Normal;
+                MyTaskBarInfo.ProgressValue = Progress.Value;
+                //MyTaskBarInfo.Dispatcher.Invoke(() => {
+                //    MyTaskBarInfo.ProgressState = System.Windows.Shell.TaskbarItemProgressState.Normal;
+                //    MyTaskBarInfo.ProgressValue = Progress.Value;
+                //});
             });
         }
 
@@ -667,7 +690,7 @@ namespace TouchMeta
                         bgWorker.RunWorkerAsync(new Action(() =>
                         {
                             ClearLog();
-                            ProgressReset();
+                            ProgressStart();
                             double count = 0;
                             foreach (var file in files)
                             {
@@ -684,7 +707,7 @@ namespace TouchMeta
                                 ProgressReport(++count, total, file);
                             }
                             if (showlog) ShowLog();
-                            Common.TaskbarManager.ResetProgress();
+                            ProgressReset();
                         }));
                     }
                 }
@@ -737,11 +760,12 @@ namespace TouchMeta
                 Progress.Minimum = 0;
                 Progress.Maximum = 100;
                 Progress.Value = 0;
-                Common.TaskbarManager.SetProgressValue(Progress.Value, Progress.Maximum);
+
+                ProgressReset();
 
                 ReportProgress = new Action<double, double, string>((count, total, tooltip) =>
                 {
-                    Dispatcher.InvokeAsync(async () =>
+                    Dispatcher.Invoke(async () =>
                     {
                         try
                         {
@@ -754,7 +778,7 @@ namespace TouchMeta
                             if (percent > 1 || percent < 0) Title = DefaultTitle;
                             else SetTitle($"[{percent:P1} - {count}/{total}]");
 
-                            Common.TaskbarManager.SetProgressValue(percent * 100);
+                            MyTaskBarInfo.ProgressValue = percent;
 #if DEBUG
                             Debug.WriteLine($"{count}, {total}, {percent:P1}, {100}");
 #endif
@@ -981,15 +1005,15 @@ namespace TouchMeta
                 var flist = new List<string>();
                 foreach (var file in files)
                 {
-                    var entries = Directory.GetFileSystemEntries(Path.IsPathRooted(file) ? Path.GetDirectoryName(file) : Directory.GetCurrentDirectory(), Path.GetFileName(file), SearchOption.TopDirectoryOnly);
-                    flist.AddRange(NaturlSort(entries, true));
+                    var entries = Path.IsPathRooted(file) ? file : Path.GetFullPath(file);
+                    flist.Add(file);
                 }
 
                 foreach (var file in flist)
                 {
                     if (Directory.Exists(file))
                     {
-                        if (with_folder) FilesList.Items.Add(new MyListBoxItem() { Content = file, ToolTip = new ToolTip() { Content = file } });
+                        if (with_folder) _fileItems_.Add(new MyListBoxItem() { Content = file, ToolTip = new ToolTip() { Content = file } });
                         var fs = NaturlSort(Directory.EnumerateFiles(file), false);
                         foreach (var f in fs)
                         {
@@ -1039,7 +1063,7 @@ namespace TouchMeta
             Dispatcher.InvokeAsync(() =>
             {
                 var idx = FileIndexOf(file);
-                if (idx >= 0) FilesList.Items.RemoveAt(idx);
+                if (idx >= 0) _fileItems_.RemoveAt(idx);
                 LoadFiles([file]);
             });
         }
@@ -1439,7 +1463,7 @@ namespace TouchMeta
 
         private static bool IsByteString(string text)
         {
-            var result = string.IsNullOrEmpty(text) ? false : Regex.IsMatch(text, @"(0x\d\d,?)+", RegexOptions.IgnoreCase);
+            var result = !string.IsNullOrEmpty(text) && Regex.IsMatch(text, @"(0x\d\d,?)+", RegexOptions.IgnoreCase);
             return (result);
         }
 
@@ -1634,8 +1658,7 @@ namespace TouchMeta
                 result = Regex.Replace(result, @"[·]", " ", RegexOptions.IgnoreCase);
                 result = result.Trim(Consts.DateTimeTrimSymbols);
 
-                DateTime dt;
-                if (DateTime.TryParse(result, out dt)) result = dt.ToString();
+                if (DateTime.TryParse(result, out DateTime dt)) result = dt.ToString();
             }
             catch (Exception ex) { Log(ex.Message); }
             return (result.Trim());
@@ -2800,7 +2823,6 @@ namespace TouchMeta
                 var file = text;
                 if (is_file) text = System.IO.Path.GetFileNameWithoutExtension(text);
                 var trim_chars = new char[] { '_', '.', ' ' };
-                DateTime dt;
                 //‎2022‎年‎02‎月‎04‎日，‏‎16:49:26
                 var pattens = new string[]
                 {
@@ -2816,7 +2838,7 @@ namespace TouchMeta
                 text = Regex.Replace(text, @"[\u0000-\u001F\u007F\u2000-\u201F\u207F]", "");
                 text = Regex.Replace(text, @"[，]", ",");
                 text = Regex.Replace(text, @"^(\d{8,}_\d{4,}_)", "", RegexOptions.IgnoreCase);
-                if (DateTime.TryParse(text, out dt)) result = dt;
+                if (DateTime.TryParse(text, out DateTime dt)) result = dt;
                 else
                 {
                     foreach (var patten in pattens)
@@ -2988,8 +3010,7 @@ namespace TouchMeta
 
                     if (attr.StartsWith("date:"))
                     {
-                        DateTime dt;
-                        if (DateTime.TryParse(result, out dt)) result = dt.ToString("yyyy-MM-ddTHH:mm:sszzz");
+                        if (DateTime.TryParse(result, out DateTime dt)) result = dt.ToString("yyyy-MM-ddTHH:mm:sszzz");
                     }
 
                     if (!string.IsNullOrEmpty(result)) result = result.Replace("\0", string.Empty).TrimEnd('\0');
@@ -3072,13 +3093,11 @@ namespace TouchMeta
                             }
                             else if (tag_type == typeof(Rational))
                             {
-                                double v;
-                                if (double.TryParse(value, out v)) exif.SetValue(tag_property.GetValue(exif), new Rational(v));
+                                if (double.TryParse(value, out double v)) exif.SetValue(tag_property.GetValue(exif), new Rational(v));
                             }
                             else if (tag_type == typeof(SignedRational))
                             {
-                                double v;
-                                if (double.TryParse(value, out v)) exif.SetValue(tag_property.GetValue(exif), new SignedRational(v));
+                                if (double.TryParse(value, out double v)) exif.SetValue(tag_property.GetValue(exif), new SignedRational(v));
                             }
                             else exif.SetValue(tag_property.GetValue(exif), value);
                         }
@@ -3994,8 +4013,7 @@ namespace TouchMeta
                         var values = GetXmpValueByTags(xmp, Consts.tag_date);
                         foreach (var dtv in values)
                         {
-                            DateTime dt;
-                            if (DateTime.TryParse(dtv.Value, out dt))
+                            if (DateTime.TryParse(dtv.Value, out DateTime dt))
                             {
                                 result = dt;
                                 break;
@@ -4385,21 +4403,16 @@ namespace TouchMeta
 
                 if (exifdata.TagExists(CompactExifLib.ExifTag.Rating))
                 {
-                    int ranking;
-                    if (exifdata.GetTagValue(CompactExifLib.ExifTag.Rating, out ranking) && ranking != result.Rating)
+                    if (exifdata.GetTagValue(CompactExifLib.ExifTag.Rating, out int ranking) && ranking != result.Rating)
                         result.Rating ??= ranking;
                     result.RatingPercent = RankingToRating(result.Rating);
-                    int rating;
-                    if (exifdata.GetTagValue(CompactExifLib.ExifTag.RatingPercent, out rating) && rating != result.RatingPercent)
+                    if (exifdata.GetTagValue(CompactExifLib.ExifTag.RatingPercent, out int rating) && rating != result.RatingPercent)
                         result.RatingPercent ??= rating;
                     result.Rating = RatingToRanking(result.RatingPercent);
                 }
                 if (exifdata.TagExists(CompactExifLib.ExifTag.XmpMetadata))
                 {
-                    CompactExifLib.ExifTagType type;
-                    int bytecounts;
-                    byte[] bytes;
-                    if (exifdata.GetTagRawData(CompactExifLib.ExifTag.XmpMetadata, out type, out bytecounts, out bytes))
+                    if (exifdata.GetTagRawData(CompactExifLib.ExifTag.XmpMetadata, out ExifTagType type, out int bytecounts, out byte[] bytes))
                     {
                         if (!result.Profiles.ContainsKey("xmp"))
                             result.Profiles["xmp"] = new XmpProfile(bytes);
@@ -4483,8 +4496,7 @@ namespace TouchMeta
                     result.Rating = RatingToRanking(result.RatingPercent);
                 else
                 {
-                    bool fav = false;
-                    if (bool.TryParse(favor, out fav)) result.RatingPercent = fav ? 75 : 0;
+                    if (bool.TryParse(favor, out bool fav)) result.RatingPercent = fav ? 75 : 0;
                 }
                 if (!string.IsNullOrEmpty(software)) result.Software = software;
             }
@@ -4565,8 +4577,7 @@ namespace TouchMeta
                     }
                     else if (kv.Key.Equals("favorited", StringComparison.CurrentCultureIgnoreCase))
                     {
-                        var faved = false;
-                        if (bool.TryParse(kv.Value, out faved))
+                        if (bool.TryParse(kv.Value, out bool faved))
                         {
                             result.Rating = faved ? 4 : 0;
                             result.RatingPercent = faved ? 75 : 0;
@@ -5691,12 +5702,9 @@ namespace TouchMeta
 
                         if (exif.TagExists(CompactExifLib.ExifTag.MakerNote) && !exif.TagExists(CompactExifLib.ExifTag.Software))
                         {
-                            ExifTagType type;
-                            int count;
-                            byte[] value;
                             string note = string.Empty;
                             //if (exif.GetTagValue(CompactExifLib.ExifTag.MakerNote, out note, StrCoding.Utf16Le_Byte))
-                            if (exif.GetTagRawData(CompactExifLib.ExifTag.MakerNote, out type, out count, out value))
+                            if (exif.GetTagRawData(CompactExifLib.ExifTag.MakerNote, out ExifTagType type, out int count, out byte[] value))
                             {
                                 if (type == ExifTagType.Ascii || type == ExifTagType.Byte || type == ExifTagType.SByte)
                                     note = Encoding.UTF8.GetString(value);
@@ -5730,10 +5738,7 @@ namespace TouchMeta
                         exif.GetTagValue(CompactExifLib.ExifTag.XmpMetadata, out xmp, StrCoding.Utf8);
                         if (string.IsNullOrEmpty(xmp))
                         {
-                            ExifTagType type;
-                            int bytecount;
-                            byte[] bytes;
-                            exif.GetTagRawData(CompactExifLib.ExifTag.XmpMetadata, out type, out bytecount, out bytes);
+                            exif.GetTagRawData(CompactExifLib.ExifTag.XmpMetadata, out ExifTagType type, out int bytecount, out byte[] bytes);
                             if (bytes is byte[] && bytecount > 0) xmp = Encoding.UTF8.GetString(bytes);
                         }
                         xmp = TouchXMP(xmp, fi, meta);
@@ -5877,7 +5882,10 @@ namespace TouchMeta
                                         else if (attr.Equals("exif:UserComment"))// && exif.GetValue(ExifTag.UserComment) != null)
                                         {
                                             //if (exif.GetValue(ImageMagick.ExifTag.UserComment) != null) value = GetAttribute(image, attr);
-                                            if (IsByteString(value)) value = BytesToString(ByteStringToBytes(value), msb: image.Endian == Endian.MSB ? true : false);
+                                            if (IsByteString(value))
+                                            {
+                                                value = BytesToString(ByteStringToBytes(value), msb: image.Endian == Endian.MSB);
+                                            }
                                         }
                                         //var values = value.Split(new string[] { Environment.NewLine }, StringSplitOptions.RemoveEmptyEntries).Select(t => t.Replace("\0", string.Empty).Trim());
                                         var values = value.Split(new string[] { Environment.NewLine, "\n\r", "\r\n", "\r", "\n" }, StringSplitOptions.None).Select(t => t.Replace("\0", string.Empty).Trim());
@@ -6387,9 +6395,8 @@ namespace TouchMeta
                         {
                             #region Get & Update PNG metadata
                             msi.Seek(0, SeekOrigin.Begin);
-                            DateTime dt;
                             var meta = GetPngMetaInfo(msi, full_field: false);
-                            if (meta.ContainsKey("Creation Time") && DateTime.TryParse(Regex.Replace(meta["Creation Time"], @"^(\d{4}):(\d{2})\:(\d{2})(.*?)$", "$1/$2/$3T$4", RegexOptions.IgnoreCase), out dt))
+                            if (meta.ContainsKey("Creation Time") && DateTime.TryParse(Regex.Replace(meta["Creation Time"], @"^(\d{4}):(\d{2})\:(\d{2})(.*?)$", "$1/$2/$3T$4", RegexOptions.IgnoreCase), out DateTime dt))
                             {
                                 if (!exif_in.TagExists(CompactExifLib.ExifTag.DateTime)) exif_in.SetDateChanged(dt);
                                 if (!exif_in.TagExists(CompactExifLib.ExifTag.DateTimeDigitized)) exif_in.SetDateDigitized(dt);
@@ -6522,8 +6529,7 @@ namespace TouchMeta
                                 {
                                     if (exif_in.ImageType != ImageType.Unknown) exif_out.ReplaceAllTagsBy(exif_in);
 
-                                    DateTime dt;
-                                    if (exif_in.ImageType != ImageType.Unknown && exif_in.GetDateTaken(out dt)) { exif_out.SetDateTaken(dt); dc = dt; }
+                                    if (exif_in.ImageType != ImageType.Unknown && exif_in.GetDateTaken(out DateTime dt)) { exif_out.SetDateTaken(dt); dc = dt; }
                                     if (exif_in.ImageType != ImageType.Unknown && exif_in.GetDateDigitized(out dt)) { exif_out.SetDateDigitized(dt); dm = dt; }
                                     if (exif_in.ImageType != ImageType.Unknown && exif_in.GetDateChanged(out dt)) { exif_out.SetDateChanged(dt); da = dt; }
 
@@ -6545,8 +6551,7 @@ namespace TouchMeta
                                             msx.Seek(0, SeekOrigin.Begin);
                                             using (var image = new MagickImage(msx))
                                             {
-                                                ExifTagType type;
-                                                if (exif_out.GetTagRawData(CompactExifLib.ExifTag.XmpMetadata, out type, out int count, out byte[] xmp))
+                                                if (exif_out.GetTagRawData(CompactExifLib.ExifTag.XmpMetadata, out ExifTagType type, out int count, out byte[] xmp))
                                                 {
                                                     var xml = Encoding.UTF8.GetString(xmp);
                                                     image.SetProfile(new XmpProfile(xmp));
@@ -8386,7 +8391,7 @@ namespace TouchMeta
             }
             else if (sender == RemoveAll)
             {
-                FilesList.Items.Clear();
+                _fileItems_.Clear();
             }
             #endregion
             #region Shell Function
@@ -8556,7 +8561,7 @@ namespace TouchMeta
                         if (cmdbind.Command is RoutedUICommand)
                         {
                             var cmd = cmdbind.Command as RoutedUICommand;
-                            cmds.Add($"{cmd.Text.PadRight(32)} : {string.Join(",", cmd.InputGestures.OfType<KeyGesture>().Select(k => k.DisplayString))}");
+                            cmds.Add($"{cmd.Text,-32} : {string.Join(",", cmd.InputGestures.OfType<KeyGesture>().Select(k => k.DisplayString))}");
                         }
                     }
                     lines.AddRange(cmds.OrderBy(x => x));
