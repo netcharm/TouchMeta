@@ -6274,8 +6274,11 @@ namespace TouchMeta
                 RunBgWorker(new Action<string, bool>((file, show_xmp) =>
                 {
                     var ret = ConvertImageTo(file, fmt, keep_name);
-                    if (!string.IsNullOrEmpty(ret) && File.Exists(ret) && !keep_name) AddFile(ret);
-                    else UpdateFileTooltip(ret);
+                    if (!string.IsNullOrEmpty(ret) && File.Exists(ret))
+                    {
+                        if (!keep_name) AddFile(ret);
+                        else UpdateFileTooltip(ret);
+                    }
                 }), files);
             }
         }
