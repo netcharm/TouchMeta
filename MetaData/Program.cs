@@ -14,6 +14,14 @@ using ImageMagick;
 
 namespace NetCharm
 {
+#pragma warning disable IDE0017
+#pragma warning disable IDE0018
+#pragma warning disable IDE0029
+#pragma warning disable IDE0039
+#pragma warning disable IDE0044
+#pragma warning disable IDE0059
+#pragma warning disable IDE0071
+
     public class MetaInfo
     {
         public bool TouchProfiles { get; set; } = true;
@@ -1886,8 +1894,8 @@ namespace NetCharm
                                 if (image.ColorType == ColorType.Bilevel) depth = 2;
                                 else if (image.ColorType == ColorType.Grayscale) depth = 8;
                                 else if (image.ColorType == ColorType.GrayscaleAlpha) depth = 8 + 8;
-                                else if (image.ColorType == ColorType.Palette) depth = (int)Math.Ceiling(Math.Log(image.ColormapSize, 2));
-                                else if (image.ColorType == ColorType.PaletteAlpha) depth = (int)Math.Ceiling(Math.Log(image.ColormapSize, 2)) + 8;
+                                else if (image.ColorType == ColorType.Palette) depth = (uint)Math.Ceiling(Math.Log(image.ColormapSize, 2));
+                                else if (image.ColorType == ColorType.PaletteAlpha) depth = (uint)Math.Ceiling(Math.Log(image.ColormapSize, 2)) + 8;
                                 else if (image.ColorType == ColorType.TrueColor) depth = 24;
                                 else if (image.ColorType == ColorType.TrueColorAlpha) depth = 32;
                                 else if (image.ColorType == ColorType.ColorSeparation) depth = 24;
