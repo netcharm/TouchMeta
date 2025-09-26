@@ -3835,9 +3835,19 @@ namespace TouchMeta
                 }
                 if (keeptime)
                 {
-                    fileinfo.CreationTime = dtc;
-                    fileinfo.LastWriteTime = dtm;
-                    fileinfo.LastAccessTime = dta;
+                    try
+                    {
+                        fileinfo.CreationTime = dtc;
+                        fileinfo.LastWriteTime = dtm;
+                        fileinfo.LastAccessTime = dta;
+                    }
+                    catch (Exception ex)
+                    {
+                        if (ex.Message.Contains(fileName))
+                            Log(ex.Message);
+                        else
+                            Log($"{fileName}, {ex.Message}");
+                    }
                 }
                 result = true;
             }
@@ -3905,7 +3915,7 @@ namespace TouchMeta
                         {
                             var old_size = image.HasProfile(profile_name) ? image.GetProfile(profile_name).ToByteArray().Length : 0;
                             image.SetProfile(profile);
-                            Log($"{$"Profile {profile_name}",-32}= {(old_size == 0 ? "NULL" : $"{old_size}")} => {profile.ToByteArray().Length} Bytes");
+                            Log($"Profile {profile_name,-32}= {(old_size == 0 ? "NULL" : old_size.ToString())} => {profile.ToByteArray().Length} Bytes");
                         }
                         else
                         {
@@ -3972,7 +3982,7 @@ namespace TouchMeta
                             SetAttribute(image, attr, value);
                             if (string.IsNullOrEmpty(old_value)) old_value = "NULL";
                             if (string.IsNullOrEmpty(value)) value = "NULL";
-                            Log($"{$"{attr}",-32}= {old_value.Replace("\0", string.Empty)} => {value.Replace("\0", string.Empty)}");
+                            Log($"{attr,-32}= {old_value.Replace("\0", string.Empty)} => {value.Replace("\0", string.Empty)}");
                         }
                     }
                     catch (Exception ex) { Log(ex.Message); }
@@ -4843,9 +4853,19 @@ namespace TouchMeta
                     }
                 }
 
-                fi.CreationTime = dc;
-                fi.LastWriteTime = dm;
-                fi.LastAccessTime = da;
+                try
+                {
+                    fi.CreationTime = dc;
+                    fi.LastWriteTime = dm;
+                    fi.LastAccessTime = da;
+                }
+                catch (Exception ex)
+                {
+                    if (ex.Message.Contains(file))
+                        Log(ex.Message);
+                    else
+                        Log($"{file}, {ex.Message}");
+                }
             }
             else Log($"File \"{file}\" not exists!");
         }
@@ -4972,7 +4992,7 @@ namespace TouchMeta
                                             else SetAttribute(image, tag, dm_misc);
 
                                             var value_new = GetAttribute(image, tag);
-                                            Log($"{$"{tag}",-32}= {(value_old == null ? "NULL" : value_old)} => {value_new}");
+                                            Log($"{tag,-32}= {(value_old == null ? "NULL" : value_old)} => {value_new}");
                                         }
                                     }
                                     catch (Exception ex) { Log(ex.Message); }
@@ -4991,7 +5011,7 @@ namespace TouchMeta
                                         {
                                             SetAttribute(image, tag, title);
                                             var value_new = GetAttribute(image, tag);
-                                            Log($"{$"{tag}",-32}= {(value_old == null ? "NULL" : value_old)} => {value_new}");
+                                            Log($"{tag,-32}= {(value_old == null ? "NULL" : value_old)} => {value_new}");
                                         }
                                         else
                                         {
@@ -5033,7 +5053,7 @@ namespace TouchMeta
                                         {
                                             SetAttribute(image, tag, subject);
                                             var value_new = GetAttribute(image, tag);
-                                            Log($"{$"{tag}",-32}= {(value_old == null ? "NULL" : value_old)} => {value_new}");
+                                            Log($"{tag,-32}= {(value_old == null ? "NULL" : value_old)} => {value_new}");
                                         }
                                         else
                                         {
@@ -5063,7 +5083,7 @@ namespace TouchMeta
                                         {
                                             SetAttribute(image, tag, authors);
                                             var value_new = GetAttribute(image, tag);
-                                            Log($"{$"{tag}",-32}= {(value_old == null ? "NULL" : value_old)} => {value_new}");
+                                            Log($"{tag,-32}= {(value_old == null ? "NULL" : value_old)} => {value_new}");
                                         }
                                         else
                                         {
@@ -5101,7 +5121,7 @@ namespace TouchMeta
                                         {
                                             SetAttribute(image, tag, copyrights);
                                             var value_new = GetAttribute(image, tag);
-                                            Log($"{$"{tag}",-32}= {(value_old == null ? "NULL" : value_old)} => {value_new}");
+                                            Log($"{tag,-32}= {(value_old == null ? "NULL" : value_old)} => {value_new}");
                                         }
                                         else
                                         {
@@ -5131,7 +5151,7 @@ namespace TouchMeta
                                         {
                                             SetAttribute(image, tag, comment);
                                             var value_new = GetAttribute(image, tag);
-                                            Log($"{$"{tag}",-32}= {(value_old == null ? "NULL" : value_old)} => {value_new}");
+                                            Log($"{tag,-32}= {(value_old == null ? "NULL" : value_old)} => {value_new}");
                                         }
                                         else
                                         {
@@ -5177,7 +5197,7 @@ namespace TouchMeta
                                         {
                                             SetAttribute(image, tag, keywords);
                                             var value_new = GetAttribute(image, tag);
-                                            Log($"{$"{tag}",-32}= {(value_old == null ? "NULL" : value_old)} => {value_new}");
+                                            Log($"{tag,-32}= {(value_old == null ? "NULL" : value_old)} => {value_new}");
                                         }
                                         else
                                         {
@@ -5214,7 +5234,7 @@ namespace TouchMeta
                                             else
                                                 SetAttribute(image, tag, rating);
                                             var value_new = GetAttribute(image, tag);
-                                            Log($"{$"{tag}", -32}= {(value_old == null ? "NULL" : value_old)} => {value_new}");
+                                            Log($"{tag, -32}= {(value_old == null ? "NULL" : value_old)} => {value_new}");
                                         }
                                         else
                                         {
@@ -5938,7 +5958,7 @@ namespace TouchMeta
 
                                     foreach (var attr in iptc.Values.OrderBy(v => v.Tag.ToString()))
                                     {
-                                        Log($"{$"  {attr.Tag}".PadRight(cw)}= {attr.Value}");
+                                        Log($"  {attr.Tag.ToString().PadRight(cw)}= {attr.Value}");
                                     }
                                 }
                                 #endregion
@@ -5960,7 +5980,7 @@ namespace TouchMeta
                                         {
                                             if (string.IsNullOrEmpty(attr.Value)) continue;
                                             else if (attr.Name.StartsWith("xmlns:", StringComparison.CurrentCultureIgnoreCase)) continue;
-                                            Log($"{$"  {attr.Name}".PadRight(cw)}= {attr.Value}");
+                                            Log($"  {attr.Name.PadRight(cw)}= {attr.Value}");
                                         }
                                         foreach (XmlNode child in node.ChildNodes)
                                         {
@@ -5968,7 +5988,7 @@ namespace TouchMeta
                                             {
                                                 if (string.IsNullOrEmpty(attr.Value)) continue;
                                                 else if (attr.Name.StartsWith("xmlns:", StringComparison.CurrentCultureIgnoreCase)) continue;
-                                                Log($"{$"    {attr.Name}".PadRight(cw)}= {attr.Value}");
+                                                Log($"    {attr.Name.PadRight(cw)}= {attr.Value}");
                                             }
                                             if (child.Name.Equals("dc:title", StringComparison.CurrentCultureIgnoreCase))
                                                 Log($"{"    dc:Title".PadRight(cw)}= {child.InnerText}");
@@ -5988,23 +6008,23 @@ namespace TouchMeta
                                                         foreach (XmlNode li in subchild.ChildNodes) { contents.Add(li.InnerText.Trim()); }
                                                     }
                                                 }
-                                                Log($"{$"    {child.Name}".PadRight(cw)}= {string.Join("; ", contents)}{(contents.Any() ? ";" : "")}");
+                                                Log($"    {child.Name.PadRight(cw)}= {string.Join("; ", contents)}{(contents.Any() ? ";" : "")}");
                                             }
                                             else if (child.Name.Equals("MicrosoftPhoto:DateAcquired", StringComparison.CurrentCultureIgnoreCase))
-                                                Log($"{"    MicrosoftPhoto:DateAcquired".PadRight(cw)}= {child.InnerText}");
+                                                Log($"    {"MicrosoftPhoto:DateAcquired".PadRight(cw)}= {child.InnerText}");
                                             else if (child.Name.Equals("MicrosoftPhoto:DateTaken", StringComparison.CurrentCultureIgnoreCase))
-                                                Log($"{"    MicrosoftPhoto:DateTaken".PadRight(cw)}= {child.InnerText}");
+                                                Log($"    {"MicrosoftPhoto:DateTaken".PadRight(cw)}= {child.InnerText}");
                                             else if (child.Name.Equals("exif:DateTimeDigitized", StringComparison.CurrentCultureIgnoreCase))
-                                                Log($"{"    exif:DateTimeDigitized".PadRight(cw)}= {child.InnerText}");
+                                                Log($"    {"exif:DateTimeDigitized".PadRight(cw)}= {child.InnerText}");
                                             else if (child.Name.Equals("exif:DateTimeOriginal", StringComparison.CurrentCultureIgnoreCase))
-                                                Log($"{"    exif:DateTimeOriginal".PadRight(cw)}= {child.InnerText}");
+                                                Log($"    {"exif:DateTimeOriginal".PadRight(cw)}= {child.InnerText}");
                                             else if (child.Name.Equals("tiff:DateTime", StringComparison.CurrentCultureIgnoreCase))
-                                                Log($"{"    tiff:DateTime".PadRight(cw)}= {child.InnerText}");
+                                                Log($"    {"tiff:DateTime".PadRight(cw)}= {child.InnerText}");
                                             else
-                                                Log($"{$"    {child.Name}".PadRight(cw)}= {Align(child.InnerText, cw)}");
+                                                Log($"    {child.Name.PadRight(cw)}= {Align(child.InnerText, cw)}");
                                         }
                                     }
-                                    if (show_xmp) Log($"{"  XML Contents".PadRight(cw)}= {FormatXML(xml, xmp_merge_nodes)}");
+                                    if (show_xmp) Log($"  {"XML Contents".PadRight(cw)}= {FormatXML(xml, xmp_merge_nodes)}");
                                 }
                                 #endregion
                             }
@@ -6185,7 +6205,7 @@ namespace TouchMeta
             return (result);
         }
 
-        public string ConvertImageTo(string file, MagickFormat fmt, bool keep_name = false)
+        public async Task<string> ConvertImageTo(string file, MagickFormat fmt, bool keep_name = false)
         {
             var result = file;
             if (File.Exists(file))
@@ -6259,9 +6279,22 @@ namespace TouchMeta
                     }
                     catch (Exception ex) { Log(ex.Message); }
                 }
-                fi.CreationTime = dc;
-                fi.LastWriteTime = dm;
-                fi.LastAccessTime = da;
+
+                try
+                {
+                    fi.CreationTime = dc;
+                    fi.LastWriteTime = dm;
+                    fi.LastAccessTime = da;
+                }
+                catch (Exception ex)
+                {
+                    if (ex.Message.Contains(file))
+                        Log(ex.Message);
+                    else
+                        Log($"{file}, {ex.Message}");
+                }
+                await Task.Delay(250);
+                DoEvents();
             }
             else Log($"File \"{file}\" not exists!");
             return (result);
@@ -6271,9 +6304,9 @@ namespace TouchMeta
         {
             if (files is IEnumerable<string>)
             {
-                RunBgWorker(new Action<string, bool>((file, show_xmp) =>
+                RunBgWorker(new Action<string, bool>(async (file, show_xmp) =>
                 {
-                    var ret = ConvertImageTo(file, fmt, keep_name);
+                    var ret = await ConvertImageTo(file, fmt, keep_name);
                     if (!string.IsNullOrEmpty(ret) && File.Exists(ret))
                     {
                         if (!keep_name) AddFile(ret);
