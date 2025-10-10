@@ -10,9 +10,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Reflection;
-using System.Resources;
 using System.Runtime.InteropServices;
-using System.Runtime.InteropServices.ComTypes;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -20,19 +18,15 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
-using System.Windows.Ink;
 using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
-using System.Xaml;
 using System.Xml;
-using System.Xml.Linq;
 
 using CompactExifLib;
 using ImageMagick;
-
 
 namespace TouchMeta
 {
@@ -3008,10 +3002,13 @@ namespace TouchMeta
                         }
                     }
 
-                    if (attr.StartsWith("date:"))
+                    else if (attr.StartsWith("date:"))
                     {
                         if (DateTime.TryParse(result, out DateTime dt)) result = dt.ToString("yyyy-MM-ddTHH:mm:sszzz");
                     }
+
+                    else if (attr.Equals("tiff:artist") && !string.IsNullOrEmpty(result)) result = result.TrimEnd(';') + ';';
+                    else if (attr.Equals("tiff:copyright") && !string.IsNullOrEmpty(result)) result = result.TrimEnd(';') + ';';
 
                     if (!string.IsNullOrEmpty(result)) result = result.Replace("\0", string.Empty).TrimEnd('\0');
                     if (!string.IsNullOrEmpty(result) && Regex.IsMatch($"{result.TrimEnd().TrimEnd(',')},", @"((\d{1,3}) ?, ?){16,}", RegexOptions.IgnoreCase)) result = ByteStringToString(result);
@@ -3224,15 +3221,15 @@ namespace TouchMeta
                 var tags_old = string.IsNullOrEmpty(meta.Keywords) ? new string[] { } :  meta.Keywords.Split(';');
                 if (mode == ChangePropertyMode.Append)
                 {
-                    meta.Keywords = string.Join("; ", tags_old.Select(t => t.Trim()).Union(keywords.Select(t => t.Trim())).Where(t => !string.IsNullOrEmpty(t)));
+                    meta.Keywords = string.Join("; ", tags_old.Select(t => t.Trim()).Union(keywords.Select(t => t.Trim())).Where(t => !string.IsNullOrEmpty(t)).Distinct());
                 }
                 else if (mode == ChangePropertyMode.Remove)
                 {
-                    meta.Keywords = string.Join("; ", tags_old.Select(t => t.Trim()).Except(keywords.Select(t => t.Trim())).Where(t => !string.IsNullOrEmpty(t)));
+                    meta.Keywords = string.Join("; ", tags_old.Select(t => t.Trim()).Except(keywords.Select(t => t.Trim())).Where(t => !string.IsNullOrEmpty(t)).Distinct());
                 }
                 else if (mode == ChangePropertyMode.Replace)
                 {
-                    meta.Keywords = string.Join("; ", keywords.Select(t => t.Trim()).Where(t => !string.IsNullOrEmpty(t)));
+                    meta.Keywords = string.Join("; ", keywords.Select(t => t.Trim()).Where(t => !string.IsNullOrEmpty(t)).Distinct());
                 }
                 else if (mode == ChangePropertyMode.Empty)
                 {
@@ -3308,15 +3305,15 @@ namespace TouchMeta
                 var authors_old = string.IsNullOrEmpty(meta.Authors) ? new string[] { } : meta.Authors.Split(';');
                 if (mode == ChangePropertyMode.Append)
                 {
-                    meta.Authors = string.Join("; ", authors_old.Select(t => t.Trim()).Union(authors.Select(t => t.Trim())).Where(t => !string.IsNullOrEmpty(t)));
+                    meta.Authors = string.Join("; ", authors_old.Select(t => t.Trim()).Union(authors.Select(t => t.Trim())).Where(t => !string.IsNullOrEmpty(t)).Distinct());
                 }
                 else if (mode == ChangePropertyMode.Remove)
                 {
-                    meta.Authors = string.Join("; ", authors_old.Select(t => t.Trim()).Except(authors.Select(t => t.Trim())).Where(t => !string.IsNullOrEmpty(t)));
+                    meta.Authors = string.Join("; ", authors_old.Select(t => t.Trim()).Except(authors.Select(t => t.Trim())).Where(t => !string.IsNullOrEmpty(t)).Distinct());
                 }
                 else if (mode == ChangePropertyMode.Replace)
                 {
-                    meta.Authors = string.Join("; ", authors.Select(t => t.Trim()).Where(t => !string.IsNullOrEmpty(t)));
+                    meta.Authors = string.Join("; ", authors.Select(t => t.Trim()).Where(t => !string.IsNullOrEmpty(t)).Distinct());
                 }
                 else if (mode == ChangePropertyMode.Empty)
                 {
@@ -3350,15 +3347,15 @@ namespace TouchMeta
                 var copyrights_old = string.IsNullOrEmpty(meta.Copyrights) ? new string[] { } : meta.Copyrights.Split(';');
                 if (mode == ChangePropertyMode.Append)
                 {
-                    meta.Copyrights = string.Join("; ", copyrights_old.Select(t => t.Trim()).Union(copyrights.Select(t => t.Trim())).Where(t => !string.IsNullOrEmpty(t)));
+                    meta.Copyrights = string.Join("; ", copyrights_old.Select(t => t.Trim()).Union(copyrights.Select(t => t.Trim())).Where(t => !string.IsNullOrEmpty(t)).Distinct());
                 }
                 else if (mode == ChangePropertyMode.Remove)
                 {
-                    meta.Copyrights = string.Join("; ", copyrights_old.Select(t => t.Trim()).Except(copyrights.Select(t => t.Trim())).Where(t => !string.IsNullOrEmpty(t)));
+                    meta.Copyrights = string.Join("; ", copyrights_old.Select(t => t.Trim()).Except(copyrights.Select(t => t.Trim())).Where(t => !string.IsNullOrEmpty(t)).Distinct());
                 }
                 else if (mode == ChangePropertyMode.Replace)
                 {
-                    meta.Copyrights = string.Join("; ", copyrights.Select(t => t.Trim()).Where(t => !string.IsNullOrEmpty(t)));
+                    meta.Copyrights = string.Join("; ", copyrights.Select(t => t.Trim()).Where(t => !string.IsNullOrEmpty(t)).Distinct());
                 }
                 else if (mode == ChangePropertyMode.Empty)
                 {
@@ -3523,6 +3520,7 @@ namespace TouchMeta
                     meta.TouchProfiles = false;
 
                     var filename = using_filename ? System.IO.Path.GetFileNameWithoutExtension(file) : string.Empty;
+                    var sep = new char[] { ';', '#' };
 
                     if (type == ChangePropertyType.Smart)
                     {
@@ -3550,13 +3548,13 @@ namespace TouchMeta
                     if (type.HasFlag(ChangePropertyType.Subject))
                         meta = ChangeSubject(meta, using_filename ? $"- {filename}" : meta_new.Subject, mode);
                     if (type.HasFlag(ChangePropertyType.Keywords))
-                        meta = ChangeKeywords(meta, using_filename ? filename.Split(';') : meta_new.Keywords.Split(';'), mode);
+                        meta = ChangeKeywords(meta, using_filename ? filename.Split(sep) : meta_new.Keywords.Split(sep), mode);
                     if (type.HasFlag(ChangePropertyType.Comment))
                         meta = ChangeComment(meta, using_filename ? filename : meta_new.Comment, mode);
                     if (type.HasFlag(ChangePropertyType.Authors))
-                        meta = ChangeAuthors(meta, using_filename ? filename.Split(';') : meta_new.Authors.Split(';'), mode);
+                        meta = ChangeAuthors(meta, using_filename ? filename.Split(sep) : meta_new.Authors.Split(sep), mode);
                     if (type.HasFlag(ChangePropertyType.Copyrights))
-                        meta = ChangeCopyrights(meta, using_filename ? filename.Split(';') : meta_new.Copyrights.Split(';'), mode);
+                        meta = ChangeCopyrights(meta, using_filename ? filename.Split(sep) : meta_new.Copyrights.Split(sep), mode);
                     if (type.HasFlag(ChangePropertyType.Rating))
                         meta = ChangeRating(meta, meta_new.RatingPercent ?? 0, mode);
                     if (type.HasFlag(ChangePropertyType.Ranking))
@@ -6282,6 +6280,7 @@ namespace TouchMeta
 
                 try
                 {
+                    await Task.Delay(25);
                     fi.CreationTime = dc;
                     fi.LastWriteTime = dm;
                     fi.LastAccessTime = da;
