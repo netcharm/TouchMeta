@@ -2940,7 +2940,7 @@ namespace TouchMeta
                                     else if (tag_value.Tag == ImageMagick.ExifTag.GPSProcessingMethod || tag_value.Tag == ImageMagick.ExifTag.MakerNote)
                                         result = Encoding.UTF8.GetString(tag_value.GetValue() as byte[]).TrimEnd('\0').Trim();
                                     else if (tag_value.Tag == ImageMagick.ExifTag.UserComment)
-                                        result = BytesToString(tag_value.GetValue() as byte[], false, is_msb);
+                                        result = BytesToString(tag_value.GetValue() as byte[], false, is_msb && !IsJPG(image));
                                     else
                                         result = BytesToString(tag_value.GetValue() as byte[], false, is_msb);
                                 }
