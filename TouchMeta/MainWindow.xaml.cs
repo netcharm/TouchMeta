@@ -4733,26 +4733,46 @@ namespace TouchMeta
                     if (image.HasAlpha)
                     {
                         var bg = new MagickColor(ConvertBGColor.R, ConvertBGColor.G, ConvertBGColor.B, ConvertBGColor.A);
-                        if (IsJPG(fmt) || IsBMP23(fmt))
+                        if (IsBMP(fmt))
+                        {
+                            image.VirtualPixelMethod = VirtualPixelMethod.Transparent;
+                            image.Settings.SetDefine("bmp3:alpha", "true");
+                        }
+                        else if (IsBMP23(fmt))
                         {
                             image.ColorAlpha(bg);
                             image.BackgroundColor = bg;
                             image.MatteColor = bg;
+                            image.VirtualPixelMethod = VirtualPixelMethod.Transparent;
+                            image.Settings.SetDefine("bmp3:alpha", "true");
                         }
                         else if (IsGIF(fmt))
                         {
                             image.GifDisposeMethod = GifDisposeMethod.Background;
                             image.VirtualPixelMethod = VirtualPixelMethod.Transparent;
                         }
-                        else if (IsBMP(fmt) || IsWEBP(fmt) || IsPNG(fmt))
+                        else if (IsJPG(fmt))
+                        {
+                            image.ColorAlpha(bg);
+                            image.BackgroundColor = bg;
+                            image.MatteColor = bg;
+                        }
+                        else if (IsPNG(fmt))
                         {
                             image.VirtualPixelMethod = VirtualPixelMethod.Transparent;
+                            image.Settings.SetDefine("png:compression-level", "9");
+                        }
+                        else if (IsWEBP(fmt))
+                        {
+                            image.VirtualPixelMethod = VirtualPixelMethod.Transparent;
+                            image.Settings.SetDefine("webp:alpha-compression", "1");
                         }
                     }
                     if (IsTIF(fmt))
                     {
                         image.SetCompression(compress ?? CompressionMethod.Zip);
                         image.Settings.Compression = compress ?? CompressionMethod.Zip;
+                        image.Settings.SetDefine("tiff:preserve-compression", "true");
                     }
                     else if (IsJPG(fmt))
                     {
@@ -4760,6 +4780,9 @@ namespace TouchMeta
                         image.Settings.ColorSpace = image.ColorSpace;
                         image.Settings.Depth = image.Depth;
                         image.Settings.Compression = compress ?? image.Settings.Compression;
+                        image.Settings.SetDefine("jpeg:arithmetic-coding", "on");
+                        image.Settings.SetDefine("jpeg:block-smoothing", "on");
+                        image.Settings.SetDefine("jpeg:optimize-coding", "on");
                         image.Quality = quality ?? image.Quality;
                     }
                     image.Settings.Format = fmt;
@@ -4768,13 +4791,20 @@ namespace TouchMeta
                 }
                 else
                 {
-                    if (IsTIF(fmt) && (compress ?? CompressionMethod.Zip) == CompressionMethod.JPEG)
+                    if (IsJPG(fmt))
+                    {
+                        image.Settings.SetDefine("jpeg:arithmetic-coding", "on");
+                        image.Settings.SetDefine("jpeg:block-smoothing", "on");
+                        image.Settings.SetDefine("jpeg:optimize-coding", "on");
+                    }
+                    else if (IsTIF(fmt) && (compress ?? CompressionMethod.Zip) == CompressionMethod.JPEG)
                     {
                         image.SetCompression(compress ?? CompressionMethod.JPEG);
                         image.Settings.Compression = compress ?? CompressionMethod.JPEG;
                         image.Settings.ColorType = image.ColorType;
                         image.Settings.ColorSpace = image.ColorSpace;
                         image.Settings.Depth = image.Depth;
+                        image.Settings.SetDefine("tiff:preserve-compression", "true");
                         image.Quality = quality ?? image.Quality;
                         image.SetAttribute("tiff:JPEGQUALITY", image.Quality.ToString());
                         image.SetAttribute("tiff:jpegquality", image.Quality.ToString());
@@ -4783,6 +4813,7 @@ namespace TouchMeta
                     else if (IsWEBP(fmt) || IsPNG(fmt))
                     {
                         image.VirtualPixelMethod = VirtualPixelMethod.Transparent;
+                        image.Settings.SetDefine("webp:alpha-compression", "1");
                     }
                     image.Settings.Format = fmt;
                     image.Settings.Endian = image.Endian == Endian.Undefined ? Endian.MSB : image.Endian;
