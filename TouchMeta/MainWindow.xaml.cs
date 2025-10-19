@@ -4780,7 +4780,7 @@ namespace TouchMeta
                         image.Settings.ColorSpace = image.ColorSpace;
                         image.Settings.Depth = image.Depth;
                         image.Settings.Compression = compress ?? image.Settings.Compression;
-                        image.Settings.SetDefine("jpeg:arithmetic-coding", "on");
+                        //image.Settings.SetDefine("jpeg:arithmetic-coding", "on");
                         image.Settings.SetDefine("jpeg:block-smoothing", "on");
                         image.Settings.SetDefine("jpeg:optimize-coding", "on");
                         image.Quality = quality ?? image.Quality;
@@ -4793,7 +4793,7 @@ namespace TouchMeta
                 {
                     if (IsJPG(fmt))
                     {
-                        image.Settings.SetDefine("jpeg:arithmetic-coding", "on");
+                        //image.Settings.SetDefine("jpeg:arithmetic-coding", "on");
                         image.Settings.SetDefine("jpeg:block-smoothing", "on");
                         image.Settings.SetDefine("jpeg:optimize-coding", "on");
                     }
