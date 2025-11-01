@@ -7576,7 +7576,7 @@ namespace TouchMeta
             if (sender is TextBox)
             {
                 //var txt = (e.DataObject.GetData(e.FormatToApply) as string).Trim();
-                var allow = new string[] { "System.String", "UnicodeText", "Text", "OEMText", "HTML Format" };
+                var allow = new string[] { "UnicodeText", "Text", "System.String", "OEMText", "HTML Format" };
                 var fmts = e.DataObject.GetFormats();
                 foreach (var fmt in allow.Where(fmt => fmts.Contains(fmt, StringComparer.CurrentCultureIgnoreCase)))
                 {
@@ -7586,7 +7586,10 @@ namespace TouchMeta
                         var textbox = sender as TextBox;
                         if (!textbox.AcceptsReturn && Regex.IsMatch(text, @"(\n\r|\r\n|\n|\r)", RegexOptions.IgnoreCase))
                         {
-                            text = Regex.Replace(text, @"(\n\r|\r\n|\n|\r)", " ", RegexOptions.IgnoreCase).Trim();
+                            if (textbox == MetaInputAuthorText || textbox == MetaInputCopyrightText)
+                                text = Regex.Replace(text, @"\s*(\n\r|\r\n|\n|\r|<br\s*/?>)\s*", "; ", RegexOptions.IgnoreCase).Trim([' ', '　', ';']) + ';';
+                            else
+                                text = Regex.Replace(text, @"\s*(\n\r|\r\n|\n|\r|<br\s*/?>)", " ", RegexOptions.IgnoreCase).Trim([' ', '　']);
                             var idx = textbox.CaretIndex;
                             var start = textbox.SelectionStart;
                             var length = textbox.SelectionLength;
