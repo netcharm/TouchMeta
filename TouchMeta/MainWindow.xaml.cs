@@ -5728,7 +5728,21 @@ namespace TouchMeta
                         else
                         {
                             exif.SetTagRawData(CompactExifLib.ExifTag.XpComment, ExifTagType.Byte, Encoding.Unicode.GetByteCount(meta.Comment), Encoding.Unicode.GetBytes(meta.Comment));
-                            exif.SetTagValue(CompactExifLib.ExifTag.UserComment, meta.Comment, StrCoding.IdCode_Utf16);
+                            var idcode_unicode = Encoding.ASCII.GetBytes("UNICODE\0");
+                            if (exif.ByteOrder == ExifByteOrder.BigEndian)
+                            {
+                                //exif.SetTagValue(CompactExifLib.ExifTag.UserComment, meta.Comment, StrCoding.IdCode_Utf16);
+                                //exif.SetTagRawData(CompactExifLib.ExifTag.UserComment, ExifTagType.Byte, Encoding.BigEndianUnicode.GetByteCount(meta.Comment) + 8, idcode_unicode.Concat(Encoding.BigEndianUnicode.GetBytes(meta.Comment)).ToArray());
+                                var value = idcode_unicode.Concat(Encoding.BigEndianUnicode.GetBytes(meta.Comment)).ToArray();
+                                exif.SetTagRawData(CompactExifLib.ExifTag.UserComment, ExifTagType.Byte, value.Length, value);
+                            }
+                            else
+                            {
+                                //exif.SetTagValue(CompactExifLib.ExifTag.UserComment, meta.Comment, StrCoding.IdCode_Utf16);
+                                //exif.SetTagRawData(CompactExifLib.ExifTag.UserComment, ExifTagType.Byte, Encoding.Unicode.GetByteCount(meta.Comment) + 8, Encoding.Unicode.GetBytes(meta.Comment));
+                                var value = idcode_unicode.Concat(Encoding.Unicode.GetBytes(meta.Comment)).ToArray();
+                                exif.SetTagRawData(CompactExifLib.ExifTag.UserComment, ExifTagType.Byte, value.Length, value);
+                            }
                         }
 
                         if (string.IsNullOrEmpty(meta.Make ?? string.Empty))
