@@ -40,248 +40,6 @@ namespace TouchMeta
 #pragma warning disable IDE0300
 #pragma warning disable IDE0305
 
-    public class Consts
-    {
-        public static char[] DateTimeTrimSymbols = new char[] {
-            ' ', '·',
-            '`', '~', '!', '@', '#', '$', '%', '^', '&', '*', ':', ';', '?', ',', '.', '+', '-', '_',
-            '！', '＠', '＃', '＄', '％', '＾', '＆', '＊', '～',  '。', '，', '；', '：', '＇', '？', '，', '．', '＝', '－', '＿', '＋',
-            '|', '\'', '/', '＼', '／', '｜',
-            '<', '>', '(', ')', '[', ']', '{', '}', '＜', '＞', '（', '）', '【', '】', '｛', '｝', '「', '」',
-            '"', '＂', '“', '”'
-        };
-
-        public static List<string> xmp_ns = new List<string> { "rdf", "xmp", "dc", "exif", "tiff", "iptc", "MicrosoftPhoto" };
-        public static Dictionary<string, string> xmp_ns_lookup = new Dictionary<string, string>()
-        {
-            {"rdf", "http://www.w3.org/1999/02/22-rdf-syntax-ns#" },
-            {"xmp", "http://ns.adobe.com/xap/1.0/" },
-            {"dc", "http://purl.org/dc/elements/1.1/" },
-            {"lr", "http://ns.adobe.com/lightroom/1.0/" },
-            //{"iptc", "http://ns.adobe.com/iptc/1.0/" },
-            {"exif", "http://ns.adobe.com/exif/1.0/" },
-            {"tiff", "http://ns.adobe.com/tiff/1.0/" },
-            {"photoshop", "http://ns.adobe.com/photoshop/1.0/" },
-            {"MicrosoftPhoto", "http://ns.microsoft.com/photo/1.0" },
-            //{"MicrosoftPhoto_1_", "http://ns.microsoft.com/photo/1.0" },
-            //{"MicrosoftPhoto", "http://ns.microsoft.com/photo/1.0/" },
-            //{"MicrosoftPhoto", "http://ns.microsoft.com/photo/1.2/" },
-        };
-
-        #region below tags will be touching
-        public static string[] tag_date = new string[] {
-          "exif:DateTimeDigitized",
-          "exif:DateTimeOriginal",
-          "exif:DateTime",
-          "MicrosoftPhoto:DateAcquired",
-          "MicrosoftPhoto:DateTaken",
-          //"png:tIME",
-          "xmp:CreateDate",
-          "xmp:ModifyDate",
-          "xmp:DateTimeDigitized",
-          "xmp:DateTimeOriginal",
-          "xmp:MetadataDate",
-          "Creation Time",
-          "create-date",
-          "modify-date",
-          "tiff:DateTime",
-          "tiff:datetime",
-          //"date:modify",
-          //"date:create",
-        };
-        public static string[] tag_author = new string[] {
-          "exif:Artist",
-          "exif:WinXP-Author",
-          "dc:creator",
-          "dc:Creator",
-          "tiff:Artist",
-          "tiff:artist",
-          "xmp:creator",
-          "xmp:Creator",
-        };
-        public static string[] tag_copyright = new string[] {
-          "exif:Copyright",
-          "dc:rights",
-          "dc:Rights",
-          "tiff:copyright",
-          "tiff:Copyright",
-          //"iptc:CopyrightNotice",
-        };
-        public static string[] tag_title = new string[] {
-          "exif:ImageDescription",
-          "exif:WinXP-Title",
-          "dc:title",
-          "dc:Title",
-          "tiff:title",
-          "tiff:Title",
-          "tiff:DocumentName",
-          "tiff:documentname",
-        };
-        public static string[] tag_subject = new string[] {
-          "exif:WinXP-Subject",
-          "dc:source",
-          "dc:Source",
-          "tiff:Subject",
-          "tiff:subject",
-        };
-        public static string[] tag_comments = new string[] {
-          "exif:WinXP-Comments",
-          "exif:UserComment",
-          "dc:description",
-          "dc:Description",
-          "tiff:comment",
-          "tiff:Comment",
-          "tiff:comments",
-          "tiff:Comments",
-          "tiff:imagedescription",
-          "tiff:ImageDescription",
-        };
-        public static string[] tag_keywords = new string[] {
-          "exif:WinXP-Keywords",
-            //"iptc:Keywords",
-          "dc:subject",
-          "dc:Subject",
-        };
-        public static string[] tag_rating = new string[] {
-          "Rating",
-          "RatingPercent",
-          "exif:Rating",
-          "exif:RatingPercent",
-          "MicrosoftPhoto:Rating",
-          "xmp:rating",
-          "xmp:Rating",
-        };
-        public static string[] tag_software = new string[] {
-          "exif:Software",
-          "tiff:Software",
-          "tiff:software",
-          "Software",
-          "xmp:CreatorTool",
-        };
-        #endregion
-    }
-
-    public class MetaInfo
-    {
-        public bool ShowXMP { get; set; } = false;
-        public bool TouchProfiles { get; set; } = true;
-        public ChangePropertyType ChangeProperties { get; set; } = ChangePropertyType.All;
-
-        public DateTime? DateCreated { get; set; } = null;
-        public DateTime? DateModified { get; set; } = null;
-        public DateTime? DateAccesed { get; set; } = null;
-
-        public DateTime? DateAcquired { get; set; } = null;
-        public DateTime? DateTaken { get; set; } = null;
-
-        public string Title { get; set; } = null;
-        public string Subject { get; set; } = null;
-        public string Keywords { get; set; } = null;
-        public string Comment { get; set; } = null;
-        public string Authors { get; set; } = null;
-        public string Copyrights { get; set; } = null;
-
-        public string Source { get; set; } = null;
-
-        public int? RatingPercent { get; set; } = null;
-        public int? Rating { get; set; } = null;
-
-        public string Software
-        {
-            get { return (Attributes is Dictionary<string, string> && Attributes.Count(a => Consts.tag_software.Contains(a.Key)) > 0 ? Attributes.First(a => Consts.tag_software.Contains(a.Key)).Value.Trim() : string.Empty); }
-            set
-            {
-                if (Attributes is Dictionary<string, string>) foreach (var key in Consts.tag_software) Attributes[key] = value;
-                if (string.IsNullOrEmpty(value)) foreach (var key in Consts.tag_software) Attributes.Remove(key);
-            }
-        }
-
-        public string Make { get; set; } = null;
-        public string Model { get; set; } = null;
-
-        public string ExifVersion { get; set; } = "0230";
-
-        public Dictionary<string, string> Attributes { get; set; } = new Dictionary<string, string>();
-        public Dictionary<string, IImageProfile> Profiles { get; set; } = new Dictionary<string, IImageProfile>();
-
-        public static MetaInfo Create(Dictionary<string, string> meta)
-        {
-            MetaInfo result = null;
-            try
-            {
-                if (meta is (Dictionary<string, string>))
-                {
-                    result = new MetaInfo();
-
-                    if (meta.ContainsKey("Creation Time") && DateTime.TryParse(meta["Creation Time"], out DateTime dt)) result.DateCreated = dt;
-
-                    if (meta.ContainsKey("title")) result.Title = meta["Title"];
-                    if (meta.ContainsKey("Subject")) result.Subject = meta["Subject"];
-                    if (meta.ContainsKey("Author")) result.Authors = meta["Author"];
-                    if (meta.ContainsKey("Copyright")) result.Copyrights = meta["Copyright"];
-                    if (meta.ContainsKey("Description")) result.Comment = meta["Description"];
-                    if (meta.ContainsKey("Comment")) result.Comment = meta["Comment"];
-                    if (meta.ContainsKey("Source")) result.Source = meta["Source"];
-                    if (meta.ContainsKey("Software")) result.Software = meta["Software"];
-                    if (meta.ContainsKey("Keyword")) result.Keywords = meta["Keyword"];
-                    if (meta.ContainsKey("Tags")) result.Keywords = meta["Tags"];
-                    if (meta.ContainsKey("Tag")) result.Keywords = meta["Tag"];
-
-                    if (meta.ContainsKey("XML:com.adobe.xmp"))
-                    {
-                        var value = string.Join("", meta["XML:com.adobe.xmp"].Split(new char[]{ '\0' }).Last().ToArray().SkipWhile(c => c != '<'));
-                        result.Profiles.Add("xmp", new XmpProfile(Encoding.UTF8.GetBytes(value)));
-                    }
-                    else if (meta.ContainsKey("Raw profile type xmp"))
-                    {
-                        var value = string.Join("", meta["Raw profile type xmp"].Split(new char[]{ '\0' }).Last().ToArray().SkipWhile(c => c != '<'));
-                        result.Profiles.Add("xmp", new XmpProfile(Encoding.UTF8.GetBytes(value)));
-                    }
-                }
-            }
-            catch (Exception ex) { MainWindow.Log(ex.Message); }
-            return (result);
-        }
-    }
-
-    public enum ChangePropertyMode { None = 0, Append = 1, Remove = 2, Replace = 3, Empty = 4 };
-
-    [Flags]
-    public enum ChangePropertyType
-    {
-        None = 0x0000, //0b00000000,
-        Title = 0x0001, //0b00000001,
-        Subject = 0x0002, //0b00000010,
-        Keywords = 0x0004, //0b00000100,
-        Comment = 0x0008, //0b00001000,
-        Authors = 0x0010, //0b00010000,
-        Copyrights = 0x0020, //0b00100000,
-        Rating = 0x0040, //0b01000000,
-        Ranking = 0x0080, //0b10000000,
-
-        Software = 0x1000,
-
-        DateTime = 0x4000,
-        Smart = 0x8000,
-        All = 0xFFFF,
-    };
-
-    public enum RotateMode { None, C090, C180, C270, C000, FlipH, FlipV, Clear, Reset };
-
-    public class MyListBoxItem : ListBoxItem, INotifyPropertyChanged
-    {
-        public void Update()
-        {
-            NotifyPropertyChanged("Content");
-        }
-
-        public event PropertyChangedEventHandler PropertyChanged;
-        private void NotifyPropertyChanged(string property)
-        {
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(property));
-        }
-    }
-
     /// <summary>
     /// MainWindow.xaml 的交互逻辑
     /// </summary>
@@ -2818,7 +2576,7 @@ namespace TouchMeta
                 if (is_file) text = System.IO.Path.GetFileNameWithoutExtension(text);
                 var trim_chars = new char[] { '_', '.', ' ' };
                 //‎2022‎年‎02‎月‎04‎日，‏‎16:49:26
-                var pattens = new string[]
+                var patterns = new string[]
                 {
                     @"‎(\d{2,4}.*?年.*?\d{1,2}.*?‎月.*?\d{1,2}.*?‎日.*?[，,T].*?\d{1,2}:\d{1,2}:\d{1,2})",
                     @"(\d{2,4})[ :_\-/\.\\年]{0,3}(\d{1,2})[ :_\-/\.\\月]{0,3}(\d{1,2})[ :_\-/\.\\日]{0,3}[ ,:_\-/\.\\T]?(\d{1,2})[ :_\-\.时]{0,3}(\d{1,2})[ :_\-\.分]{0,3}(\d{1,2})[ :_\-\.秒]{0,3}",
@@ -2826,7 +2584,8 @@ namespace TouchMeta
                     @"(\d{4}[ :_\-/\.\\年]{0,3})(\d{2}[ :_\-/\.\\月日时分秒T]{0,3})+",
                     @"(\d{2}[ :_\-/\.\\月日]{0,3})+(\d{4})[ \-,:T](\d{2}[:_\-\.\\时分秒]{0,3}){3}",
                     @"(\d{2}[ :_\-/\.\\月日时分秒]{0,3})+(\d{4})",
-                    @"(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})(\d{2})",
+                    @"(\d{4})[-_/]?(\d{2})[-_/]?(\d{2})[-_ T]*?(\d{2})[-_]?(\d{2})[-_]?(\d{2})",
+                    //@"(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})(\d{2})",
                 };
 
                 text = Regex.Replace(text, @"[\u0000-\u001F\u007F\u2000-\u201F\u207F]", "");
@@ -2835,12 +2594,12 @@ namespace TouchMeta
                 if (DateTime.TryParse(text, out DateTime dt)) result = dt;
                 else
                 {
-                    foreach (var patten in pattens)
+                    foreach (var pattern in patterns)
                     {
-                        if (Regex.IsMatch(text, patten))
+                        if (Regex.IsMatch(text, pattern))
                         {
-                            var match = Regex.Replace(text.Replace("_", " "), $@"^.*?({patten}).*?$", "$1");
-                            match = Regex.Replace(match.Trim(trim_chars), patten, "$1/$2/$3 $4:$5:$6");
+                            var match = Regex.Replace(text.Replace("_", " "), $@"^.*?({pattern}).*?$", "$1");
+                            match = Regex.Replace(match.Trim(trim_chars), pattern, "$1/$2/$3 $4:$5:$6");
                             if (DateTime.TryParse(match, out dt)) { result = dt; Log($"{file} => {dt:yyyy/MM/dd HH:mm:ss}"); break; }
                         }
                     }
@@ -7598,8 +7357,9 @@ namespace TouchMeta
                     {
                         var text = (e.DataObject.GetData(fmt) as string);
                         var textbox = sender as TextBox;
+                        if (textbox == TimeStringContent) textbox.SelectAll();
                         if (!textbox.AcceptsReturn && Regex.IsMatch(text, @"(\n\r|\r\n|\n|\r)", RegexOptions.IgnoreCase))
-                        {
+                        {                            
                             if (textbox == MetaInputAuthorText || textbox == MetaInputCopyrightText)
                                 text = Regex.Replace(text, @"\s*(\n\r|\r\n|\n|\r|<br\s*/?>)\s*", "; ", RegexOptions.IgnoreCase).Trim([' ', '　', ';']) + ';';
                             else
@@ -8808,6 +8568,248 @@ namespace TouchMeta
             var file = System.IO.Path.Combine(AppPath, $"{AppName}_Template_{fn}.xml");
             File.WriteAllText(file, xml);
             log.Add($"Load Metadata Template {meta.Subject} Successed!");
+        }
+    }
+
+    public class Consts
+    {
+        public static char[] DateTimeTrimSymbols = new char[] {
+            ' ', '·',
+            '`', '~', '!', '@', '#', '$', '%', '^', '&', '*', ':', ';', '?', ',', '.', '+', '-', '_',
+            '！', '＠', '＃', '＄', '％', '＾', '＆', '＊', '～',  '。', '，', '；', '：', '＇', '？', '，', '．', '＝', '－', '＿', '＋',
+            '|', '\'', '/', '＼', '／', '｜',
+            '<', '>', '(', ')', '[', ']', '{', '}', '＜', '＞', '（', '）', '【', '】', '｛', '｝', '「', '」',
+            '"', '＂', '“', '”'
+        };
+
+        public static List<string> xmp_ns = new List<string> { "rdf", "xmp", "dc", "exif", "tiff", "iptc", "MicrosoftPhoto" };
+        public static Dictionary<string, string> xmp_ns_lookup = new Dictionary<string, string>()
+        {
+            {"rdf", "http://www.w3.org/1999/02/22-rdf-syntax-ns#" },
+            {"xmp", "http://ns.adobe.com/xap/1.0/" },
+            {"dc", "http://purl.org/dc/elements/1.1/" },
+            {"lr", "http://ns.adobe.com/lightroom/1.0/" },
+            //{"iptc", "http://ns.adobe.com/iptc/1.0/" },
+            {"exif", "http://ns.adobe.com/exif/1.0/" },
+            {"tiff", "http://ns.adobe.com/tiff/1.0/" },
+            {"photoshop", "http://ns.adobe.com/photoshop/1.0/" },
+            {"MicrosoftPhoto", "http://ns.microsoft.com/photo/1.0" },
+            //{"MicrosoftPhoto_1_", "http://ns.microsoft.com/photo/1.0" },
+            //{"MicrosoftPhoto", "http://ns.microsoft.com/photo/1.0/" },
+            //{"MicrosoftPhoto", "http://ns.microsoft.com/photo/1.2/" },
+        };
+
+        #region below tags will be touching
+        public static string[] tag_date = new string[] {
+          "exif:DateTimeDigitized",
+          "exif:DateTimeOriginal",
+          "exif:DateTime",
+          "MicrosoftPhoto:DateAcquired",
+          "MicrosoftPhoto:DateTaken",
+          //"png:tIME",
+          "xmp:CreateDate",
+          "xmp:ModifyDate",
+          "xmp:DateTimeDigitized",
+          "xmp:DateTimeOriginal",
+          "xmp:MetadataDate",
+          "Creation Time",
+          "create-date",
+          "modify-date",
+          "tiff:DateTime",
+          "tiff:datetime",
+          //"date:modify",
+          //"date:create",
+        };
+        public static string[] tag_author = new string[] {
+          "exif:Artist",
+          "exif:WinXP-Author",
+          "dc:creator",
+          "dc:Creator",
+          "tiff:Artist",
+          "tiff:artist",
+          "xmp:creator",
+          "xmp:Creator",
+        };
+        public static string[] tag_copyright = new string[] {
+          "exif:Copyright",
+          "dc:rights",
+          "dc:Rights",
+          "tiff:copyright",
+          "tiff:Copyright",
+          //"iptc:CopyrightNotice",
+        };
+        public static string[] tag_title = new string[] {
+          "exif:ImageDescription",
+          "exif:WinXP-Title",
+          "dc:title",
+          "dc:Title",
+          "tiff:title",
+          "tiff:Title",
+          "tiff:DocumentName",
+          "tiff:documentname",
+        };
+        public static string[] tag_subject = new string[] {
+          "exif:WinXP-Subject",
+          "dc:source",
+          "dc:Source",
+          "tiff:Subject",
+          "tiff:subject",
+        };
+        public static string[] tag_comments = new string[] {
+          "exif:WinXP-Comments",
+          "exif:UserComment",
+          "dc:description",
+          "dc:Description",
+          "tiff:comment",
+          "tiff:Comment",
+          "tiff:comments",
+          "tiff:Comments",
+          "tiff:imagedescription",
+          "tiff:ImageDescription",
+        };
+        public static string[] tag_keywords = new string[] {
+          "exif:WinXP-Keywords",
+            //"iptc:Keywords",
+          "dc:subject",
+          "dc:Subject",
+        };
+        public static string[] tag_rating = new string[] {
+          "Rating",
+          "RatingPercent",
+          "exif:Rating",
+          "exif:RatingPercent",
+          "MicrosoftPhoto:Rating",
+          "xmp:rating",
+          "xmp:Rating",
+        };
+        public static string[] tag_software = new string[] {
+          "exif:Software",
+          "tiff:Software",
+          "tiff:software",
+          "Software",
+          "xmp:CreatorTool",
+        };
+        #endregion
+    }
+
+    public class MetaInfo
+    {
+        public bool ShowXMP { get; set; } = false;
+        public bool TouchProfiles { get; set; } = true;
+        public ChangePropertyType ChangeProperties { get; set; } = ChangePropertyType.All;
+
+        public DateTime? DateCreated { get; set; } = null;
+        public DateTime? DateModified { get; set; } = null;
+        public DateTime? DateAccesed { get; set; } = null;
+
+        public DateTime? DateAcquired { get; set; } = null;
+        public DateTime? DateTaken { get; set; } = null;
+
+        public string Title { get; set; } = null;
+        public string Subject { get; set; } = null;
+        public string Keywords { get; set; } = null;
+        public string Comment { get; set; } = null;
+        public string Authors { get; set; } = null;
+        public string Copyrights { get; set; } = null;
+
+        public string Source { get; set; } = null;
+
+        public int? RatingPercent { get; set; } = null;
+        public int? Rating { get; set; } = null;
+
+        public string Software
+        {
+            get { return (Attributes is Dictionary<string, string> && Attributes.Count(a => Consts.tag_software.Contains(a.Key)) > 0 ? Attributes.First(a => Consts.tag_software.Contains(a.Key)).Value.Trim() : string.Empty); }
+            set
+            {
+                if (Attributes is Dictionary<string, string>) foreach (var key in Consts.tag_software) Attributes[key] = value;
+                if (string.IsNullOrEmpty(value)) foreach (var key in Consts.tag_software) Attributes.Remove(key);
+            }
+        }
+
+        public string Make { get; set; } = null;
+        public string Model { get; set; } = null;
+
+        public string ExifVersion { get; set; } = "0230";
+
+        public Dictionary<string, string> Attributes { get; set; } = new Dictionary<string, string>();
+        public Dictionary<string, IImageProfile> Profiles { get; set; } = new Dictionary<string, IImageProfile>();
+
+        public static MetaInfo Create(Dictionary<string, string> meta)
+        {
+            MetaInfo result = null;
+            try
+            {
+                if (meta is (Dictionary<string, string>))
+                {
+                    result = new MetaInfo();
+
+                    if (meta.ContainsKey("Creation Time") && DateTime.TryParse(meta["Creation Time"], out DateTime dt)) result.DateCreated = dt;
+
+                    if (meta.ContainsKey("title")) result.Title = meta["Title"];
+                    if (meta.ContainsKey("Subject")) result.Subject = meta["Subject"];
+                    if (meta.ContainsKey("Author")) result.Authors = meta["Author"];
+                    if (meta.ContainsKey("Copyright")) result.Copyrights = meta["Copyright"];
+                    if (meta.ContainsKey("Description")) result.Comment = meta["Description"];
+                    if (meta.ContainsKey("Comment")) result.Comment = meta["Comment"];
+                    if (meta.ContainsKey("Source")) result.Source = meta["Source"];
+                    if (meta.ContainsKey("Software")) result.Software = meta["Software"];
+                    if (meta.ContainsKey("Keyword")) result.Keywords = meta["Keyword"];
+                    if (meta.ContainsKey("Tags")) result.Keywords = meta["Tags"];
+                    if (meta.ContainsKey("Tag")) result.Keywords = meta["Tag"];
+
+                    if (meta.ContainsKey("XML:com.adobe.xmp"))
+                    {
+                        var value = string.Join("", meta["XML:com.adobe.xmp"].Split(new char[]{ '\0' }).Last().ToArray().SkipWhile(c => c != '<'));
+                        result.Profiles.Add("xmp", new XmpProfile(Encoding.UTF8.GetBytes(value)));
+                    }
+                    else if (meta.ContainsKey("Raw profile type xmp"))
+                    {
+                        var value = string.Join("", meta["Raw profile type xmp"].Split(new char[]{ '\0' }).Last().ToArray().SkipWhile(c => c != '<'));
+                        result.Profiles.Add("xmp", new XmpProfile(Encoding.UTF8.GetBytes(value)));
+                    }
+                }
+            }
+            catch (Exception ex) { MainWindow.Log(ex.Message); }
+            return (result);
+        }
+    }
+
+    public enum ChangePropertyMode { None = 0, Append = 1, Remove = 2, Replace = 3, Empty = 4 };
+
+    [Flags]
+    public enum ChangePropertyType
+    {
+        None = 0x0000, //0b00000000,
+        Title = 0x0001, //0b00000001,
+        Subject = 0x0002, //0b00000010,
+        Keywords = 0x0004, //0b00000100,
+        Comment = 0x0008, //0b00001000,
+        Authors = 0x0010, //0b00010000,
+        Copyrights = 0x0020, //0b00100000,
+        Rating = 0x0040, //0b01000000,
+        Ranking = 0x0080, //0b10000000,
+
+        Software = 0x1000,
+
+        DateTime = 0x4000,
+        Smart = 0x8000,
+        All = 0xFFFF,
+    };
+
+    public enum RotateMode { None, C090, C180, C270, C000, FlipH, FlipV, Clear, Reset };
+
+    public class MyListBoxItem : ListBoxItem, INotifyPropertyChanged
+    {
+        public void Update()
+        {
+            NotifyPropertyChanged("Content");
+        }
+
+        public event PropertyChangedEventHandler PropertyChanged;
+        private void NotifyPropertyChanged(string property)
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(property));
         }
     }
 }
