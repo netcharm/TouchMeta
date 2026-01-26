@@ -6812,8 +6812,8 @@ namespace TouchMeta
                 ResourceLimits.Thread = 4;
                 //ResourceLimits.Area = 4096 * 4096;
                 //ResourceLimits.Throttle = 
-                OpenCL.IsEnabled = true;
-                if (Directory.Exists(magick_cache)) OpenCL.SetCacheDirectory(magick_cache);
+                //OpenCL.IsEnabled = true;
+                //if (Directory.Exists(magick_cache)) OpenCL.SetCacheDirectory(magick_cache);
                 //MagickNET.Initialize();
                 //MagickNET.SupportedFormats
                 SupportedFormats = ((MagickFormat[])Enum.GetValues(typeof(MagickFormat))).Select(e => $".{e.ToString().ToLower()}").ToList();
