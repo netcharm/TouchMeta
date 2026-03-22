@@ -5151,6 +5151,8 @@ namespace TouchMeta
 
                                     RatingPercent = rating,
                                     Rating = RatingToRanking(rating),
+
+                                    Software = software,
                                 };
 
                                 TouchMetaAlt(fi.FullName, meta: meta_new);
