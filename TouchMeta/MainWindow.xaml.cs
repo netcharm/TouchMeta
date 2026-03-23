@@ -348,7 +348,7 @@ namespace TouchMeta
             {
                 FileRenameInputClose.Visibility = Visibility.Collapsed;
                 FileRenameInputNameText.Tag = input;
-                FileRenameInputNameText.Text = input;
+                FileRenameInputNameText.Text = Path.GetFileName(input);
                 var dlg = new Xceed.Wpf.Toolkit.CollectionControlDialog
                 {
                     Icon = Application.Current.MainWindow.Icon,
@@ -7147,18 +7147,11 @@ namespace TouchMeta
             {
                 var file = (FilesList.SelectedItem as ListBoxItem).Content as string;
                 var filename = System.IO.Path.GetFileName(file);
-#if DEBUG
-                var ret = ShowCustomForm(FileRenameInputPopupCanvas, filename);
-                if (!ret.Equals(filename, StringComparison.CurrentCultureIgnoreCase))
-                {
-                    RenameFileName(file, ret);
-                }
-#else
+
                 FileRenameInputNameText.Tag = file;
                 FileRenameInputNameText.Text = filename;
                 FileRenameInputPopup.StaysOpen = true;
                 FileRenameInputPopup.IsOpen = true;
-#endif
             }
         }
 
@@ -7167,18 +7160,21 @@ namespace TouchMeta
         /// </summary>
         /// <param name="file"></param>
         /// <param name="name"></param>
-        private void RenameFileName(string file, string name)
+        private string RenameFileName(string file, string name)
         {
+            var result = file;
             if (File.Exists(file))
             {
                 var folder = System.IO.Path.GetDirectoryName(file);
                 var fi = new FileInfo(file);
                 var fn_new = name.Trim();
                 if (!System.IO.Path.IsPathRooted(fn_new)) fn_new = System.IO.Path.GetFullPath(System.IO.Path.Combine(fi.DirectoryName, fn_new));
-                fi.MoveTo(fn_new);
-                var idx = FilesList.Items.IndexOf(file);
-                if (idx >= 0) FilesList.Items[idx] = fn_new;
+                if (!File.Exists(fn_new)) fi.MoveTo(fn_new);
+                var flist = FilesList.Items.Cast<MyListBoxItem>().Select(f => f.Content as string).ToList();
+                var idx = flist.IndexOf(file);
+                if (idx >= 0) { (FilesList.Items[idx] as MyListBoxItem).Rename(fn_new); result = fn_new; }
             }
+            return (result);
         }
 
         /// <summary>
@@ -8350,6 +8346,7 @@ namespace TouchMeta
                     try
                     {
                         var file = FileRenameInputNameText.Tag as string;
+                        //var file = FileList.SelectedItem FileRenameInputNameText.Tag as string;
                         RenameFileName(file, FileRenameInputNameText.Text);
                     }
                     catch (Exception ex) { ShowMessage(ex.Message); }
@@ -8806,6 +8803,12 @@ namespace TouchMeta
         public void Update()
         {
             NotifyPropertyChanged("Content");
+        }
+
+        public void Rename(string text)
+        {
+            Content = text;
+            Update();
         }
 
         public event PropertyChangedEventHandler PropertyChanged;
