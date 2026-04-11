@@ -2306,25 +2306,29 @@ namespace TouchMeta
                 {
                     Dispatcher.Invoke(() =>
                     {
-                        DateCreated.SelectedDate = _current_meta_.DateAcquired ?? _current_meta_.DateTaken ?? DateCreated.SelectedDate;
-                        DateModified.SelectedDate = _current_meta_.DateAcquired ?? _current_meta_.DateTaken ?? DateModified.SelectedDate;
-                        DateAccessed.SelectedDate = _current_meta_.DateAcquired ?? _current_meta_.DateTaken ?? DateAccessed.SelectedDate;
+                        try
+                        {
+                            DateCreated.SelectedDate = _current_meta_.DateAcquired ?? _current_meta_.DateTaken ?? DateCreated.SelectedDate;
+                            DateModified.SelectedDate = _current_meta_.DateAcquired ?? _current_meta_.DateTaken ?? DateModified.SelectedDate;
+                            DateAccessed.SelectedDate = _current_meta_.DateAcquired ?? _current_meta_.DateTaken ?? DateAccessed.SelectedDate;
 
-                        TimeCreated.Value = _current_meta_.DateAcquired ?? _current_meta_.DateTaken ?? TimeCreated.Value;
-                        TimeModified.Value = _current_meta_.DateAcquired ?? _current_meta_.DateTaken ?? TimeModified.Value;
-                        TimeAccessed.Value = _current_meta_.DateAcquired ?? _current_meta_.DateTaken ?? TimeAccessed.Value;
+                            TimeCreated.Value = _current_meta_.DateAcquired ?? _current_meta_.DateTaken ?? TimeCreated.Value;
+                            TimeModified.Value = _current_meta_.DateAcquired ?? _current_meta_.DateTaken ?? TimeModified.Value;
+                            TimeAccessed.Value = _current_meta_.DateAcquired ?? _current_meta_.DateTaken ?? TimeAccessed.Value;
 
-                        MetaInputTitleText.Text = _current_meta_.Title;
-                        MetaInputSubjectText.Text = _current_meta_.Subject;
-                        MetaInputCommentText.Text = _current_meta_.Comment;
-                        MetaInputKeywordsText.Text = _current_meta_.Keywords.Trim().TrimStart(';');
-                        MetaInputAuthorText.Text = _current_meta_.Authors.Trim().TrimStart(';'); ;
-                        MetaInputCopyrightText.Text = _current_meta_.Copyrights.Trim().TrimStart(';');
-                        CurrentMetaRating = _current_meta_.RatingPercent ?? RankingToRating(_current_meta_.Rating);
+                            MetaInputTitleText.Text = _current_meta_.Title;
+                            MetaInputSubjectText.Text = _current_meta_.Subject;
+                            MetaInputCommentText.Text = _current_meta_.Comment;
+                            MetaInputKeywordsText.Text = _current_meta_.Keywords.Trim().TrimStart(';');
+                            MetaInputAuthorText.Text = _current_meta_.Authors.Trim().TrimStart(';'); ;
+                            MetaInputCopyrightText.Text = _current_meta_.Copyrights.Trim().TrimStart(';');
+                            CurrentMetaRating = _current_meta_.RatingPercent ?? RankingToRating(_current_meta_.Rating);
 
-                        if (!string.IsNullOrEmpty(MetaInputKeywordsText.Text.Trim())) MetaInputKeywordsText.Text = MetaInputKeywordsText.Text.Trim().TrimEnd(';') + ';';
-                        if (!string.IsNullOrEmpty(MetaInputAuthorText.Text.Trim())) MetaInputAuthorText.Text = MetaInputAuthorText.Text.Trim().TrimEnd(';') + ';';
-                        if (!string.IsNullOrEmpty(MetaInputCopyrightText.Text.Trim())) MetaInputCopyrightText.Text = MetaInputCopyrightText.Text.Trim().TrimEnd(';') + ';';
+                            if (!string.IsNullOrEmpty(MetaInputKeywordsText.Text.Trim())) MetaInputKeywordsText.Text = MetaInputKeywordsText.Text.Trim().TrimEnd(';') + ';';
+                            if (!string.IsNullOrEmpty(MetaInputAuthorText.Text.Trim())) MetaInputAuthorText.Text = MetaInputAuthorText.Text.Trim().TrimEnd(';') + ';';
+                            if (!string.IsNullOrEmpty(MetaInputCopyrightText.Text.Trim())) MetaInputCopyrightText.Text = MetaInputCopyrightText.Text.Trim().TrimEnd(';') + ';';
+                        }
+                        catch (Exception ex) { ShowMessage(string.Join(Environment.NewLine, ex.Message), "Set Current Meta"); }
                     });
                 }
             }
@@ -4275,86 +4279,93 @@ namespace TouchMeta
             MetaInfo result = meta is MetaInfo ? meta : new MetaInfo();
             if (!string.IsNullOrEmpty(json))
             {
-                json = Regex.Replace(json, @"(\n\r|\r\n|\n|\r)", "\\n", RegexOptions.IgnoreCase);
-                json = Regex.Replace(json, @"([\{\[,\}\]])(\n\r|\r\n|\n|\r|\\n)", $"$1{Environment.NewLine}", RegexOptions.IgnoreCase);
-                json = Regex.Replace(json, @"(("")?(True|False)("")?)", "\"$3\"", RegexOptions.IgnoreCase);
-                var kvs = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(json, new System.Text.Json.JsonSerializerOptions(){ AllowTrailingCommas = true });
-                foreach (var kv in kvs)
+                try
                 {
-                    if (kv.Key.Equals("date", StringComparison.CurrentCultureIgnoreCase))
+                    json = Regex.Replace(json, @"(\n\r|\r\n|\n|\r)", "\\n", RegexOptions.IgnoreCase);
+                    if (Regex.IsMatch(json.Trim(), @"^([\{\[]).*?([\}\]])$", RegexOptions.IgnoreCase))
                     {
-                        DateTime dt = result.DateAcquired ?? result.DateTaken ?? result.DateModified ?? result.DateCreated ?? result.DateAccesed ?? DateTime.Now;
-                        if (DateTime.TryParse(kv.Value, out dt))
+                        json = Regex.Replace(json, @"([\{\[,\}\]])(\n\r|\r\n|\n|\r|\\n)", $"$1{Environment.NewLine}", RegexOptions.IgnoreCase);
+                        json = Regex.Replace(json, @"(("")?(True|False)("")?)", "\"$3\"", RegexOptions.IgnoreCase);
+                        var kvs = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(json, new System.Text.Json.JsonSerializerOptions(){ AllowTrailingCommas = true });
+                        foreach (var kv in kvs)
                         {
-                            result.DateCreated = dt;
-                            result.DateModified = dt;
-                            result.DateAccesed = dt;
+                            if (kv.Key.Equals("date", StringComparison.CurrentCultureIgnoreCase))
+                            {
+                                DateTime dt = result.DateAcquired ?? result.DateTaken ?? result.DateModified ?? result.DateCreated ?? result.DateAccesed ?? DateTime.Now;
+                                if (DateTime.TryParse(kv.Value, out dt))
+                                {
+                                    result.DateCreated = dt;
+                                    result.DateModified = dt;
+                                    result.DateAccesed = dt;
 
-                            result.DateAcquired = dt;
-                            result.DateTaken = dt;
+                                    result.DateAcquired = dt;
+                                    result.DateTaken = dt;
+                                }
+                            }
+                            else if (kv.Key.Equals("id", StringComparison.CurrentCultureIgnoreCase))
+                            {
+                                result.Subject = kv.Value;
+                            }
+                            else if (kv.Key.Equals("title", StringComparison.CurrentCultureIgnoreCase))
+                            {
+                                result.Title = kv.Value;
+                            }
+                            else if (kv.Key.Equals("subject", StringComparison.CurrentCultureIgnoreCase))
+                            {
+                                result.Subject = kv.Value;
+                            }
+                            else if (kv.Key.Equals("description", StringComparison.CurrentCultureIgnoreCase))
+                            {
+                                result.Comment = kv.Value;
+                            }
+                            else if (kv.Key.Equals("comment", StringComparison.CurrentCultureIgnoreCase))
+                            {
+                                result.Comment = kv.Value;
+                            }
+                            else if (kv.Key.Equals("comments", StringComparison.CurrentCultureIgnoreCase))
+                            {
+                                result.Comment = kv.Value;
+                            }
+                            else if (kv.Key.Equals("tags", StringComparison.CurrentCultureIgnoreCase))
+                            {
+                                result.Keywords = kv.Value;
+                            }
+                            else if (kv.Key.Equals("keywords", StringComparison.CurrentCultureIgnoreCase))
+                            {
+                                result.Keywords = kv.Value;
+                            }
+                            else if (kv.Key.Equals("user", StringComparison.CurrentCultureIgnoreCase))
+                            {
+                                result.Authors = kv.Value;
+                            }
+                            else if (kv.Key.Equals("author", StringComparison.CurrentCultureIgnoreCase))
+                            {
+                                result.Authors = kv.Value;
+                            }
+                            else if (kv.Key.Equals("copyright", StringComparison.CurrentCultureIgnoreCase))
+                            {
+                                result.Copyrights = kv.Value;
+                            }
+                            else if (kv.Key.Equals("copyrights", StringComparison.CurrentCultureIgnoreCase))
+                            {
+                                result.Copyrights = kv.Value;
+                            }
+                            else if (kv.Key.Equals("favorited", StringComparison.CurrentCultureIgnoreCase))
+                            {
+                                if (bool.TryParse(kv.Value, out bool faved))
+                                {
+                                    result.Rating = faved ? 4 : 0;
+                                    result.RatingPercent = faved ? 75 : 0;
+                                }
+                            }
+                            else if (kv.Key.Equals("software", StringComparison.CurrentCultureIgnoreCase))
+                            {
+                                result.Software = kv.Value;
+                            }
                         }
-                    }
-                    else if (kv.Key.Equals("id", StringComparison.CurrentCultureIgnoreCase))
-                    {
-                        result.Subject = kv.Value;
-                    }
-                    else if (kv.Key.Equals("title", StringComparison.CurrentCultureIgnoreCase))
-                    {
-                        result.Title = kv.Value;
-                    }
-                    else if (kv.Key.Equals("subject", StringComparison.CurrentCultureIgnoreCase))
-                    {
-                        result.Subject = kv.Value;
-                    }
-                    else if (kv.Key.Equals("description", StringComparison.CurrentCultureIgnoreCase))
-                    {
-                        result.Comment = kv.Value;
-                    }
-                    else if (kv.Key.Equals("comment", StringComparison.CurrentCultureIgnoreCase))
-                    {
-                        result.Comment = kv.Value;
-                    }
-                    else if (kv.Key.Equals("comments", StringComparison.CurrentCultureIgnoreCase))
-                    {
-                        result.Comment = kv.Value;
-                    }
-                    else if (kv.Key.Equals("tags", StringComparison.CurrentCultureIgnoreCase))
-                    {
-                        result.Keywords = kv.Value;
-                    }
-                    else if (kv.Key.Equals("keywords", StringComparison.CurrentCultureIgnoreCase))
-                    {
-                        result.Keywords = kv.Value;
-                    }
-                    else if (kv.Key.Equals("user", StringComparison.CurrentCultureIgnoreCase))
-                    {
-                        result.Authors = kv.Value;
-                    }
-                    else if (kv.Key.Equals("author", StringComparison.CurrentCultureIgnoreCase))
-                    {
-                        result.Authors = kv.Value;
-                    }
-                    else if (kv.Key.Equals("copyright", StringComparison.CurrentCultureIgnoreCase))
-                    {
-                        result.Copyrights = kv.Value;
-                    }
-                    else if (kv.Key.Equals("copyrights", StringComparison.CurrentCultureIgnoreCase))
-                    {
-                        result.Copyrights = kv.Value;
-                    }
-                    else if (kv.Key.Equals("favorited", StringComparison.CurrentCultureIgnoreCase))
-                    {
-                        if (bool.TryParse(kv.Value, out bool faved))
-                        {
-                            result.Rating = faved ? 4 : 0;
-                            result.RatingPercent = faved ? 75 : 0;
-                        }
-                    }
-                    else if (kv.Key.Equals("software", StringComparison.CurrentCultureIgnoreCase))
-                    {
-                        result.Software = kv.Value;
                     }
                 }
+                catch (Exception ex) { ShowMessage(string.Join(Environment.NewLine, ex.Message), "Convert Json To Meta"); }
             }
             return (result);
         }
