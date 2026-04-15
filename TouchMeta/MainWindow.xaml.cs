@@ -5920,14 +5920,23 @@ namespace TouchMeta
                             image.RawFormat.Guid.Equals(System.Drawing.Imaging.ImageFormat.Bmp.Guid) ||
                             image.RawFormat.Guid.Equals(System.Drawing.Imaging.ImageFormat.Tiff.Guid)))
                         {
-                            if (image.PixelFormat == System.Drawing.Imaging.PixelFormat.Format32bppArgb) { status = true; }
-                            else if (image.PixelFormat == System.Drawing.Imaging.PixelFormat.Format32bppPArgb) { status = true; }
-                            else if (image.PixelFormat == System.Drawing.Imaging.PixelFormat.Format16bppArgb1555) { status = true; }
-                            else if (image.PixelFormat == System.Drawing.Imaging.PixelFormat.Format64bppArgb) { status = true; }
-                            else if (image.PixelFormat == System.Drawing.Imaging.PixelFormat.Format64bppPArgb) { status = true; }
-                            else if (image.PixelFormat == System.Drawing.Imaging.PixelFormat.PAlpha) { status = true; }
-                            else if (image.PixelFormat == System.Drawing.Imaging.PixelFormat.Alpha) { status = true; }
-                            else if (System.Drawing.Image.IsAlphaPixelFormat(image.PixelFormat)) { status = true; }
+                            //if (image.PixelFormat == System.Drawing.Imaging.PixelFormat.Format32bppArgb) { status = true; }
+                            //else if (image.PixelFormat == System.Drawing.Imaging.PixelFormat.Format32bppPArgb) { status = true; }
+                            //else if (image.PixelFormat == System.Drawing.Imaging.PixelFormat.Format16bppArgb1555) { status = true; }
+                            //else if (image.PixelFormat == System.Drawing.Imaging.PixelFormat.Format64bppArgb) { status = true; }
+                            //else if (image.PixelFormat == System.Drawing.Imaging.PixelFormat.Format64bppPArgb) { status = true; }
+                            //else if (image.PixelFormat == System.Drawing.Imaging.PixelFormat.PAlpha) { status = true; }
+                            //else if (image.PixelFormat == System.Drawing.Imaging.PixelFormat.Alpha) { status = true; }
+                            //else if (System.Drawing.Image.IsAlphaPixelFormat(image.PixelFormat)) { status = true; }
+
+                            status = image.PixelFormat == System.Drawing.Imaging.PixelFormat.Format32bppArgb || 
+                                    image.PixelFormat == System.Drawing.Imaging.PixelFormat.Format32bppPArgb || 
+                                    image.PixelFormat == System.Drawing.Imaging.PixelFormat.Format16bppArgb1555 || 
+                                    image.PixelFormat == System.Drawing.Imaging.PixelFormat.Format64bppArgb || 
+                                    image.PixelFormat == System.Drawing.Imaging.PixelFormat.Format64bppPArgb || 
+                                    image.PixelFormat == System.Drawing.Imaging.PixelFormat.PAlpha || 
+                                    image.PixelFormat == System.Drawing.Imaging.PixelFormat.Alpha || 
+                                    System.Drawing.Image.IsAlphaPixelFormat(image.PixelFormat);
 
                             if (status)
                             {
@@ -5936,12 +5945,19 @@ namespace TouchMeta
                                 var h = bmp.Height;
                                 var m = window;
                                 var mt = Math.Ceiling(m * m / 2.0);
+
                                 var lt = GetMatrix(bmp, 0, 0, m, m).Count(c => c.A < threshold);
+                                var ct = GetMatrix(bmp, (w - m) / 2, 0, m, m).Count(c => c.A < threshold);
                                 var rt = GetMatrix(bmp, w - m, 0, m, m).Count(c => c.A < threshold);
+
                                 var lb = GetMatrix(bmp, 0, h - m, m, m).Count(c => c.A < threshold);
+                                var cb = GetMatrix(bmp, (w - m) / 2, h - m, m, m).Count(c => c.A < threshold);
                                 var rb = GetMatrix(bmp, w - m, h - m, m, m).Count(c => c.A < threshold);
-                                var ct = GetMatrix(bmp, (int)(w / 2.0 - m / 2.0) , (int)(h / 2.0 - m / 2.0), m, m).Count(c => c.A < threshold);
-                                status = lt > mt || rt > mt || lb > mt || rb > mt || ct > mt;
+
+                                var lc = GetMatrix(bmp, 0, (h - m) / 2, m, m).Count(c => c.A < threshold);
+                                var rc = GetMatrix(bmp, w - m, (h - m) / 2, m, m).Count(c => c.A < threshold);
+                                var cc = GetMatrix(bmp, (w - m) / 2, (h - m) / 2, m, m).Count(c => c.A < threshold);
+                                status = lt > mt || ct > mt || rt > mt || lb > mt || cb > mt || rb > mt || lc > mt || rc > mt || cc > mt;
                             }
                         }
                     }
@@ -5976,6 +5992,93 @@ namespace TouchMeta
                     result = GuessAlpha(ms, window, threshold);
                 }
             }
+            return (result);
+        }
+
+
+#if Q16HDRI
+        private static MagickColor[] GetMatrix(IPixelCollection<float> pixels, uint x, uint y, uint w, uint h)
+#else
+        private static MagickColor[] GetMatrix(IPixelCollection<byte> pixels, uint x, uint y, uint w, uint h)
+#endif
+        {
+            var ret = new List<MagickColor>();
+#if Q16HDRI
+            if (pixels is IPixelCollection<float>)
+#else
+            if (pixels is IPixelCollection<byte>)
+#endif
+            {
+                var area = pixels.GetArea((int)x, (int)y, w, h);
+                for (var i = 0; i < w; i++)
+                {
+                    for (var j = 0; j < h; j++)
+                    {
+                        var pixel = pixels.GetPixel(i, j);
+                        if (pixel.Channels == 3)
+                        {
+                            var color = new MagickColor(pixel.GetChannel(0), pixel.GetChannel(1), pixel.GetChannel(2));
+                            if (i < w && j < h) ret.Add(color);
+                        }
+                        else if (pixel.Channels == 4)
+                        {
+                            var color = new MagickColor(pixel.GetChannel(0), pixel.GetChannel(1), pixel.GetChannel(2), pixel.GetChannel(3));
+                            if (i < w && j < h) ret.Add(color);
+                        }
+                    }
+                }
+            }
+            return (ret.ToArray());
+        }
+
+        private static MagickColor[] GetMatrix(MagickImage image, uint x, uint y, uint w, uint h)
+        {
+            var ret = new List<MagickColor>();
+            if (image is MagickImage && MagickFormatInfo.Create(image?.Format ?? MagickFormat.Unknown).SupportsReading)
+            {
+                var pixels = image.GetPixels();
+                ret.AddRange(GetMatrix(pixels, x, y, w, h));
+            }
+            return (ret.ToArray());
+        }
+
+        public static bool GuessAlpha(MagickImage image, uint window = 3, int threshold = 255)
+        {
+            var result = false;
+            try
+            {
+                if (image is MagickImage && MagickFormatInfo.Create(image?.Format ?? MagickFormat.Unknown).SupportsReading)
+                {
+                    var status = image?.HasAlpha ?? false;
+                    //if (status && (image.IsPNG() || image.IsTIF() || image.IsBMP() || image.IsWEBP()))
+                    if (status)
+                    {
+                        var w = image.Width;
+                        var h = image.Height;
+                        var m = window;
+                        var mt = Math.Ceiling(m * m / 2.0);
+                        var pixels = image.GetPixels();
+
+                        var lt = GetMatrix(pixels, 0, 0, m, m).Count(c => c.A < threshold);
+                        var ct = GetMatrix(pixels, (w - m) / 2, 0, m, m).Count(c => c.A < threshold);
+                        var rt = GetMatrix(pixels, w - m, 0, m, m).Count(c => c.A < threshold);
+
+                        var lb = GetMatrix(pixels, 0, h - m, m, m).Count(c => c.A < threshold);
+                        var cb = GetMatrix(pixels, (w - m) / 2, h - m, m, m).Count(c => c.A < threshold);
+                        var rb = GetMatrix(pixels, w - m, h - m, m, m).Count(c => c.A < threshold);
+
+                        var lc = GetMatrix(pixels, 0, (h - m) / 2, m, m).Count(c => c.A < threshold);
+                        var rc = GetMatrix(pixels, w - m, (h - m) / 2, m, m).Count(c => c.A < threshold);
+                        var cc = GetMatrix(pixels, (w - m) / 2, (h - m) / 2, m, m).Count(c => c.A < threshold);
+                        // var cc = GetMatrix(pixels, (uint)(w / 2.0 - m / 2.0) , (uint)(h / 2.0 - m / 2.0), m, m).Count(c => c.A < threshold);
+
+                        // status = lt > mt || rt > mt || lb > mt || rb > mt || cc > mt;
+                        status = lt > mt || ct > mt || rt > mt || lb > mt || cb > mt || rb > mt || lc > mt || rc > mt || cc > mt;
+                    }
+                    result = status;
+                }
+            }
+            catch (Exception ex) { Log(ex.Message); }
             return (result);
         }
 
