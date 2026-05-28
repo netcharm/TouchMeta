@@ -2288,12 +2288,12 @@ namespace TouchMeta
                     _current_meta_.DateAcquired = null;
                     _current_meta_.DateTaken = null;
 
-                    _current_meta_.Title = string.IsNullOrEmpty(MetaInputTitleText.Text) ? null : MetaInputTitleText.Text;
-                    _current_meta_.Subject = string.IsNullOrEmpty(MetaInputSubjectText.Text) ? null : MetaInputSubjectText.Text;
-                    _current_meta_.Comment = string.IsNullOrEmpty(MetaInputCommentText.Text) ? null : MetaInputCommentText.Text;
-                    _current_meta_.Keywords = string.IsNullOrEmpty(MetaInputKeywordsText.Text) ? null : string.Join("; ", MetaInputKeywordsText.Text.Split(LineBreak, StringSplitOptions.RemoveEmptyEntries).Distinct());
-                    _current_meta_.Authors = string.IsNullOrEmpty(MetaInputAuthorText.Text) ? null : string.Join("; ", MetaInputAuthorText.Text.Split(LineBreak, StringSplitOptions.RemoveEmptyEntries).Distinct());
-                    _current_meta_.Copyrights = string.IsNullOrEmpty(MetaInputCopyrightText.Text) ? null : string.Join("; ", MetaInputCopyrightText.Text.Split(LineBreak, StringSplitOptions.RemoveEmptyEntries).Distinct());
+                    _current_meta_.Title = string.IsNullOrEmpty(MetaInputTitleText.Text) ? null : MetaInputTitleText.Text.TrimEnd();
+                    _current_meta_.Subject = string.IsNullOrEmpty(MetaInputSubjectText.Text) ? null : MetaInputSubjectText.Text.TrimEnd();
+                    _current_meta_.Comment = string.IsNullOrEmpty(MetaInputCommentText.Text) ? null : MetaInputCommentText.Text.TrimEnd();
+                    _current_meta_.Keywords = string.IsNullOrEmpty(MetaInputKeywordsText.Text) ? null : string.Join("; ", MetaInputKeywordsText.Text.Split(LineBreak, StringSplitOptions.RemoveEmptyEntries).Where(s => !string.IsNullOrWhiteSpace(s.Trim())).Distinct());
+                    _current_meta_.Authors = string.IsNullOrEmpty(MetaInputAuthorText.Text) ? null : string.Join("; ", MetaInputAuthorText.Text.Split(LineBreak, StringSplitOptions.RemoveEmptyEntries).Where(s => !string.IsNullOrWhiteSpace(s.Trim())).Distinct());
+                    _current_meta_.Copyrights = string.IsNullOrEmpty(MetaInputCopyrightText.Text) ? null : string.Join("; ", MetaInputCopyrightText.Text.Split(LineBreak, StringSplitOptions.RemoveEmptyEntries).Where(s => !string.IsNullOrWhiteSpace(s.Trim())).Distinct());
                     _current_meta_.RatingPercent = CurrentMetaRating;
                     _current_meta_.Rating = RatingToRanking(CurrentMetaRating);
                 });
@@ -2316,17 +2316,17 @@ namespace TouchMeta
                             TimeModified.Value = _current_meta_.DateAcquired ?? _current_meta_.DateTaken ?? TimeModified.Value;
                             TimeAccessed.Value = _current_meta_.DateAcquired ?? _current_meta_.DateTaken ?? TimeAccessed.Value;
 
-                            MetaInputTitleText.Text = _current_meta_.Title;
-                            MetaInputSubjectText.Text = _current_meta_.Subject;
-                            MetaInputCommentText.Text = _current_meta_.Comment;
-                            MetaInputKeywordsText.Text = _current_meta_.Keywords.Trim().TrimStart(';');
-                            MetaInputAuthorText.Text = _current_meta_.Authors.Trim().TrimStart(';'); ;
-                            MetaInputCopyrightText.Text = _current_meta_.Copyrights.Trim().TrimStart(';');
+                            MetaInputTitleText.Text = _current_meta_.Title?.TrimEnd();
+                            MetaInputSubjectText.Text = _current_meta_.Subject?.TrimEnd();
+                            MetaInputCommentText.Text = _current_meta_.Comment?.TrimEnd();
+                            MetaInputKeywordsText.Text = _current_meta_.Keywords?.Trim().Trim(';').TrimEnd() + ';';
+                            MetaInputAuthorText.Text = _current_meta_.Authors?.Trim().Trim(';').TrimEnd() + ';';
+                            MetaInputCopyrightText.Text = _current_meta_.Copyrights?.Trim().Trim(';').TrimEnd() + ';';
                             CurrentMetaRating = _current_meta_.RatingPercent ?? RankingToRating(_current_meta_.Rating);
 
-                            if (!string.IsNullOrEmpty(MetaInputKeywordsText.Text.Trim())) MetaInputKeywordsText.Text = MetaInputKeywordsText.Text.Trim().TrimEnd(';') + ';';
-                            if (!string.IsNullOrEmpty(MetaInputAuthorText.Text.Trim())) MetaInputAuthorText.Text = MetaInputAuthorText.Text.Trim().TrimEnd(';') + ';';
-                            if (!string.IsNullOrEmpty(MetaInputCopyrightText.Text.Trim())) MetaInputCopyrightText.Text = MetaInputCopyrightText.Text.Trim().TrimEnd(';') + ';';
+                            if (!string.IsNullOrEmpty(MetaInputKeywordsText.Text.Trim())) MetaInputKeywordsText.Text = MetaInputKeywordsText.Text.Trim().Trim(';').TrimEnd() + ';';
+                            if (!string.IsNullOrEmpty(MetaInputAuthorText.Text.Trim())) MetaInputAuthorText.Text = MetaInputAuthorText.Text.Trim().Trim(';').TrimEnd() + ';';
+                            if (!string.IsNullOrEmpty(MetaInputCopyrightText.Text.Trim())) MetaInputCopyrightText.Text = MetaInputCopyrightText.Text.Trim().Trim(';').TrimEnd() + ';';
                         }
                         catch (Exception ex) { ShowMessage(string.Join(Environment.NewLine, ex.Message), "Set Current Meta"); }
                     });
