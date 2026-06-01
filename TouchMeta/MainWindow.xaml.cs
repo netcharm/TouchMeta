@@ -2319,14 +2319,14 @@ namespace TouchMeta
                             MetaInputTitleText.Text = _current_meta_.Title?.TrimEnd();
                             MetaInputSubjectText.Text = _current_meta_.Subject?.TrimEnd();
                             MetaInputCommentText.Text = _current_meta_.Comment?.TrimEnd();
-                            MetaInputKeywordsText.Text = _current_meta_.Keywords?.Trim().Trim(';').TrimEnd() + ';';
-                            MetaInputAuthorText.Text = _current_meta_.Authors?.Trim().Trim(';').TrimEnd() + ';';
-                            MetaInputCopyrightText.Text = _current_meta_.Copyrights?.Trim().Trim(';').TrimEnd() + ';';
+                            MetaInputKeywordsText.Text = _current_meta_.Keywords?.Trim().Trim(';').Trim();
+                            MetaInputAuthorText.Text = _current_meta_.Authors?.Trim().Trim(';').Trim();
+                            MetaInputCopyrightText.Text = _current_meta_.Copyrights?.Trim().Trim(';').Trim();
                             CurrentMetaRating = _current_meta_.RatingPercent ?? RankingToRating(_current_meta_.Rating);
 
-                            if (!string.IsNullOrEmpty(MetaInputKeywordsText.Text.Trim())) MetaInputKeywordsText.Text = MetaInputKeywordsText.Text.Trim().Trim(';').TrimEnd() + ';';
-                            if (!string.IsNullOrEmpty(MetaInputAuthorText.Text.Trim())) MetaInputAuthorText.Text = MetaInputAuthorText.Text.Trim().Trim(';').TrimEnd() + ';';
-                            if (!string.IsNullOrEmpty(MetaInputCopyrightText.Text.Trim())) MetaInputCopyrightText.Text = MetaInputCopyrightText.Text.Trim().Trim(';').TrimEnd() + ';';
+                            if (!string.IsNullOrEmpty(MetaInputKeywordsText.Text.Trim())) MetaInputKeywordsText.Text = MetaInputKeywordsText.Text.Trim().Trim(';').Trim() + ';';
+                            if (!string.IsNullOrEmpty(MetaInputAuthorText.Text.Trim())) MetaInputAuthorText.Text = MetaInputAuthorText.Text.Trim().Trim(';').Trim() + ';';
+                            if (!string.IsNullOrEmpty(MetaInputCopyrightText.Text.Trim())) MetaInputCopyrightText.Text = MetaInputCopyrightText.Text.Trim().Trim(';').Trim() + ';';
                         }
                         catch (Exception ex) { ShowMessage(string.Join(Environment.NewLine, ex.Message), "Set Current Meta"); }
                     });
